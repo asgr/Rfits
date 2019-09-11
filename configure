@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd src/cfitsio
+./configure --disable-curl

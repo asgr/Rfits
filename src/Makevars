@@ -1,0 +1,17 @@
+PKG_CPPFLAGS = -Icfitsio
+PKG_LIBS = cfitsio/libcfitsio.a
+
+.PHONY: all cfitsio clean shlib-clean
+
+all: $(SHLIB)
+$(SHLIB): cfitsio
+
+cfitsio:
+	(cd cfitsio && pwd && /usr/bin/make libcfitsio.a)
+
+shlib-clean: clean
+
+clean:
+	(cd cfitsio; make clean)
+
+OBJECTS = RcppExports.o Rfits.o

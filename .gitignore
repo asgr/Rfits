@@ -1,0 +1,7 @@
+*.o
+*.so
+*.a
+Makefile
+config.log
+config.status
+*.pc
