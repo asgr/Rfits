@@ -39,13 +39,13 @@ Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix
   fits_read_img(fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull, &status);
   if (status) {
     fits_report_error(stderr, status);
-    throw std::runtime_error("cant read image");
+    throw std::runtime_error("cannot read image");
   }
 
   fits_close_file(fptr, &status);
   if (status) {
     fits_report_error(stderr, status);
-    throw std::runtime_error("cant close file");
+    throw std::runtime_error("cannot close file");
   }
 
   NumericMatrix pixel_matrix(xpix, ypix);
@@ -54,7 +54,7 @@ Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericVector rfits_read_col(Rcpp::String filename, Rcpp::String column,Rcpp::IntegerVector cwidth,Rcpp::IntegerVector hdu)
+Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=2)
 {
   short prot=0;
   int err,status=0;
@@ -71,27 +71,93 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, Rcpp::String column,Rc
   fitsfile *fptr;
 
   fits_open_file(&fptr, filename.get_cstring(), READONLY, &status);
+  
   if (status) {
     fits_report_error(stderr, status);
     throw std::runtime_error("cannot open file");
   }
 
-  float nullval = -99;
-  std::vector<float> col(100);
-  fits_read_col(fptr, TFLOAT, 1, 1, 1, 100, &nullval, col.data(), &anynull, &status);
+  fits_movabs_hdu(fptr, ext, &hdutype,&status);
+
   if (status) {
     fits_report_error(stderr, status);
-    throw std::runtime_error("cant read image");
+    throw std::runtime_error("cannot move HDU");
+  }
+
+  fits_get_num_rows(fptr,&nrows,&status);
+
+  Rcpp::NumericVector out(nrows);
+  
+  Rcpp::Rcout << "nrows = " << nrows << std::endl;
+
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot get row numbers");
+  }
+
+  fits_get_coltype(fptr,colref,&typecode,&repeat,&width,&status);
+
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot get column type");
+  }
+  
+  Rcpp::Rcout << "typecode = " << typecode << std::endl;
+
+  if ( typecode == TSTRING ) {
+    Rcpp::Rcout << "Reading TSTRING" << std::endl;
+  }
+  if ( typecode == TINT ) {
+    Rcpp::Rcout << "Reading TINT" << std::endl;
+    int nullval = -999;
+    std::vector<int> col(nrows);
+    fits_read_col(fptr, TINT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::IntegerVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TSHORT ) {
+    Rcpp::Rcout << "Reading TSHORT" << std::endl;
+    short nullval = -999;
+    std::vector<short> col(nrows);
+    fits_read_col(fptr, TSHORT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TFLOAT ) {
+    Rcpp::Rcout << "Reading TFLOAT" << std::endl;
+    float nullval = -999;
+    std::vector<float> col(nrows);
+    fits_read_col(fptr, TFLOAT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TLONG ) {
+    Rcpp::Rcout << "Reading TLONG" << std::endl;
+    long nullval = -999;
+    std::vector<long> col(nrows);
+    fits_read_col(fptr, TLONG, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TDOUBLE ) {
+    Rcpp::Rcout << "Reading TDOUBLE" << std::endl;
+    double nullval = -999;
+    std::vector<double> col(nrows);
+    fits_read_col(fptr, TDOUBLE, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot read table");
   }
 
   fits_close_file(fptr, &status);
   if (status) {
     fits_report_error(stderr, status);
-    throw std::runtime_error("cant close file");
+    throw std::runtime_error("cannot close file");
   }
-
-  Rcpp::NumericVector out(100);
-  std::copy(col.begin(), col.end(), out.begin());
 
   return(out);
 }

@@ -9,7 +9,7 @@ Rfits_read_img <- function(filename, xpix = 100L, ypix = 100L) {
     .Call(`_Rfits_Rfits_read_img`, filename, xpix, ypix)
 }
 
-rfits_read_col <- function(filename, column, cwidth, hdu) {
-    .Call(`_Rfits_rfits_read_col`, filename, column, cwidth, hdu)
+rfits_read_col <- function(filename, colref = 2L, ext = 2L) {
+    .Call(`_Rfits_rfits_read_col`, filename, colref, ext)
 }
 
