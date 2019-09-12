@@ -56,7 +56,7 @@ Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix
 // [[Rcpp::export]]
 RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
   int status=0;
-  int hdutype,anynull,typecode;
+  int hdutype,anynull,typecode,ii;
   long nrows,repeat,width;
 
   fitsfile *fptr;
@@ -97,12 +97,26 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
 
   if ( typecode == TSTRING ) {
     Rcpp::Rcout << "Reading TSTRING" << std::endl;
-    throw std::runtime_error("cannot read string (yet)!");
+    //throw std::runtime_error("cannot read string (yet)!");
+    int cwidth;
+    fits_get_col_display_width(fptr, colref, &cwidth, &status);
+    if (status) {
+      fits_report_error(stderr, status);
+      throw std::runtime_error("cannot check character width");
+    }
+    Rcpp::Rcout << "Character width = " << cwidth << std::endl;
+      
     int nullval = 0;
-    std::vector<char**> col(nrows);
-    fits_read_col(fptr, TSTRING, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
-    Rcpp::CharacterVector out(nrows);
-    std::copy(col.begin(), col.end(), out.begin());
+    //Rcpp::CharacterVector data(nrows*cwidth);
+    //std::vector<char**> data(nrows*cwidth);
+    char** data;
+    data = (char**)malloc(sizeof(char*)*nrows*cwidth);
+    for ( ii = 0 ; ii < nrows ; ii++ ) {
+      data[ii] = (char*)malloc(cwidth*sizeof(char));
+    }
+    fits_read_col(fptr, TSTRING, colref, 1, 1, nrows, &nullval, data, &anynull, &status);
+    //Rcpp::CharacterVector out(nrows*cwidth);
+    //std::copy(data.begin(), data.end(), out.begin());
     if (status) {
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot read table");
@@ -112,7 +126,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot close file");
     }
-    return(out);
+    //return(out);
   }
   if ( typecode == TBYTE ) {
     Rcpp::Rcout << "Reading TBYTE" << std::endl;
