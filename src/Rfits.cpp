@@ -54,19 +54,10 @@ Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=2)
-{
-  short prot=0;
-  int err,status=0;
+RcppExport Rcpp::NumericVector Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
+  int status=0;
   int hdutype,anynull,typecode;
-  long ii,nrows,width,repeat;
-  int* colint=NULL;
-  int colwidth=1;
-  int* hduint;
-  int* ischarint;
-  double* coldatadbl;
-  char* fname;
-  char* colchar=NULL;
+  long nrows,repeat,width;
 
   fitsfile *fptr;
 
@@ -106,6 +97,19 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=
 
   if ( typecode == TSTRING ) {
     Rcpp::Rcout << "Reading TSTRING" << std::endl;
+    int nullval = 0;
+    std::vector<char> col(nrows);
+    fits_read_col(fptr, TSTRING, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    Rcpp::CharacterVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TBYTE ) {
+    Rcpp::Rcout << "Reading TBYTE" << std::endl;
+    int nullval = 0;
+    std::vector<Rbyte> col(nrows);
+    fits_read_col(fptr, TBYTE, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::IntegerVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
   }
   if ( typecode == TINT ) {
     Rcpp::Rcout << "Reading TINT" << std::endl;
@@ -115,11 +119,27 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=
     //Rcpp::IntegerVector out(nrows);
     std::copy(col.begin(), col.end(), out.begin());
   }
+  if ( typecode == TUINT ) {
+    Rcpp::Rcout << "Reading TUINT" << std::endl;
+    int nullval = -999;
+    std::vector<int> col(nrows);
+    fits_read_col(fptr, TUINT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::IntegerVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
   if ( typecode == TSHORT ) {
     Rcpp::Rcout << "Reading TSHORT" << std::endl;
     short nullval = -999;
     std::vector<short> col(nrows);
     fits_read_col(fptr, TSHORT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
+  if ( typecode == TUSHORT ) {
+    Rcpp::Rcout << "Reading TUSHORT" << std::endl;
+    short nullval = -999;
+    std::vector<short> col(nrows);
+    fits_read_col(fptr, TUSHORT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
     //Rcpp::NumericVector out(nrows);
     std::copy(col.begin(), col.end(), out.begin());
   }
@@ -139,6 +159,14 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=
     //Rcpp::NumericVector out(nrows);
     std::copy(col.begin(), col.end(), out.begin());
   }
+  if ( typecode == TLONGLONG ) {
+    Rcpp::Rcout << "Reading TLONGLONG" << std::endl;
+    long nullval = -999;
+    std::vector<long> col(nrows);
+    fits_read_col(fptr, TLONGLONG, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
+    //Rcpp::NumericVector out(nrows);
+    std::copy(col.begin(), col.end(), out.begin());
+  }
   if ( typecode == TDOUBLE ) {
     Rcpp::Rcout << "Reading TDOUBLE" << std::endl;
     double nullval = -999;
@@ -148,6 +176,8 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=
     std::copy(col.begin(), col.end(), out.begin());
   }
 
+  //std::copy(col.begin(), col.end(), out.begin());
+  
   if (status) {
     fits_report_error(stderr, status);
     throw std::runtime_error("cannot read table");
@@ -160,5 +190,58 @@ Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref=2, int ext=
   }
 
   return(out);
+}
+
+// [[Rcpp::export]]
+int Rfits_read_nrow(Rcpp::String filename, int ext=2){
+  int status=0;
+  int hdutype;
+  long nrows;
+
+  fitsfile *fptr;
+  
+  fits_open_file(&fptr, filename.get_cstring(), READONLY, &status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot open file");
+  }
+  
+  fits_movabs_hdu(fptr, ext, &hdutype,&status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot move HDU");
+  }
+  
+  fits_get_num_rows(fptr,&nrows,&status);
+  
+  return nrows;
+}
+
+// [[Rcpp::export]]
+int Rfits_read_ncol(Rcpp::String filename, int ext=2){
+  int status=0;
+  int hdutype,ncols;
+
+  fitsfile *fptr;
+  
+  fits_open_file(&fptr, filename.get_cstring(), READONLY, &status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot open file");
+  }
+  
+  fits_movabs_hdu(fptr, ext, &hdutype,&status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot move HDU");
+  }
+  
+  fits_get_num_cols(fptr,&ncols,&status);
+  
+  return ncols;
 }
 

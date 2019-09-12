@@ -30,16 +30,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// rfits_read_col
-Rcpp::NumericVector rfits_read_col(Rcpp::String filename, int colref, int ext);
-RcppExport SEXP _Rfits_rfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
+// Rfits_read_col
+RcppExport Rcpp::NumericVector Rfits_read_col(Rcpp::String filename, int colref, int ext);
+RcppExport SEXP _Rfits_Rfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< int >::type colref(colrefSEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    rcpp_result_gen = Rcpp::wrap(rfits_read_col(filename, colref, ext));
+    rcpp_result_gen = Rcpp::wrap(Rfits_read_col(filename, colref, ext));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Rfits_read_nrow
+int Rfits_read_nrow(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Rfits_read_nrow(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    rcpp_result_gen = Rcpp::wrap(Rfits_read_nrow(filename, ext));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Rfits_read_ncol
+int Rfits_read_ncol(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Rfits_read_ncol(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    rcpp_result_gen = Rcpp::wrap(Rfits_read_ncol(filename, ext));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -47,7 +71,9 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Rffrtnm", (DL_FUNC) &_Rfits_Rffrtnm, 2},
     {"_Rfits_Rfits_read_img", (DL_FUNC) &_Rfits_Rfits_read_img, 3},
-    {"_Rfits_rfits_read_col", (DL_FUNC) &_Rfits_rfits_read_col, 3},
+    {"_Rfits_Rfits_read_col", (DL_FUNC) &_Rfits_Rfits_read_col, 3},
+    {"_Rfits_Rfits_read_nrow", (DL_FUNC) &_Rfits_Rfits_read_nrow, 2},
+    {"_Rfits_Rfits_read_ncol", (DL_FUNC) &_Rfits_Rfits_read_ncol, 2},
     {NULL, NULL, 0}
 };
 
