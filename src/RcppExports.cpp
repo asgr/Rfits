@@ -31,7 +31,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Rfits_read_col
-RcppExport Rcpp::NumericVector Rfits_read_col(Rcpp::String filename, int colref, int ext);
+RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref, int ext);
 RcppExport SEXP _Rfits_Rfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
