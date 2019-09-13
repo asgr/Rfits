@@ -107,28 +107,30 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     Rcpp::Rcout << "Character width = " << cwidth << std::endl;
       
     int nullval = 0;
-    //Rcpp::CharacterVector data(nrows*cwidth);
     //std::vector<char**> data(nrows*cwidth);
-    char** data;
-    data = (char**)malloc(sizeof(char*)*nrows*cwidth);
-    for ( ii = 0 ; ii < nrows ; ii++ ) {
-      data[ii] = (char*)malloc(cwidth*sizeof(char));
+    char **data = (char **)malloc(sizeof(char *) * nrows);
+    for (ii = 0 ; ii < nrows ; ii++ ) {
+      data[ii] = (char*)malloc(cwidth);
     }
     fits_read_col(fptr, TSTRING, colref, 1, 1, nrows, &nullval, data, &anynull, &status);
-    //Rcpp::CharacterVector out(nrows*cwidth);
-    //std::copy(data.begin(), data.end(), out.begin());
     if (status) {
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot read table");
     }
+    Rcpp::StringVector out(nrows);
+    std::copy(data, data + nrows, out.begin());
+    for (int i = 0; i != nrows; i++) {
+     delete data[i];
+    }
+    delete [] data;
     fits_close_file(fptr, &status);
     if (status) {
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot close file");
     }
-    //return(out);
+    return(out);
   }
-  if ( typecode == TBYTE ) {
+  else if ( typecode == TBYTE ) {
     Rcpp::Rcout << "Reading TBYTE" << std::endl;
     int nullval = 0;
     std::vector<Rbyte> col(nrows);
@@ -146,7 +148,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TINT ) {
+  else if ( typecode == TINT ) {
     Rcpp::Rcout << "Reading TINT" << std::endl;
     int nullval = -999;
     std::vector<int> col(nrows);
@@ -164,7 +166,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TUINT ) {
+  else if ( typecode == TUINT ) {
     Rcpp::Rcout << "Reading TUINT" << std::endl;
     int nullval = -999;
     std::vector<int> col(nrows);
@@ -182,7 +184,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TSHORT ) {
+  else if ( typecode == TSHORT ) {
     Rcpp::Rcout << "Reading TSHORT" << std::endl;
     short nullval = -999;
     std::vector<short> col(nrows);
@@ -200,7 +202,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TUSHORT ) {
+  else if ( typecode == TUSHORT ) {
     Rcpp::Rcout << "Reading TUSHORT" << std::endl;
     short nullval = -999;
     std::vector<short> col(nrows);
@@ -218,7 +220,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TFLOAT ) {
+  else if ( typecode == TFLOAT ) {
     Rcpp::Rcout << "Reading TFLOAT" << std::endl;
     float nullval = -999;
     std::vector<float> col(nrows);
@@ -236,7 +238,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TLONG ) {
+  else if ( typecode == TLONG ) {
     Rcpp::Rcout << "Reading TLONG" << std::endl;
     long nullval = -999;
     std::vector<long> col(nrows);
@@ -254,7 +256,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TLONGLONG ) {
+  else if ( typecode == TLONGLONG ) {
     Rcpp::Rcout << "Reading TLONGLONG" << std::endl;
     long nullval = -999;
     std::vector<long> col(nrows);
@@ -272,7 +274,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     }
     return(out);
   }
-  if ( typecode == TDOUBLE ) {
+  else if ( typecode == TDOUBLE ) {
     Rcpp::Rcout << "Reading TDOUBLE" << std::endl;
     double nullval = -999;
     std::vector<double> col(nrows);
@@ -291,7 +293,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
 
-  //std::copy(col.begin(), col.end(), out.begin());
+  throw std::runtime_error("unsupported type");
 }
 
 // [[Rcpp::export]]
@@ -309,14 +311,20 @@ int Rfits_read_nrow(Rcpp::String filename, int ext=2){
     throw std::runtime_error("cannot open file");
   }
   
-  fits_movabs_hdu(fptr, ext, &hdutype,&status);
+  fits_movabs_hdu(fptr, ext, &hdutype, &status);
   
   if (status) {
     fits_report_error(stderr, status);
     throw std::runtime_error("cannot move HDU");
   }
   
-  fits_get_num_rows(fptr,&nrows,&status);
+  fits_get_num_rows(fptr, &nrows, &status);
+  
+  fits_close_file(fptr, &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot close file");
+  }
   
   return nrows;
 }
@@ -344,6 +352,59 @@ int Rfits_read_ncol(Rcpp::String filename, int ext=2){
   
   fits_get_num_cols(fptr,&ncols,&status);
   
+  fits_close_file(fptr, &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot close file");
+  }
+  
   return ncols;
+}
+
+// [[Rcpp::export]]
+char Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
+  int status=0;
+  int hdutype,ncols;
+  char colname;
+  fitsfile *fptr;
+  
+  fits_open_file(&fptr, filename.get_cstring(), READONLY, &status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot open file");
+  }
+  
+  fits_movabs_hdu(fptr, ext, &hdutype, &status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot move HDU");
+  }
+  
+  fits_get_num_cols(fptr, &ncols, &status);
+  
+  char colnames(ncols);
+  
+  fits_close_file(fptr, &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot close file");
+  }
+  
+  status = 0; int ii = 0;
+  while ( status != COL_NOT_FOUND ) {
+    fits_get_colname(fptr, CASEINSEN, "*", &colname, &colref, &status);
+    //SET_STRING_ELT(colnames,ii,mkChar(colname));
+    ii++;
+  }
+  
+  fits_close_file(fptr, &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot close file");
+  }
+  
+  return colname;
 }
 

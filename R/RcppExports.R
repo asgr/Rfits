@@ -21,3 +21,7 @@ Rfits_read_ncol <- function(filename, ext = 2L) {
     .Call(`_Rfits_Rfits_read_ncol`, filename, ext)
 }
 
+Rfits_read_colname <- function(filename, colref = 2L, ext = 2L) {
+    .Call(`_Rfits_Rfits_read_colname`, filename, colref, ext)
+}
+
