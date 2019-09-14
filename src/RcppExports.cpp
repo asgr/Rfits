@@ -68,7 +68,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Rfits_read_colname
-char Rfits_read_colname(Rcpp::String filename, int colref, int ext);
+SEXP Rfits_read_colname(Rcpp::String filename, int colref, int ext);
 RcppExport SEXP _Rfits_Rfits_read_colname(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

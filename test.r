@@ -4,3 +4,5 @@ for(i in 1:35){
   temp=Rfits::Rfits_read_col(file,colref=i)
   print(temp[1:20])
 }
+
+Rfits::Rfits_read_colname(system.file('extdata','table.fits',package="Rfits"))

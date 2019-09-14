@@ -79,7 +79,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
 
   //Rcpp::NumericVector out(nrows);
   
-  Rcpp::Rcout << "nrows = " << nrows << std::endl;
+  //Rcpp::Rcout << "nrows = " << nrows << std::endl;
 
   if (status) {
     fits_report_error(stderr, status);
@@ -93,10 +93,10 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     throw std::runtime_error("cannot get column type");
   }
   
-  Rcpp::Rcout << "typecode = " << typecode << std::endl;
+  //Rcpp::Rcout << "typecode = " << typecode << std::endl;
 
   if ( typecode == TSTRING ) {
-    Rcpp::Rcout << "Reading TSTRING" << std::endl;
+    //Rcpp::Rcout << "Reading TSTRING" << std::endl;
     //throw std::runtime_error("cannot read string (yet)!");
     int cwidth;
     fits_get_col_display_width(fptr, colref, &cwidth, &status);
@@ -104,7 +104,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot check character width");
     }
-    Rcpp::Rcout << "Character width = " << cwidth << std::endl;
+    //Rcpp::Rcout << "Character width = " << cwidth << std::endl;
       
     int nullval = 0;
     //std::vector<char**> data(nrows*cwidth);
@@ -131,7 +131,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TBYTE ) {
-    Rcpp::Rcout << "Reading TBYTE" << std::endl;
+    //Rcpp::Rcout << "Reading TBYTE" << std::endl;
     int nullval = 0;
     std::vector<Rbyte> col(nrows);
     fits_read_col(fptr, TBYTE, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -149,7 +149,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TINT ) {
-    Rcpp::Rcout << "Reading TINT" << std::endl;
+    //Rcpp::Rcout << "Reading TINT" << std::endl;
     int nullval = -999;
     std::vector<int> col(nrows);
     fits_read_col(fptr, TINT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -167,7 +167,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TUINT ) {
-    Rcpp::Rcout << "Reading TUINT" << std::endl;
+    //Rcpp::Rcout << "Reading TUINT" << std::endl;
     int nullval = -999;
     std::vector<int> col(nrows);
     fits_read_col(fptr, TUINT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -185,7 +185,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TSHORT ) {
-    Rcpp::Rcout << "Reading TSHORT" << std::endl;
+    //Rcpp::Rcout << "Reading TSHORT" << std::endl;
     short nullval = -999;
     std::vector<short> col(nrows);
     fits_read_col(fptr, TSHORT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -203,7 +203,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TUSHORT ) {
-    Rcpp::Rcout << "Reading TUSHORT" << std::endl;
+    //Rcpp::Rcout << "Reading TUSHORT" << std::endl;
     short nullval = -999;
     std::vector<short> col(nrows);
     fits_read_col(fptr, TUSHORT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -221,7 +221,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TFLOAT ) {
-    Rcpp::Rcout << "Reading TFLOAT" << std::endl;
+    //Rcpp::Rcout << "Reading TFLOAT" << std::endl;
     float nullval = -999;
     std::vector<float> col(nrows);
     fits_read_col(fptr, TFLOAT, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -239,7 +239,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TLONG ) {
-    Rcpp::Rcout << "Reading TLONG" << std::endl;
+    //Rcpp::Rcout << "Reading TLONG" << std::endl;
     long nullval = -999;
     std::vector<long> col(nrows);
     fits_read_col(fptr, TLONG, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -257,12 +257,14 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
     return(out);
   }
   else if ( typecode == TLONGLONG ) {
-    Rcpp::Rcout << "Reading TLONGLONG" << std::endl;
+    //Rcpp::Rcout << "Reading TLONGLONG" << std::endl;
     long nullval = -999;
-    std::vector<long> col(nrows);
+    //std::vector<long long> col(nrows);
+    std::vector<int64_t> col(nrows);
     fits_read_col(fptr, TLONGLONG, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
     Rcpp::NumericVector out(nrows);
-    std::copy(col.begin(), col.end(), out.begin());
+    //std::memcpy(out.data(), col.data());
+    std::memcpy(&(out[0]), &(col[0]), nrows * sizeof(double));
     if (status) {
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot read table");
@@ -272,10 +274,11 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=2, int ext=2){
       fits_report_error(stderr, status);
       throw std::runtime_error("cannot close file");
     }
+    out.attr("class") = "integer64";
     return(out);
   }
   else if ( typecode == TDOUBLE ) {
-    Rcpp::Rcout << "Reading TDOUBLE" << std::endl;
+    //Rcpp::Rcout << "Reading TDOUBLE" << std::endl;
     double nullval = -999;
     std::vector<double> col(nrows);
     fits_read_col(fptr, TDOUBLE, colref, 1, 1, nrows, &nullval, col.data(), &anynull, &status);
@@ -362,10 +365,10 @@ int Rfits_read_ncol(Rcpp::String filename, int ext=2){
 }
 
 // [[Rcpp::export]]
-char Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
+SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   int status=0;
   int hdutype,ncols;
-  char colname;
+  //char colname(9);
   fitsfile *fptr;
   
   fits_open_file(&fptr, filename.get_cstring(), READONLY, &status);
@@ -384,27 +387,27 @@ char Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   
   fits_get_num_cols(fptr, &ncols, &status);
   
-  char colnames(ncols);
-  
-  fits_close_file(fptr, &status);
-  if (status) {
-    fits_report_error(stderr, status);
-    throw std::runtime_error("cannot close file");
-  }
+  Rcpp::StringVector out(ncols);
+  char *colname = (char *)malloc(sizeof(char) * 9);
   
   status = 0; int ii = 0;
   while ( status != COL_NOT_FOUND ) {
-    fits_get_colname(fptr, CASEINSEN, "*", &colname, &colref, &status);
-    //SET_STRING_ELT(colnames,ii,mkChar(colname));
+    //Rcpp::Rcout << "i = " << ii << std::endl;
+    fits_get_colname(fptr, CASEINSEN, "*", colname, &colref, &status);
+    if(status != COL_NOT_FOUND){
+      out[ii] = colname;
+      //Rcpp::Rcout << "colname = " << colname << std::endl; 
+    }
     ii++;
   }
   
+  status = 0;
   fits_close_file(fptr, &status);
   if (status) {
     fits_report_error(stderr, status);
     throw std::runtime_error("cannot close file");
   }
   
-  return colname;
+  return out;
 }
 

@@ -3,3 +3,4 @@ exportPattern("^[[:alpha:]]+")
 useDynLib(Rfits, .registration=TRUE)
 
 import("Rcpp")
+import("bit64")
