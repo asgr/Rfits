@@ -6,3 +6,7 @@ for(i in 1:35){
 }
 
 Rfits::Rfits_read_colname(system.file('extdata','table.fits',package="Rfits"))
+
+file=system.file('extdata','table.fits',package="Rfits")
+temp=Rfits::Rfits_read_table(file)
+Rfits::Rfits_write_bintable('/Users/aaron/Documents/test_table5.fits')

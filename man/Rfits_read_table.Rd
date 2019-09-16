@@ -41,6 +41,7 @@ Rodrgio Tobar
 }
 \examples{
 file=system.file('extdata','table.fits',package="Rfits")
+temp=Rfits_read_table(file)
 temp[1:5,]
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

@@ -17,3 +17,18 @@ Rfits_read_table=function(file, ext=2, data.table=TRUE){
   return(invisible(output))
 }
 
+Rfits_write_table=function(data, file, ext=2){
+  nrow=dim(data)[1]
+  ncol=dim(data)[2]
+  check.int=sapply(data,is.integer)
+  check.integer64=sapply(data,is.integer64)
+  check.double=sapply(data,is.numeric) & (! check.integer64)
+  check.char=sapply(data,is.character)
+  
+  tform=character(ncol)
+  tform[check.int]="1J"
+  tform[check.integer64]='1K'
+  tform[check.double]="1D"
+  tfrom[check.char]=paste(sapply(data[,check.char],function(x) max(nchar(x))), 'A', sep='')
+  
+}

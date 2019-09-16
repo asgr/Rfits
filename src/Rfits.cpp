@@ -411,3 +411,62 @@ SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   return out;
 }
 
+// [[Rcpp::export]]
+int Rfits_create_bintable(Rcpp::String filename, int tfields=1,
+                         Rcpp::CharacterVector ttype='Col1', Rcpp::CharacterVector tform='1E',
+                         Rcpp::CharacterVector tunit='0', Rcpp::String extname='Main', int ext=2){
+  int status=0;
+  int hdutype,anynull,typecode,ii;
+  long repeat,width;
+  
+  fitsfile *fptr;
+  
+  fits_create_file(&fptr, filename.get_cstring(), &status);
+  
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot create file");
+  }
+    
+  //fits_open_file(&fptr, filename.get_cstring(), READWRITE, &status);
+  //
+  //if (status) {
+  //  fits_report_error(stderr, status);
+  //  throw std::runtime_error("cannot open file");
+  //}
+  
+  // fits_create_hdu(fptr, &status);
+  //   
+  // if (status) {
+  //   fits_report_error(stderr, status);
+  //   throw std::runtime_error("cannot create HDU");
+  // }
+  //   
+  // fits_movabs_hdu(fptr, ext, &hdutype,&status);
+  // 
+  // if (status) {
+  //   fits_report_error(stderr, status);
+  //   throw std::runtime_error("cannot move HDU");
+  // }
+  //int CFITS_API ffibin(fitsfile *fptr, LONGLONG naxis2, int tfields, char **ttype, char **tform,
+  //                     char **tunit, const char *extname, LONGLONG pcount, int *status);
+  //int CFITS_API ffcrtb(fitsfile *fptr, int tbltype, LONGLONG naxis2, int tfields, char **ttype,
+  //                     char **tform, char **tunit, const char *extname, int *status);
+  //long long pcount = 0;
+  //fits_create_tbl(fptr, nrows, tfields, (char **)ttype.get_cstring(), (char **)tform.get_cstring(),
+  // (char **)tunit.get_cstring(), (char *)extname.get_cstring(), pcount, &status);
+  fits_create_tbl(fptr, BINARY_TBL, 0, 1, (char *)ttype, (char *)tform,
+                  (char *)tunit, (char *)extname.get_cstring(), &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot create FITS binary table");
+  }
+    
+  fits_close_file(fptr, &status);
+  if (status) {
+    fits_report_error(stderr, status);
+    throw std::runtime_error("cannot close file");
+  }
+  
+  return status;
+}
