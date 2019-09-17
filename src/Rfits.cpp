@@ -57,20 +57,14 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 }
 
 // [[Rcpp::export]]
-int Rffrtnm(Rcpp::String url, Rcpp::String rootname){
-  int status;
-  int temp = ffrtnm((char *)url.get_cstring(), (char *)rootname.get_cstring(), &status);
-  return temp;
-};
-
-// [[Rcpp::export]]
-Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix=100)
+Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix=100, int ext=1)
 {
   int anynull, nullvals = 0;
 
   fitsfile *fptr;
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
-
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
   int npixels = xpix * ypix;
   std::vector<float> pixels(npixels);
   fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
