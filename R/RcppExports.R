@@ -25,7 +25,7 @@ Rfits_read_colname <- function(filename, colref = 2L, ext = 2L) {
     .Call(`_Rfits_Rfits_read_colname`, filename, colref, ext)
 }
 
-Rfits_create_bintable <- function(filename, tfields = 1L, ttype = 'Col1', tform = '1E', tunit = '0', extname = 'Main', ext = 2L) {
-    .Call(`_Rfits_Rfits_create_bintable`, filename, tfields, ttype, tform, tunit, extname, ext)
+Rfits_create_bintable <- function(filename, tfields = 1L, ttypes, tforms, tunits, extname, ext) {
+    invisible(.Call(`_Rfits_Rfits_create_bintable`, filename, tfields, ttypes, tforms, tunits, extname, ext))
 }
 
