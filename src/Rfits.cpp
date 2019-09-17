@@ -1,8 +1,9 @@
-#include "cfitsio/fitsio.h"
 #include <algorithm>
 #include <utility>
 #include <vector>
 #include <Rcpp.h>
+
+#include "cfitsio/fitsio.h"
 
 using namespace Rcpp;
 
