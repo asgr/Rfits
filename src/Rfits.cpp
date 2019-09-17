@@ -34,7 +34,7 @@ void _fits_invoke(const char *func_name, F&& func, Args&& ... args)
 
 fitsfile *fits_safe_open_file(const char *filename, int mode)
 {
-  int status;
+  int status = 0;
   fitsfile *file;
   fits_open_file(&file, const_cast<char *>(filename), mode, &status);
   if (status) {
