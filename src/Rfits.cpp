@@ -1,9 +1,48 @@
 #include "cfitsio/fitsio.h"
 #include <algorithm>
+#include <utility>
 #include <vector>
 #include <Rcpp.h>
 
 using namespace Rcpp;
+
+std::runtime_error fits_status_to_exception(const char *func_name, int status)
+{
+    char err_msg[30];
+    fits_get_errstatus(status, err_msg);
+    std::ostringstream os;
+    os << "Error when invoking fits_" << func_name << ": " << err_msg;
+    throw std::runtime_error(os.str());
+}
+
+/**
+ * Utility function to convert FITS API call errors into exceptions.
+ *
+ * Notably, this doesn't work with fits_open_file as this name is actually
+ * defined as a macro function, so it cannot be just passed around.
+ */
+template <typename F, typename ... Args>
+void _fits_invoke(const char *func_name, F&& func, Args&& ... args)
+{
+  int status = 0;
+  func(std::forward<Args>(args)..., &status);
+  if (status) {
+    throw fits_status_to_exception(func_name, status);
+  }
+}
+
+fitsfile *fits_safe_open_file(const char *filename, int mode)
+{
+  int status;
+  fitsfile *file;
+  fits_open_file(&file, const_cast<char *>(filename), mode, &status);
+  if (status) {
+    throw fits_status_to_exception("open_file", status);
+  }
+  return file;
+}
+
+#define fits_invoke(F, ...) _fits_invoke(#F, fits_ ## F, __VA_ARGS__)
 
 // This is a simple example of exporting a C++ function to R. You can
 // source this function into an R session using the Rcpp::sourceCpp
