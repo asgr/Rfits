@@ -9,6 +9,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   output=list()
   
   for(i in 1:ncol){
+    print(i)
     output[[i]]=Rfits_read_col(filename,colref=i)
   }
   
