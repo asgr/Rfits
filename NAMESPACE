@@ -1,4 +1,6 @@
-exportPattern("^[[:alpha:]]+")
+#exportPattern("^[[:alpha:]]+")
+export(Rfits_read_table)
+export(Rfits_write_table)
 
 useDynLib(Rfits, .registration=TRUE)
 

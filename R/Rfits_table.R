@@ -5,19 +5,19 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   assertIntegerish(ext, len = 1)
   assertFlag(data.table)
   
-  ncol=Rfits_read_ncol(filename)
+  ncol=Cfits_read_ncol(filename)
   output=list()
   
   for(i in 1:ncol){
-    output[[i]]=Rfits_read_col(filename,colref=i)
+    output[[i]]=Cfits_read_col(filename,colref=i)
   }
   
   if(data.table){
     output=data.table::as.data.table(output)
-    colnames(output)=Rfits_read_colname(filename, ext=ext)
+    colnames(output)=Cfits_read_colname(filename, ext=ext)
   }else{
     output=as.data.frame(output)
-    colnames(output)=Rfits_read_colname(filename, ext=ext)
+    colnames(output)=Cfits_read_colname(filename, ext=ext)
   }
   
   return(invisible(output))
@@ -63,8 +63,8 @@ Rfits_write_table=function(data, filename, extname='Main', tunits=rep('\01', dim
   assertCharacter(tforms, len = ncol)
   assertCharacter(tunits, len = ncol)
   
-  Rfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
+  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
   for(i in 1:ncol){
-    Rfits_write_col(filename = filename, data = data[[i]], nrow = nrow, colref = i, ext = 2, typecode = typecode[i])
+    Cfits_write_col(filename = filename, data = data[[i]], nrow = nrow, colref = i, ext = 2, typecode = typecode[i])
   }
 }

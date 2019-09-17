@@ -57,9 +57,9 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix=100, int ext=1)
+Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int xpix=100, int ypix=100, int ext=1)
 {
-  int anynull, nullvals = 0;
+  int anynull, nullvals = 0, hdutype;
 
   fitsfile *fptr;
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
@@ -76,7 +76,7 @@ Rcpp::NumericMatrix Rfits_read_img(Rcpp::String filename, int xpix=100, int ypix
 }
 
 // [[Rcpp::export]]
-RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
+RcppExport SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 
   int hdutype,anynull,typecode,ii;
   long nrow,repeat,width;
@@ -200,7 +200,7 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 }
 
 // [[Rcpp::export]]
-int Rfits_read_nrow(Rcpp::String filename, int ext=2){
+int Cfits_read_nrow(Rcpp::String filename, int ext=2){
   int hdutype;
   long nrow;
 
@@ -212,7 +212,7 @@ int Rfits_read_nrow(Rcpp::String filename, int ext=2){
 }
 
 // [[Rcpp::export]]
-int Rfits_read_ncol(Rcpp::String filename, int ext=2){
+int Cfits_read_ncol(Rcpp::String filename, int ext=2){
   int hdutype,ncol;
 
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
@@ -223,7 +223,7 @@ int Rfits_read_ncol(Rcpp::String filename, int ext=2){
 }
 
 // [[Rcpp::export]]
-SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
+SEXP Cfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   int hdutype, ncol;
 
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
@@ -249,7 +249,7 @@ SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
 }
 
 // [[Rcpp::export]]
-void Rfits_create_bintable(Rcpp::String filename, int tfields,
+void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
                          Rcpp::CharacterVector tunits, Rcpp::String extname)
 {
@@ -269,7 +269,7 @@ void Rfits_create_bintable(Rcpp::String filename, int tfields,
 }
 
 // [[Rcpp::export]]
-RcppExport SEXP Rfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode = TDOUBLE){
+void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode = TDOUBLE){
   
   int hdutype,anynull,ii;
   long repeat,width;
