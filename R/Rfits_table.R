@@ -9,7 +9,6 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   output=list()
   
   for(i in 1:ncol){
-    print(i)
     output[[i]]=Rfits_read_col(filename,colref=i)
   }
   
@@ -41,11 +40,11 @@ Rfits_write_table=function(data, filename, extname='Main', tunits=rep('\01', dim
   
   check.int=sapply(data,is.integer)
   check.integer64=sapply(data,is.integer64)
-  check.double=sapply(data,is.numeric) & (! check.integer64)
+  check.double=sapply(data,is.numeric) & (! check.int) & (! check.integer64)
   check.char=sapply(data,is.character)
   
   tforms=character(ncol)
-  tforms[check.int]="1J" # will become typecode = TINT32BIT = 41
+  tforms[check.int]="1J" # will become typecode = TINT = 31
   tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
   tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
   tforms[check.char]=paste(sapply(data[,check.char],function(x) max(nchar(x))), 'A', sep='') # will become typecode = TSTRING = 16
@@ -55,7 +54,7 @@ Rfits_write_table=function(data, filename, extname='Main', tunits=rep('\01', dim
   }
   
   typecode=rep(0, ncol)
-  typecode[check.int]=41
+  typecode[check.int]=31
   typecode[check.integer64]=81
   typecode[check.double]=82
   typecode[check.char]=16
@@ -66,7 +65,6 @@ Rfits_write_table=function(data, filename, extname='Main', tunits=rep('\01', dim
   
   Rfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
   for(i in 1:ncol){
-    print(i)
     Rfits_write_col(filename = filename, data = data[[i]], nrow = nrow, colref = i, ext = 2, typecode = typecode[i])
   }
 }

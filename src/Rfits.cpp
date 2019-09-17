@@ -45,15 +45,16 @@ fitsfile *fits_safe_open_file(const char *filename, int mode)
 
 #define fits_invoke(F, ...) _fits_invoke(#F, fits_ ## F, __VA_ARGS__)
 
-// This is a simple example of exporting a C++ function to R. You can
-// source this function into an R session using the Rcpp::sourceCpp
-// function (or via the Source button on the editor toolbar). Learn
-// more about Rcpp at:
-//
-//   http://www.rcpp.org/
-//   http://adv-r.had.co.nz/Rcpp.html
-//   http://gallery.rcpp.org/
-//
+std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
+{
+  std::vector<char *> c_strings(strings.size());
+  std::transform(strings.begin(), strings.end(), c_strings.begin(),
+                 [](const Rcpp::String &string) {
+                   return const_cast<char *>(string.get_cstring());
+                 }
+  );
+  return c_strings;
+}
 
 // [[Rcpp::export]]
 int Rffrtnm(Rcpp::String url, Rcpp::String rootname){
@@ -103,9 +104,9 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     Rcpp::StringVector out(nrow);
     std::copy(data, data + nrow, out.begin());
     for (int i = 0; i != nrow; i++) {
-      delete data[i];
+      free(data[i]);
     }
-    delete [] data;
+    free(data);
     fits_invoke(close_file, fptr);
     return out;
   }
@@ -137,8 +138,8 @@ RcppExport SEXP Rfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     return out;
   }
   else if ( typecode == TINT32BIT ) {
-    unsigned int nullval = 0;
-    std::vector<unsigned int> col(nrow);
+    long nullval = 0;
+    std::vector<long> col(nrow);
     fits_invoke(read_col, fptr, TINT32BIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
@@ -236,12 +237,13 @@ SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   fits_invoke(get_num_cols, fptr, &ncol);
 
   Rcpp::StringVector out(ncol);
-  std::string colname(9, '\0');
+  char colname[9] = "";
+  //std::string colname(9, '\0');
 
   int status = 0;
   int ii = 0;
   while ( status != COL_NOT_FOUND ) {
-    fits_get_colname(fptr, CASEINSEN, "*", (char *)colname.data(), &colref, &status);
+    fits_get_colname(fptr, CASEINSEN, "*", (char *)colname, &colref, &status);
     if (status != COL_NOT_FOUND) {
       out[ii] = colname;
     }
@@ -250,17 +252,6 @@ SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
 
   fits_invoke(close_file, fptr);
   return out;
-}
-
-std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
-{
-  std::vector<char *> c_strings(strings.size());
-  std::transform(strings.begin(), strings.end(), c_strings.begin(),
-    [](const Rcpp::String &string) {
-      return const_cast<char *>(string.get_cstring());
-    }
-  );
-  return c_strings;
 }
 
 // [[Rcpp::export]]
@@ -293,8 +284,19 @@ RcppExport SEXP Rfits_write_col(Rcpp::String filename, SEXP data, int nrow, int 
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
   if ( typecode == TSTRING ) {
-    auto c_data = to_string_vector(data);
+    int cwidth;
+    std::vector<char *> s_data(nrow);
+    for (ii = 0 ; ii < nrow ; ii++ ) {
+      s_data[ii] = (char*)CHAR(STRING_ELT(data, ii));
+    }
+    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, s_data.data());
+  }else if (typecode == TINT){
+    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, INTEGER(data));
+  }else if(typecode == TLONGLONG){
+    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
+  }else if(typecode == TDOUBLE){
+    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
   }
-  fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, data);
+  
   fits_invoke(close_file, fptr);
 }
