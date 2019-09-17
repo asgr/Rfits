@@ -81,8 +81,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Rfits_create_bintable
-void Rfits_create_bintable(Rcpp::String filename, int tfields, Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms, Rcpp::CharacterVector tunits, Rcpp::String extname, int ext);
-RcppExport SEXP _Rfits_Rfits_create_bintable(SEXP filenameSEXP, SEXP tfieldsSEXP, SEXP ttypesSEXP, SEXP tformsSEXP, SEXP tunitsSEXP, SEXP extnameSEXP, SEXP extSEXP) {
+void Rfits_create_bintable(Rcpp::String filename, int tfields, Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms, Rcpp::CharacterVector tunits, Rcpp::String extname);
+RcppExport SEXP _Rfits_Rfits_create_bintable(SEXP filenameSEXP, SEXP tfieldsSEXP, SEXP ttypesSEXP, SEXP tformsSEXP, SEXP tunitsSEXP, SEXP extnameSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
@@ -91,9 +91,24 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type tforms(tformsSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type tunits(tunitsSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type extname(extnameSEXP);
-    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    Rfits_create_bintable(filename, tfields, ttypes, tforms, tunits, extname, ext);
+    Rfits_create_bintable(filename, tfields, ttypes, tforms, tunits, extname);
     return R_NilValue;
+END_RCPP
+}
+// Rfits_write_col
+RcppExport SEXP Rfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref, int ext, int typecode);
+RcppExport SEXP _Rfits_Rfits_write_col(SEXP filenameSEXP, SEXP dataSEXP, SEXP nrowSEXP, SEXP colrefSEXP, SEXP extSEXP, SEXP typecodeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< int >::type nrow(nrowSEXP);
+    Rcpp::traits::input_parameter< int >::type colref(colrefSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Rcpp::traits::input_parameter< int >::type typecode(typecodeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Rfits_write_col(filename, data, nrow, colref, ext, typecode));
+    return rcpp_result_gen;
 END_RCPP
 }
 
@@ -104,7 +119,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Rfits_read_nrow", (DL_FUNC) &_Rfits_Rfits_read_nrow, 2},
     {"_Rfits_Rfits_read_ncol", (DL_FUNC) &_Rfits_Rfits_read_ncol, 2},
     {"_Rfits_Rfits_read_colname", (DL_FUNC) &_Rfits_Rfits_read_colname, 3},
-    {"_Rfits_Rfits_create_bintable", (DL_FUNC) &_Rfits_Rfits_create_bintable, 7},
+    {"_Rfits_Rfits_create_bintable", (DL_FUNC) &_Rfits_Rfits_create_bintable, 6},
+    {"_Rfits_Rfits_write_col", (DL_FUNC) &_Rfits_Rfits_write_col, 6},
     {NULL, NULL, 0}
 };
 

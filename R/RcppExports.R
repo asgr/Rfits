@@ -9,7 +9,7 @@ Rfits_read_img <- function(filename, xpix = 100L, ypix = 100L) {
     .Call(`_Rfits_Rfits_read_img`, filename, xpix, ypix)
 }
 
-Rfits_read_col <- function(filename, colref = 2L, ext = 2L) {
+Rfits_read_col <- function(filename, colref = 1L, ext = 2L) {
     .Call(`_Rfits_Rfits_read_col`, filename, colref, ext)
 }
 
@@ -25,7 +25,11 @@ Rfits_read_colname <- function(filename, colref = 2L, ext = 2L) {
     .Call(`_Rfits_Rfits_read_colname`, filename, colref, ext)
 }
 
-Rfits_create_bintable <- function(filename, tfields = 1L, ttypes, tforms, tunits, extname, ext) {
-    invisible(.Call(`_Rfits_Rfits_create_bintable`, filename, tfields, ttypes, tforms, tunits, extname, ext))
+Rfits_create_bintable <- function(filename, tfields, ttypes, tforms, tunits, extname) {
+    invisible(.Call(`_Rfits_Rfits_create_bintable`, filename, tfields, ttypes, tforms, tunits, extname))
+}
+
+Rfits_write_col <- function(filename, data, nrow, colref = 1L, ext = 2L, typecode) {
+    .Call(`_Rfits_Rfits_write_col`, filename, data, nrow, colref, ext, typecode)
 }
 

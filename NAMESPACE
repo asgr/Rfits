@@ -4,3 +4,4 @@ useDynLib(Rfits, .registration=TRUE)
 
 import("Rcpp")
 import("bit64")
+import("checkmate")
