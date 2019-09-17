@@ -1,4 +1,6 @@
 \name{Rfits_table}
+\alias{Rfits}
+\alias{Rfits_table}
 \alias{Rfits_read_table}
 \alias{Rfits_write_table}
 %- Also NEED an '\alias' for EACH other topic documented here.

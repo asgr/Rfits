@@ -1,11 +1,11 @@
 Package: Rfits
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Rfits Table Reader and Writer
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Date: 2019-09-17
+Author: Aaron Robotham
+Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
+Description: Writes FITS tables and reads them.
 License: LGPL-3
 Imports: Rcpp, bit64, checkmate
 Suggests: data.table
