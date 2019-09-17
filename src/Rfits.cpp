@@ -242,62 +242,34 @@ SEXP Rfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   return out;
 }
 
+std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
+{
+  std::vector<char *> c_strings(strings.size());
+  std::transform(strings.begin(), strings.end(), c_strings.begin(),
+    [](const Rcpp::String &string) {
+      return const_cast<char *>(string.get_cstring());
+    }
+  );
+  return c_strings;
+}
+
 // [[Rcpp::export]]
-int Rfits_create_bintable(Rcpp::String filename, int tfields=1,
-                         Rcpp::CharacterVector ttype='Col1', Rcpp::CharacterVector tform='1E',
-                         Rcpp::CharacterVector tunit='0', Rcpp::String extname='Main', int ext=2){
-  int status=0;
-  int hdutype,anynull,typecode,ii;
-  long repeat,width;
-  
+void Rfits_create_bintable(Rcpp::String filename, int tfields,
+                         Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
+                         Rcpp::CharacterVector tunits, Rcpp::String extname, int ext)
+{
+  int hdutype;
   fitsfile *fptr;
-  
-  fits_create_file(&fptr, filename.get_cstring(), &status);
-  
-  if (status) {
-    fits_report_error(stderr, status);
-    throw std::runtime_error("cannot create file");
-  }
-    
-  //fits_open_file(&fptr, filename.get_cstring(), READWRITE, &status);
-  //
-  //if (status) {
-  //  fits_report_error(stderr, status);
-  //  throw std::runtime_error("cannot open file");
-  //}
-  
-  // fits_create_hdu(fptr, &status);
-  //   
-  // if (status) {
-  //   fits_report_error(stderr, status);
-  //   throw std::runtime_error("cannot create HDU");
-  // }
-  //   
-  // fits_movabs_hdu(fptr, ext, &hdutype,&status);
-  // 
-  // if (status) {
-  //   fits_report_error(stderr, status);
-  //   throw std::runtime_error("cannot move HDU");
-  // }
-  //int CFITS_API ffibin(fitsfile *fptr, LONGLONG naxis2, int tfields, char **ttype, char **tform,
-  //                     char **tunit, const char *extname, LONGLONG pcount, int *status);
-  //int CFITS_API ffcrtb(fitsfile *fptr, int tbltype, LONGLONG naxis2, int tfields, char **ttype,
-  //                     char **tform, char **tunit, const char *extname, int *status);
-  //long long pcount = 0;
-  //fits_create_tbl(fptr, nrows, tfields, (char **)ttype.get_cstring(), (char **)tform.get_cstring(),
-  // (char **)tunit.get_cstring(), (char *)extname.get_cstring(), pcount, &status);
-  fits_create_tbl(fptr, BINARY_TBL, 0, 1, (char *)ttype, (char *)tform,
-                  (char *)tunit, (char *)extname.get_cstring(), &status);
-  if (status) {
-    fits_report_error(stderr, status);
-    throw std::runtime_error("cannot create FITS binary table");
-  }
-    
-  fits_close_file(fptr, &status);
-  if (status) {
-    fits_report_error(stderr, status);
-    throw std::runtime_error("cannot close file");
-  }
-  
-  return status;
+
+  fits_invoke(create_file, &fptr, filename.get_cstring());
+  fits_invoke(create_hdu, fptr);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+
+  auto c_ttypes = to_string_vector(ttypes);
+  auto c_tforms = to_string_vector(tforms);
+  auto c_tunits = to_string_vector(tunits);
+  fits_invoke(create_tbl, fptr, BINARY_TBL, 0, 1,
+              c_ttypes.data(), c_tforms.data(), c_tunits.data(),
+              (char *)extname.get_cstring());
+  fits_invoke(close_file, fptr);
 }
