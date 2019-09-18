@@ -1,8 +1,11 @@
-\name{Rfits_table}
+\name{Rfits}
 \alias{Rfits}
 \alias{Rfits_table}
 \alias{Rfits_read_table}
 \alias{Rfits_write_table}
+\alias{Rfits_write_image}
+\alias{Rfits_read_header}
+\alias{Rfits_update_header}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Table Reader
@@ -12,16 +15,38 @@ Generic table reader. Works with a wide range of data types including 64 bit int
 }
 \usage{
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
-Rfits_write_table(data, filename, extname = 'Main', tunits = rep('\01', dim(data)[2]),
+
+Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
 overwrite = TRUE)
+
+Rfits_write_image(filename, image, overwrite=TRUE)
+
+Rfits_read_header(filename, keyname, keytype = 'numeric', ext = 1)
+
+Rfits_update_header(filename, keyname, keyvalue, comment = "", ext = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{filename}{
 Character scalar; path to FITS file.
 }
-  \item{data}{
-Data.frame or data.table; data to be written out.
+  \item{table}{
+Data.frame or data.table; data to be written out as a binary FITS table.
+}
+  \item{image}{
+Numeric or integer matrix; data to be written out as a FITS image.
+}
+  \item{keyname}{
+Character scalar; keyname in FITS header to be updated or added (if not present).  
+}
+  \item{keytype}{
+Character scalar; type of key to be read in, either "numeric" or "string". 
+}
+  \item{keyvalue}{
+Scalar; value to be written into header (can be any type).
+}
+  \item{comment}{
+Character scalar; comment associated with update or added \option{keyname}.  
 }
   \item{ext}{
 Integer scalar; the extension to read in (usually starts at 2 for tables).

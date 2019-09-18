@@ -57,7 +57,7 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int xpix=100, int ypix=100, int ext=1)
+Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100, int ext=1)
 {
   int anynull, nullvals = 0, hdutype;
 
@@ -65,18 +65,18 @@ Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int xpix=100, int ypix
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
-  int npixels = xpix * ypix;
+  int npixels = naxis1 * naxis2;
   std::vector<float> pixels(npixels);
   fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
   fits_invoke(close_file, fptr);
 
-  NumericMatrix pixel_matrix(xpix, ypix);
+  NumericMatrix pixel_matrix(naxis1, naxis2);
   std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
   return pixel_matrix;
 }
 
 // [[Rcpp::export]]
-RcppExport SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
+SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 
   int hdutype,anynull,typecode,ii;
   long nrow,repeat,width;
@@ -289,5 +289,101 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
   }
   
+  fits_invoke(close_file, fptr);
+}
+
+// int CFITS_API ffgkey(fitsfile *fptr, const char *keyname, char *keyval, char *comm,
+//                      int *status);
+// 
+// int CFITS_API ffgky( fitsfile *fptr, int datatype, const char *keyname, void *value,
+//                      char *comm, int *status);
+// [[Rcpp::export]]
+SEXP Cfits_read_keyword(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
+  int hdutype;
+  
+  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  char comment[80];
+  
+  if ( typecode == TDOUBLE ) {
+    Rcpp::NumericVector out(1);
+    std::vector<double> keyvalue(1);
+    fits_invoke(read_key, fptr, TDOUBLE, keyname.get_cstring(), keyvalue.data(), comment);
+    std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
+    fits_invoke(close_file, fptr);
+    return(out);
+  }else if ( typecode == TSTRING){
+    Rcpp::StringVector out(1);
+    //std::vector<std::string> keyvalue(1);
+    char keyvalue[80];
+    fits_invoke(read_key, fptr, TSTRING, keyname.get_cstring(), keyvalue, comment);
+    out[0] = keyvalue;
+    //std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
+    fits_invoke(close_file, fptr);
+    return(out);
+  }
+  throw std::runtime_error("unsupported type");
+}
+
+// [[Rcpp::export]]
+void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname, Rcpp::String comment, int ext=2, int typecode=1){
+  int hdutype;
+  
+  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  if ( typecode == TSTRING ) {
+    char *s_keyvalue;
+    s_keyvalue = (char*)CHAR(STRING_ELT(keyvalue, 0));
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), s_keyvalue, comment.get_cstring());
+  }else if (typecode == TINT){
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), comment.get_cstring());
+  }else if(typecode == TLONGLONG){
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), comment.get_cstring());
+  }else if(typecode == TDOUBLE){
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), comment.get_cstring());
+  }
+  
+  fits_invoke(close_file, fptr);
+}
+
+//fitsfile *fptr, int bitpix, int naxis, long *naxes, int *status
+// BYTE_IMG      =   8   ( 8-bit byte pixels, 0 - 255)
+//   SHORT_IMG     =  16   (16 bit integer pixels)
+//   LONG_IMG      =  32   (32-bit integer pixels)
+//   LONGLONG_IMG  =  64   (64-bit integer pixels)
+//   FLOAT_IMG     = -32   (32-bit floating point pixels)
+//   DOUBLE_IMG    = -64   (64-bit floating point pixels)
+//fits_write_pix(fitsfile *fptr, int datatype, long *fpixel,
+//               long nelements, void *array, int *status);
+// [[Rcpp::export]]
+void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long naxis2)
+{
+  fitsfile *fptr;
+  
+  long naxes[] = {naxis1, naxis2};
+  
+  fits_invoke(create_file, &fptr, filename.get_cstring());
+  fits_invoke(create_hdu, fptr);
+  fits_invoke(create_img, fptr, bitpix, 2, naxes);
+  fits_invoke(close_file, fptr);
+}
+
+// [[Rcpp::export]]
+void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 , long naxis2, int ext=1)
+{
+  int hdutype;
+  long nelements = naxis1 * naxis2;
+  long fpixel[] = {1, 1};
+  
+  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  //below need to work for integers and doubles:
+  if(datatype == TINT){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+  }else if(datatype == TDOUBLE){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+  }
   fits_invoke(close_file, fptr);
 }
