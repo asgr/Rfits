@@ -47,7 +47,7 @@ Rfits_write_table=function(data, filename, extname='Main', tunits=rep('\01', dim
   tforms[check.int]="1J" # will become typecode = TINT = 31
   tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
   tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-  tforms[check.char]=paste(sapply(data[,check.char],function(x) max(nchar(x))), 'A', sep='') # will become typecode = TSTRING = 16
+  tforms[check.char]=paste(sapply(data[,check.char],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
   
   if(length(grep('1K|1J|1D|A',tforms)) != ncol){
     stop(paste('Unrecognised column data type in column',which(!1:ncol %in% grep('1K|1J|1D|A',tforms))))

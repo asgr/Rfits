@@ -144,7 +144,7 @@ RcppExport SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     short nullval = -128;
     std::vector<short> col(nrow);
     fits_invoke(read_col, fptr, TSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
+    Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     fits_invoke(close_file, fptr);
     return out;
@@ -153,7 +153,7 @@ RcppExport SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     unsigned short nullval = 255;
     std::vector<unsigned short> col(nrow);
     fits_invoke(read_col, fptr, TUSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
+    Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     fits_invoke(close_file, fptr);
     return out;
@@ -223,7 +223,7 @@ int Cfits_read_ncol(Rcpp::String filename, int ext=2){
 }
 
 // [[Rcpp::export]]
-SEXP Cfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
+SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   int hdutype, ncol;
 
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
@@ -231,7 +231,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   fits_invoke(get_num_cols, fptr, &ncol);
 
   Rcpp::StringVector out(ncol);
-  char colname[9] = "";
+  char colname[17] = "";
   //std::string colname(9, '\0');
 
   int status = 0;
@@ -253,7 +253,6 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
                          Rcpp::CharacterVector tunits, Rcpp::String extname)
 {
-  int hdutype;
   fitsfile *fptr;
 
   fits_invoke(create_file, &fptr, filename.get_cstring());
@@ -269,16 +268,14 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
 }
 
 // [[Rcpp::export]]
-void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode = TDOUBLE){
+void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode=1){
   
-  int hdutype,anynull,ii;
-  long repeat,width;
-  
+  int hdutype,ii;
+
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
   if ( typecode == TSTRING ) {
-    int cwidth;
     std::vector<char *> s_data(nrow);
     for (ii = 0 ; ii < nrow ; ii++ ) {
       s_data[ii] = (char*)CHAR(STRING_ELT(data, ii));
