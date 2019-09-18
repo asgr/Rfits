@@ -74,9 +74,9 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_write_} writes data to a FITS file.
 
-\code{table} functions work with binary FITS tables and R data.frames and data.tables.
+\code{table} functions work with binary FITS tables and R data.frames and data.tables. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
-\code{image} functions work with binary FITS images and R numeric or integer matrices.
+\code{image} functions work with binary FITS images and R numeric or integer matrices. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
 \code{header} functions work with any FITS header and single keyword inputs and outputs (there is not a full header read yet).
 }

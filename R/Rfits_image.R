@@ -74,11 +74,11 @@ Rfits_write_image=function(filename, image, overwrite=TRUE){
   naxis=dim(image)
   
   bitpix=0
-  if(all(is.integer(image))){
+  if(is.integer(image[1])){
     bitpix=32
     datatype=31
   }
-  if(bitpix==0 & all(is.numeric(image))){
+  if(bitpix==0 & is.numeric(image[1])){
     if(all(image %% 1 == 0)){
       image=as.integer(image)
       bitpix=32

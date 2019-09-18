@@ -9,7 +9,7 @@ Authors@R: c(
     person(given='Rodrigo', family='Tobar', email='rtobar@icrar.org',
         role='aut', comment=c(ORCID='0000-0002-1052-0611')))
 Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
-Description: Writes FITS tables and reads them.
+Description: Read and writes FITS image, tables and headers.
 License: LGPL-3
 Imports: Rcpp, bit64, checkmate
 Suggests: data.table
