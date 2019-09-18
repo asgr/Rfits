@@ -3,15 +3,16 @@
 \alias{Rfits_table}
 \alias{Rfits_read_table}
 \alias{Rfits_write_table}
+\alias{Rfits_read_image}
 \alias{Rfits_write_image}
 \alias{Rfits_read_header}
-\alias{Rfits_update_header}
+\alias{Rfits_write_header}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-FITS Table Reader
+FITS Readers and Writers
 }
 \description{
-Generic table reader. Works with a wide range of data types including 64 bit integers (long long).
+Generic header, image and table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
@@ -19,11 +20,13 @@ Rfits_read_table(filename, ext = 2, data.table = TRUE)
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
 overwrite = TRUE)
 
+Rfits_read_image(filename, ext=1)
+
 Rfits_write_image(filename, image, overwrite=TRUE)
 
 Rfits_read_header(filename, keyname, keytype = 'numeric', ext = 1)
 
-Rfits_update_header(filename, keyname, keyvalue, comment = "", ext = 1)
+Rfits_write_header(filename, keyname, keyvalue, comment = "", ext = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -65,10 +68,26 @@ Logical; should a \code{data.table} be returned?
 }
 }
 \details{
-R FITS reader that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
+R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
+
+\code{Rfits_read_} reads in data from a FITS file.
+
+\code{Rfits_write_} writes data to a FITS file.
+
+\code{table} functions work with binary FITS tables and R data.frames and data.tables.
+
+\code{image} functions work with binary FITS images and R numeric or integer matrices.
+
+\code{header} functions work with any FITS header and single keyword inputs and outputs (there is not a full header read yet).
 }
 \value{
-Data.frame or data.table.
+\code{Rfits_write_} functions just have the side effect of writing data out.
+
+\code{Rfits_read_table}: data.frame or data.table.
+
+\code{Rfits_read_image}: numeric or integer matrix.
+
+\code{Rfits_read_hader}: scalar numeric or string keyword.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
@@ -82,13 +101,16 @@ Rodrgio Tobar
 \code{FITSio}, ~~~
 }
 \examples{
-file_table=system.file('extdata','table.fits',package="Rfits")
-temp=Rfits_read_table(file_table)
-temp[1:5,]
+file_table = system.file('extdata', 'table.fits', package = "Rfits")
+temp_table = Rfits_read_table(file_table)
+temp_table[1:5,]
 
-file_image=system.file('extdata','image.fits',package="Rfits")
+file_image=system.file('extdata', 'image.fits', package = "Rfits")
+temp_image=Rfits_read_image(file_image)
 Rfits_read_header(file_image, 'NAXIS1')
 Rfits_read_header(file_image, 'CTYPE1', keytype = 'string')
+
+
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

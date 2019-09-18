@@ -1,9 +1,10 @@
 #exportPattern("^[[:alpha:]]+")
 export(Rfits_read_table)
 export(Rfits_write_table)
+export(Rfits_read_image)
 export(Rfits_write_image)
 export(Rfits_read_header)
-export(Rfits_update_header)
+export(Rfits_write_header)
 
 useDynLib(Rfits, .registration=TRUE)
 

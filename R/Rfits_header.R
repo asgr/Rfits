@@ -50,77 +50,6 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_table=function(filename, ext=2, data.table=TRUE){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
-  assertFlag(data.table)
-  
-  ncol=Cfits_read_ncol(filename)
-  output=list()
-  
-  for(i in 1:ncol){
-    output[[i]]=Cfits_read_col(filename,colref=i)
-  }
-  
-  if(data.table){
-    output=data.table::as.data.table(output)
-    colnames(output)=Cfits_read_colname(filename, ext=ext)
-  }else{
-    output=as.data.frame(output)
-    colnames(output)=Cfits_read_colname(filename, ext=ext)
-  }
-  
-  return(invisible(output))
-}
-
-Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), overwrite=TRUE){
-  assertDataFrame(table, min.rows = 1, min.cols = 1)
-  assertCharacter(filename, max.len = 1)
-  filename=path.expand(filename)
-  assertPathForOutput(filename, overwrite=overwrite)
-  if(testFileExists(filename) & overwrite){
-    file.remove(filename)
-  }
-  assertCharacter(extname, max.len = 1)
-  
-  nrow=dim(table)[1]
-  ncol=dim(table)[2]
-  
-  ttypes=colnames(table)
-  
-  check.int=sapply(table,is.integer)
-  check.integer64=sapply(table,is.integer64)
-  check.double=sapply(table,is.numeric) & (! check.int) & (! check.integer64)
-  check.char=sapply(table,is.character)
-  
-  tforms=character(ncol)
-  tforms[check.int]="1J" # will become typecode = TINT = 31
-  tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
-  tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-  tforms[check.char]=paste(sapply(table[,check.char],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
-  
-  if(length(grep('1K|1J|1D|A',tforms)) != ncol){
-    stop(paste('Unrecognised column data type in column',which(!1:ncol %in% grep('1K|1J|1D|A',tforms))))
-  }
-  
-  typecode=rep(0, ncol)
-  typecode[check.int]=31
-  typecode[check.integer64]=81
-  typecode[check.double]=82
-  typecode[check.char]=16
-    
-  assertCharacter(ttypes, len = ncol)
-  assertCharacter(tforms, len = ncol)
-  assertCharacter(tunits, len = ncol)
-  
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
-  for(i in 1:ncol){
-    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, ext = 2, typecode = typecode[i])
-  }
-}
-
 Rfits_read_header=function(filename, keyname, keytype='numeric', ext = 1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
@@ -135,10 +64,10 @@ Rfits_read_header=function(filename, keyname, keytype='numeric', ext = 1){
   }else{
     stop('Unrecognised keytype')
   }
-  Cfits_read_keyword(filename=filename, keyname=keyname, typecode=typecode, ext=ext)
+  return(Cfits_read_keyword(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
 }
 
-Rfits_update_header=function(filename, keyname, keyvalue, comment="", ext=1){
+Rfits_write_header=function(filename, keyname, keyvalue, comment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -160,42 +89,4 @@ Rfits_update_header=function(filename, keyname, keyvalue, comment="", ext=1){
   }
   if(is.character(keyvalue)){typecode=16}
   Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, comment=comment, ext=ext, typecode=typecode)
-}
-
-Rfits_read_image=function(filename, ext=1){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='r')
-  
-  Cfits_read_img
-}
-
-Rfits_write_image=function(filename, image, overwrite=TRUE){
-  assertCharacter(filename, max.len = 1)
-  filename=path.expand(filename)
-  assertPathForOutput(filename, overwrite=overwrite)
-  if(testFileExists(filename) & overwrite){
-    file.remove(filename)
-  }
-  assertMatrix(image)
-  
-  naxis=dim(image)
-  
-  bitpix=0
-  if(all(is.integer(image))){
-    bitpix=32
-    datatype=31
-  }
-  if(bitpix==0 & all(is.numeric(image))){
-    if(all(image %% 1 == 0)){
-      image=as.integer(image)
-      bitpix=32
-      datatype=31
-    }else{
-      bitpix=-64
-      datatype=82
-    }
-  }
-  Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
-  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=1)
 }
