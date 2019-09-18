@@ -82,9 +82,13 @@ Rodrgio Tobar
 \code{FITSio}, ~~~
 }
 \examples{
-file=system.file('extdata','table.fits',package="Rfits")
-temp=Rfits_read_table(file)
+file_table=system.file('extdata','table.fits',package="Rfits")
+temp=Rfits_read_table(file_table)
 temp[1:5,]
+
+file_image=system.file('extdata','image.fits',package="Rfits")
+Rfits_read_header(file_image, 'NAXIS1')
+Rfits_read_header(file_image, 'CTYPE1', keytype = 'string')
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
