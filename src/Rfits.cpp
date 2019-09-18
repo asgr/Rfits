@@ -92,7 +92,7 @@ RcppExport SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 
     char **data = (char **)malloc(sizeof(char *) * nrow);
     for (ii = 0 ; ii < nrow ; ii++ ) {
-      data[ii] = (char*)malloc(cwidth);
+      data[ii] = (char*)calloc(cwidth + 1, 1);
     }
     fits_invoke(read_col, fptr, TSTRING, colref, 1, 1, nrow, nullptr, data, &anynull);
     Rcpp::StringVector out(nrow);
@@ -231,7 +231,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=2, int ext=2){
   fits_invoke(get_num_cols, fptr, &ncol);
 
   Rcpp::StringVector out(ncol);
-  char colname[9] = "";
+  char colname[80];
   //std::string colname(9, '\0');
 
   int status = 0;
