@@ -237,7 +237,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   int status = 0;
   int ii = 0;
   while ( status != COL_NOT_FOUND ) {
-    fits_get_colname(fptr, CASEINSEN, "*", (char *)colname, &colref, &status);
+    fits_get_colname(fptr, CASEINSEN, (char *)"*", (char *)colname, &colref, &status);
     if (status != COL_NOT_FOUND) {
       out[ii] = colname;
     }
