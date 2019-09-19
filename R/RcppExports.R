@@ -25,8 +25,8 @@ Cfits_write_col <- function(filename, data, nrow, colref = 1L, ext = 2L, typecod
     invisible(.Call(`_Rfits_Cfits_write_col`, filename, data, nrow, colref, ext, typecode))
 }
 
-Cfits_read_keyword <- function(filename, keyname, typecode, ext = 1L) {
-    .Call(`_Rfits_Cfits_read_keyword`, filename, keyname, typecode, ext)
+Cfits_read_key <- function(filename, keyname, typecode, ext = 1L) {
+    .Call(`_Rfits_Cfits_read_key`, filename, keyname, typecode, ext)
 }
 
 Cfits_update_key <- function(filename, keyvalue, keyname, comment, ext = 2L, typecode = 1L) {

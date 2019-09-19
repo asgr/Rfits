@@ -3,8 +3,8 @@ export(Rfits_read_table)
 export(Rfits_write_table)
 export(Rfits_read_image)
 export(Rfits_write_image)
-export(Rfits_read_header)
-export(Rfits_write_header)
+export(Rfits_read_key)
+export(Rfits_write_key)
 
 useDynLib(Rfits, .registration=TRUE)
 

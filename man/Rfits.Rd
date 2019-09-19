@@ -5,14 +5,14 @@
 \alias{Rfits_write_table}
 \alias{Rfits_read_image}
 \alias{Rfits_write_image}
-\alias{Rfits_read_header}
-\alias{Rfits_write_header}
+\alias{Rfits_read_key}
+\alias{Rfits_write_key}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Readers and Writers
 }
 \description{
-Generic header, image and table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
+Generic header key, image and table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
@@ -24,9 +24,9 @@ Rfits_read_image(filename, ext=1)
 
 Rfits_write_image(filename, image, overwrite=TRUE)
 
-Rfits_read_header(filename, keyname, keytype = 'numeric', ext = 1)
+Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
-Rfits_write_header(filename, keyname, keyvalue, comment = "", ext = 1)
+Rfits_write_key(filename, keyname, keyvalue, comment = "", ext = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -46,7 +46,7 @@ Character scalar; keyname in FITS header to be updated or added (if not present)
 Character scalar; type of key to be read in, either "numeric" or "string". 
 }
   \item{keyvalue}{
-Scalar; value to be written into header (can be any type).
+Scalar; value to be written into header (can be any type, e.g. numeric, integer, string).
 }
   \item{comment}{
 Character scalar; comment associated with update or added \option{keyname}.  
@@ -78,7 +78,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{image} functions work with binary FITS images and R numeric or integer matrices. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
-\code{header} functions work with any FITS header and single keyword inputs and outputs (there is not a full header read yet).
+\code{key} functions work with any FITS header and single keyword inputs and outputs (there is not a full header read yet). Note when writing, if key is already present it will be replaced, if not present the new key will be added at the end of the header.
 }
 \value{
 \code{Rfits_write_} functions just have the side effect of writing data out.
@@ -87,7 +87,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_read_image}: numeric or integer matrix.
 
-\code{Rfits_read_hader}: scalar numeric or string keyword.
+\code{Rfits_read_key}: scalar numeric or string keyword.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
@@ -107,8 +107,8 @@ temp_table[1:5,]
 
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
-Rfits_read_header(file_image, 'NAXIS1')
-Rfits_read_header(file_image, 'CTYPE1', keytype = 'string')
+Rfits_read_key(file_image, 'NAXIS1')
+Rfits_read_key(file_image, 'CTYPE1', keytype = 'string')
 
 
 }

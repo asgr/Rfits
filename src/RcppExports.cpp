@@ -85,9 +85,9 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// Cfits_read_keyword
-SEXP Cfits_read_keyword(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext);
-RcppExport SEXP _Rfits_Cfits_read_keyword(SEXP filenameSEXP, SEXP keynameSEXP, SEXP typecodeSEXP, SEXP extSEXP) {
+// Cfits_read_key
+SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext);
+RcppExport SEXP _Rfits_Cfits_read_key(SEXP filenameSEXP, SEXP keynameSEXP, SEXP typecodeSEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -95,7 +95,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::String >::type keyname(keynameSEXP);
     Rcpp::traits::input_parameter< int >::type typecode(typecodeSEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    rcpp_result_gen = Rcpp::wrap(Cfits_read_keyword(filename, keyname, typecode, ext));
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_key(filename, keyname, typecode, ext));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -164,7 +164,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_colname", (DL_FUNC) &_Rfits_Cfits_read_colname, 3},
     {"_Rfits_Cfits_create_bintable", (DL_FUNC) &_Rfits_Cfits_create_bintable, 6},
     {"_Rfits_Cfits_write_col", (DL_FUNC) &_Rfits_Cfits_write_col, 6},
-    {"_Rfits_Cfits_read_keyword", (DL_FUNC) &_Rfits_Cfits_read_keyword, 4},
+    {"_Rfits_Cfits_read_key", (DL_FUNC) &_Rfits_Cfits_read_key, 4},
     {"_Rfits_Cfits_update_key", (DL_FUNC) &_Rfits_Cfits_update_key, 6},
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 4},
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 4},

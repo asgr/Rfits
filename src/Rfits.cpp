@@ -279,7 +279,7 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
 // int CFITS_API ffgky( fitsfile *fptr, int datatype, const char *keyname, void *value,
 //                      char *comm, int *status);
 // [[Rcpp::export]]
-SEXP Cfits_read_keyword(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
+SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
   int hdutype;
   
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);

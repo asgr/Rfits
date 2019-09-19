@@ -1,6 +1,6 @@
 Package: Rfits
 Type: Package
-Title: Rfits Table Reader and Writer
+Title: FITS Readers and Writers
 Version: 0.1.0
 Date: 2019-09-17
 Authors@R: c(

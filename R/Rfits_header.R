@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_header=function(filename, keyname, keytype='numeric', ext = 1){
+Rfits_read_key=function(filename, keyname, keytype='numeric', ext = 1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -64,10 +64,10 @@ Rfits_read_header=function(filename, keyname, keytype='numeric', ext = 1){
   }else{
     stop('Unrecognised keytype')
   }
-  return(Cfits_read_keyword(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
+  return(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
 }
 
-Rfits_write_header=function(filename, keyname, keyvalue, comment="", ext=1){
+Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
