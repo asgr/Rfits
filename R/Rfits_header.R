@@ -70,7 +70,7 @@ Rfits_read_key=function(filename, keyname, keytype='numeric', ext = 1){
 Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
-  assertAccess(filename, access='r')
+  assertAccess(filename, access='w')
   assertCharacter(keyname, len = 1)
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
   assertCharacter(comment, len = 1)
@@ -89,6 +89,15 @@ Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
   }
   if(is.character(keyvalue)){typecode=16}
   Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, comment=comment, ext=ext, typecode=typecode)
+}
+
+Rfits_delete_key=function(filename, keyname, ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+  assertCharacter(keyname, len = 1)
+  assertIntegerish(ext, len = 1)
+  Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
 Rfits_read_header=function(filename, ext=1){
@@ -112,16 +121,45 @@ Rfits_read_header=function(filename, ext=1){
   hdr = parseHdr(headertemp)
   
   #keyword list
-  keywords = hdr[c(T,F)]
-  suppressWarnings({vallist = as.list(as.numeric(hdr[c(F,T)]))})
-  vallist[is.na(vallist)] = hdr[c(F,T)][is.na(vallist)]
-  vallist[hdr[c(F,T)] == 'T']=TRUE
-  vallist[hdr[c(F,T)] == 'F']=FALSE
-  names(vallist)=keywords
+  keynames = hdr[c(T,F)]
+  suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
+  isint = unlist(keyvalues[!is.na(keyvalues)]) %% 1 == 0
+  keyvalues[!is.na(keyvalues)][isint] = as.integer(keyvalues[!is.na(keyvalues)][isint])
+  keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
+  keyvalues[hdr[c(F,T)] == 'T']=TRUE
+  keyvalues[hdr[c(F,T)] == 'F']=FALSE
+  names(keyvalues)=keynames
   
   #comments list
   comments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
-  names(comments) = keywords
+  names(comments) = keynames
   
-  return(list(header=header, hdr=hdr, keywords=keywords, vallist=vallist, comments=comments))
+  return(list(header=header, hdr=hdr, keyvalues=keyvalues, comments=comments, keynames=keynames))
+}
+
+Rfits_write_header=function(filename, keyvalues, comments, keynames, ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+  assertIntegerish(ext, len = 1)
+  assertList(keyvalues, min.len = 1)
+  if(! missing(comments)){
+    if(is.list(comments)){
+      assertList(comments, len = length(keyvalues))
+      comments=unlist(comments)
+    }
+    assertCharacter(comments, len = length(keyvalues))
+  }
+  if(missing(keynames)){
+    keynames=names(keyvalues)
+  }
+  assertCharacter(keynames, max.len=length(keyvalues))
+  
+  for(i in 1:length(keyvalues)){
+    if(missing(comments)){
+      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], comment="", ext=ext)
+    }else{
+      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], comment = comments[[i]], ext=ext)
+    }
+  }
 }

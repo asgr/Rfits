@@ -168,6 +168,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Cfits_delete_HDU
+void Cfits_delete_HDU(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Cfits_delete_HDU(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_delete_HDU(filename, ext);
+    return R_NilValue;
+END_RCPP
+}
+// Cfits_delete_key
+void Cfits_delete_key(Rcpp::String filename, Rcpp::String keyname, int ext);
+RcppExport SEXP _Rfits_Cfits_delete_key(SEXP filenameSEXP, SEXP keynameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type keyname(keynameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_delete_key(filename, keyname, ext);
+    return R_NilValue;
+END_RCPP
+}
+// Cfits_delete_header
+void Cfits_delete_header(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Cfits_delete_header(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_delete_header(filename, ext);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
@@ -182,6 +216,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 4},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 6},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},
+    {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
+    {"_Rfits_Cfits_delete_key", (DL_FUNC) &_Rfits_Cfits_delete_key, 3},
+    {"_Rfits_Cfits_delete_header", (DL_FUNC) &_Rfits_Cfits_delete_header, 2},
     {NULL, NULL, 0}
 };
 

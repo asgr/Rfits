@@ -49,3 +49,15 @@ Cfits_read_header <- function(filename, ext = 1L) {
     .Call(`_Rfits_Cfits_read_header`, filename, ext)
 }
 
+Cfits_delete_HDU <- function(filename, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_delete_HDU`, filename, ext))
+}
+
+Cfits_delete_key <- function(filename, keyname, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_delete_key`, filename, keyname, ext))
+}
+
+Cfits_delete_header <- function(filename, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_delete_header`, filename, ext))
+}
+

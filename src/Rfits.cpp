@@ -406,3 +406,38 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
   fits_invoke(close_file, fptr);
   return(out);
 }
+
+// [[Rcpp::export]]
+void Cfits_delete_HDU(Rcpp::String filename, int ext=1){
+  int hdutype;
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(delete_hdu, fptr, &hdutype);
+  fits_invoke(close_file, fptr);
+}
+
+// [[Rcpp::export]]
+void Cfits_delete_key(Rcpp::String filename, Rcpp::String keyname, int ext=1){
+  int hdutype;
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(delete_key, fptr, keyname.get_cstring());
+  fits_invoke(close_file, fptr);
+}
+
+// [[Rcpp::export]]
+void Cfits_delete_header(Rcpp::String filename, int ext=1){
+  int hdutype, nkeys, keypos, ii;
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  for (ii = 2; ii <= nkeys; ii++)  {
+    Rcpp::Rcout << "The key is" << ii << std::endl;
+    fits_invoke(delete_record, fptr, 2);
+  }
+  fits_invoke(close_file, fptr);
+}
+
