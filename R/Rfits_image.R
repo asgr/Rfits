@@ -56,8 +56,8 @@ Rfits_read_image=function(filename, ext=1){
   assertAccess(filename, access='r')
   assertIntegerish(ext, len = 1)
   
-  naxis1=Cfits_read_keyword(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
-  naxis2=Cfits_read_keyword(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+  naxis1=Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
+  naxis2=Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
   
   return(invisible(Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext)))
 }

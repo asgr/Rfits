@@ -27,6 +27,8 @@ Rfits_write_image(filename, image, overwrite=TRUE)
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
 Rfits_write_key(filename, keyname, keyvalue, comment = "", ext = 1)
+
+Rfits_read_header(filename, ext = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -79,6 +81,8 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{image} functions work with binary FITS images and R numeric or integer matrices. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
 \code{key} functions work with any FITS header and single keyword inputs and outputs (there is not a full header read yet). Note when writing, if key is already present it will be replaced, if not present the new key will be added at the end of the header.
+
+\code{header} functions work with any FITS header, reading and writing them in their entirety.
 }
 \value{
 \code{Rfits_write_} functions just have the side effect of writing data out.
@@ -88,13 +92,15 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{Rfits_read_image}: numeric or integer matrix.
 
 \code{Rfits_read_key}: scalar numeric or string keyword.
+
+\code{Rfits_read_header}: list containing the unformatted header string vector (\option{header}), the keyword / keyvalue stripped version (\option{hdr}), the vector of non-comment keywords (\option{keyword}), the named \option{keyvalue} list and the named \option{comment} list.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
 \author{
 Aaron Robotham
-Rodrgio Tobar
+Rodrigo Tobar
 }
 
 \seealso{

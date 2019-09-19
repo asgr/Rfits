@@ -213,7 +213,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 
   Rcpp::StringVector out(ncol);
 
-  char colname[80];
+  char colname[81];
 
   int status = 0;
   int ii = 0;
@@ -285,7 +285,7 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
-  char comment[80];
+  char comment[81];
   
   if ( typecode == TDOUBLE ) {
     Rcpp::NumericVector out(1);
@@ -297,7 +297,7 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
   }else if ( typecode == TSTRING){
     Rcpp::StringVector out(1);
     //std::vector<std::string> keyvalue(1);
-    char keyvalue[80];
+    char keyvalue[81];
     fits_invoke(read_key, fptr, TSTRING, keyname.get_cstring(), keyvalue, comment);
     out[0] = keyvalue;
     //std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
@@ -386,4 +386,23 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }
   fits_invoke(close_file, fptr);
+}
+
+// [[Rcpp::export]]
+SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
+  int nkeys, keypos, ii, hdutype;
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  
+  Rcpp::StringVector out(nkeys);
+  char card[FLEN_CARD];
+  
+  for (ii = 1; ii <= nkeys; ii++)  {
+    fits_invoke(read_record, fptr, ii, card);
+    out[ii-1] = card;
+  }
+  fits_invoke(close_file, fptr);
+  return(out);
 }

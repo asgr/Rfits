@@ -90,3 +90,38 @@ Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
   if(is.character(keyvalue)){typecode=16}
   Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, comment=comment, ext=ext, typecode=typecode)
 }
+
+Rfits_read_header=function(filename, ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  assertIntegerish(ext, len = 1)
+  
+  #raw header
+  header=Cfits_read_header(filename=filename, ext=ext)
+  
+  #remove comments for parsing
+  remove=grep(pattern = 'COMMENT', header)
+  if(length(remove)>0){
+    headertemp = header[-remove]
+  }else{
+    headertemp = header
+  }
+  
+  #hdr vector
+  hdr = parseHdr(headertemp)
+  
+  #keyword list
+  keywords = hdr[c(T,F)]
+  suppressWarnings({vallist = as.list(as.numeric(hdr[c(F,T)]))})
+  vallist[is.na(vallist)] = hdr[c(F,T)][is.na(vallist)]
+  vallist[hdr[c(F,T)] == 'T']=TRUE
+  vallist[hdr[c(F,T)] == 'F']=FALSE
+  names(vallist)=keywords
+  
+  #comments list
+  comments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
+  names(comments) = keywords
+  
+  return(list(header=header, hdr=hdr, keywords=keywords, vallist=vallist, comments=comments))
+}

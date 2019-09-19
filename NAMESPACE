@@ -1,13 +1,24 @@
 #exportPattern("^[[:alpha:]]+")
+
+#Rfits things
 export(Rfits_read_table)
 export(Rfits_write_table)
 export(Rfits_read_image)
 export(Rfits_write_image)
 export(Rfits_read_key)
 export(Rfits_write_key)
+export(Rfits_read_header)
 
+#Cfits things
+#export(Cfits_read_header)
+
+#Rcpp
 useDynLib(Rfits, .registration=TRUE)
 
+#import all
 import("Rcpp")
 import("bit64")
 import("checkmate")
+
+#import functions
+importFrom("FITSio", "parseHdr")

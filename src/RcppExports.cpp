@@ -156,6 +156,18 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// Cfits_read_header
+SEXP Cfits_read_header(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Cfits_read_header(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_header(filename, ext));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
@@ -169,6 +181,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 4},
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 4},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 6},
+    {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},
     {NULL, NULL, 0}
 };
 

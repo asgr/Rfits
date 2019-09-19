@@ -45,3 +45,7 @@ Cfits_write_image <- function(filename, data, datatype, naxis1, naxis2, ext = 1L
     invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis1, naxis2, ext))
 }
 
+Cfits_read_header <- function(filename, ext = 1L) {
+    .Call(`_Rfits_Cfits_read_header`, filename, ext)
+}
+
