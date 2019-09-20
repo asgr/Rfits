@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_image=function(filename, ext=1){
+Rfits_read_image=function(filename, ext=1, header=TRUE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -59,7 +59,13 @@ Rfits_read_image=function(filename, ext=1){
   naxis1=Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
   naxis2=Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
   
-  return(invisible(Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext)))
+  image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext)
+  if(header){
+    header=Rfits_read_header(filename = filename, ext = ext)
+    return(invisible(list(imDat=image, hdr=header$hdr, header=header$header, keyvalues=header$keyvalues, comments=header$comments, keynames=header$keynames)))
+  }else{
+    return(invisible(image)) 
+  }
 }
 
 Rfits_write_image=function(filename, image, overwrite=TRUE){

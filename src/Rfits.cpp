@@ -352,7 +352,8 @@ void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long na
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100, int ext=1)
+SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
+                                   int ext=1, int datatype=TFLOAT)
 {
   int anynull, nullvals = 0, hdutype;
   
@@ -361,13 +362,44 @@ Rcpp::NumericMatrix Cfits_read_img(Rcpp::String filename, int naxis1=100, int na
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   int npixels = naxis1 * naxis2;
-  std::vector<float> pixels(npixels);
-  fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
-  fits_invoke(close_file, fptr);
   
-  NumericMatrix pixel_matrix(naxis1, naxis2);
-  std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-  return pixel_matrix;
+  if (datatype==TFLOAT){
+    std::vector<float> pixels(npixels);
+    fits_invoke(read_img, fptr, datatype, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TDOUBLE){
+    std::vector<double> pixels(npixels);
+    fits_invoke(read_img, fptr, datatype, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TBYTE){
+    std::vector<int> pixels(npixels);
+    fits_invoke(read_img, fptr, datatype, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TSHORT){
+    std::vector<short> pixels(npixels);
+    fits_invoke(read_img, fptr, datatype, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TLONG){
+    std::vector<long> pixels(npixels);
+    fits_invoke(read_img, fptr, datatype, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }
+  throw std::runtime_error("unsupported type");
 }
 
 // [[Rcpp::export]]
@@ -382,7 +414,13 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   //below need to work for integers and doubles:
   if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+  }else if(datatype == TSHORT){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+  }else if(datatype == TLONG){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TDOUBLE){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+  }else if(datatype == TFLOAT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }
   fits_invoke(close_file, fptr);
@@ -441,3 +479,66 @@ void Cfits_delete_header(Rcpp::String filename, int ext=1){
   fits_invoke(close_file, fptr);
 }
 
+SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel[2],
+    long lpixel[2], int ext=1, int datatype=TFLOAT)
+{
+  int anynull, nullvals = 0, hdutype;
+  
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  int naxis1 = (fpixel[1] - fpixel[0] + 1);
+  int naxis2 = (lpixel[1] - lpixel[0] + 1);
+  int npixels = naxis1 * naxis2;
+  long inc=1;
+  
+  if (datatype==TFLOAT){
+    std::vector<float> pixels(npixels);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc,
+                  &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TDOUBLE){
+    std::vector<double> pixels(npixels);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc,
+                  &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TBYTE){
+    std::vector<int> pixels(npixels);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc,
+                  &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TSHORT){
+    std::vector<short> pixels(npixels);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc,
+                  &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==TLONG){
+    std::vector<long> pixels(npixels);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc,
+                  &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }
+  throw std::runtime_error("unsupported type");
+}
+
+//int fits_read_subset(fitsfile *fptr, int  datatype, long *fpixel,
+//                     long *lpixel, long *inc, void *nulval,  void *array,
+//                     int *anynul, int *status)
+  
+  

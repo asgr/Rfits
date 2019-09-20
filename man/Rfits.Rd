@@ -23,9 +23,9 @@ Rfits_read_table(filename, ext = 2, data.table = TRUE)
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
 overwrite = TRUE)
 
-Rfits_read_image(filename, ext=1)
+Rfits_read_image(filename, ext = 1, header = TRUE)
 
-Rfits_write_image(filename, image, overwrite=TRUE)
+Rfits_write_image(filename, image, overwrite = TRUE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
@@ -47,6 +47,9 @@ Data.frame or data.table; data to be written out as a binary FITS table.
 }
   \item{image}{
 Numeric or integer matrix; data to be written out as a FITS image.
+}
+  \item{header}{
+Logical; should the header be read along with the image matrix. If TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if FALSE then it is just the raw image matrix.
 }
   \item{keyname}{
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  
@@ -94,7 +97,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{table} functions work with binary FITS tables and R data.frames and data.tables. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
-\code{image} functions work with binary FITS images and R numeric or integer matrices. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
+\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
 
 \code{key} functions work with any FITS header and single keyname inputs and outputs (there is not a full header read yet). Note when writing, if key is already present it will be replaced, if not present the new key will be added at the end of the header.
 
