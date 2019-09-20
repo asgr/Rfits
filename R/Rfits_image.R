@@ -94,10 +94,10 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
       hdr$comments$NAXIS2 = paste(hdr$comments$NAXIS2, 'SUBMOD')
       hdr$comments$CRPIX1 = paste(hdr$comments$CRPIX1, 'SUBMOD')
       hdr$comments$CRPIX2 = paste(hdr$comments$CRPIX2, 'SUBMOD')
-      hdr$header[grep('NAXIS1', temp$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$comments$NAXIS1,sep='')
-      hdr$header[grep('NAXIS2', temp$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$comments$NAXIS2,sep='')
-      hdr$header[grep('CRPIX1', temp$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$comments$CRPIX1,sep='')
-      hdr$header[grep('CRPIX2', temp$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$comments$CRPIX2,sep='')
+      hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$comments$NAXIS1,sep='')
+      hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$comments$NAXIS2,sep='')
+      hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$comments$CRPIX1,sep='')
+      hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$comments$CRPIX2,sep='')
     }
     return(invisible(list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, comments=hdr$comments, keynames=hdr$keynames)))
   }else{
@@ -105,7 +105,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(filename, image, overwrite=TRUE){
+Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overwrite=TRUE){
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
   assertPathForOutput(filename, overwrite=overwrite)
@@ -133,4 +133,7 @@ Rfits_write_image=function(filename, image, overwrite=TRUE){
   }
   Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
   Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=1)
+  if(!missing(keyvalues)){
+    Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext=1)
+  }
 }

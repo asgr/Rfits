@@ -23,7 +23,7 @@ Rfits_read_table(filename, ext = 2, data.table = TRUE)
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
 overwrite = TRUE)
 
-Rfits_read_image(filename, ext = 1, header = TRUE)
+Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
 Rfits_write_image(filename, image, overwrite = TRUE)
 
@@ -74,6 +74,18 @@ Character list; (not required) comments associated with updates or added \option
 }
   \item{ext}{
 Integer scalar; the extension to use (usually starts at 1 for images and 2 for tables).
+}
+  \item{xlo}{
+Integer scalar; low x limit to cut out from \option{image} (1 or larger and less than \option{xhi}).
+}
+  \item{xhi}{
+Integer scalar; high x limit to cut out from \option{image} (NAXIS1 or smaller and greater than \option{xhi}).
+}
+  \item{ylo}{
+Integer scalar; low y limit to cut out from \option{image} (1 or larger and less than \option{yhi}).
+}
+  \item{yhi}{
+Integer scalar; high y limit to cut out from \option{image} (NAXIS2 or smaller and greater than \option{yhi}).
 }
   \item{extname}{
 Character scalar; name of the table extension. 
