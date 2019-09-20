@@ -353,7 +353,7 @@ void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long na
 
 // [[Rcpp::export]]
 SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
-                                   int ext=1, int datatype=TFLOAT)
+                                   int ext=1, int datatype=-32)
 {
   int anynull, nullvals = 0, hdutype;
   
@@ -479,8 +479,9 @@ void Cfits_delete_header(Rcpp::String filename, int ext=1){
   fits_invoke(close_file, fptr);
 }
 
-SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel[2],
-    long lpixel[2], int ext=1, int datatype=TFLOAT)
+// [[Rcpp::export]]
+SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=100,
+                           long lpixel0=1, long lpixel1=100, int ext=1, int datatype=-32)
 {
   int anynull, nullvals = 0, hdutype;
   
@@ -488,10 +489,13 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel[2],
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
-  int naxis1 = (fpixel[1] - fpixel[0] + 1);
+  long fpixel[] = {fpixel0, fpixel1};
+  long lpixel[] = {lpixel0, lpixel1};
+  
+  int naxis1 = (lpixel[1] - fpixel[0] + 1);
   int naxis2 = (lpixel[1] - lpixel[0] + 1);
   int npixels = naxis1 * naxis2;
-  long inc=1;
+  long *inc= (long *)1;
   
   if (datatype==TFLOAT){
     std::vector<float> pixels(npixels);

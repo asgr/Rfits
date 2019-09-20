@@ -37,7 +37,7 @@ Cfits_create_image <- function(filename, bitpix, naxis1, naxis2) {
     invisible(.Call(`_Rfits_Cfits_create_image`, filename, bitpix, naxis1, naxis2))
 }
 
-Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, ext = 1L, datatype) {
+Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, ext = 1L, datatype = -32L) {
     .Call(`_Rfits_Cfits_read_img`, filename, naxis1, naxis2, ext, datatype)
 }
 
@@ -59,5 +59,9 @@ Cfits_delete_key <- function(filename, keyname, ext = 1L) {
 
 Cfits_delete_header <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_delete_header`, filename, ext))
+}
+
+Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 100L, lpixel0 = 1L, lpixel1 = 100L, ext = 1L, datatype = -32L) {
+    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, lpixel0, lpixel1, ext, datatype)
 }
 

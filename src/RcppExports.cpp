@@ -203,6 +203,23 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// Cfits_read_img_subset
+SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0, long fpixel1, long lpixel0, long lpixel1, int ext, int datatype);
+RcppExport SEXP _Rfits_Cfits_read_img_subset(SEXP filenameSEXP, SEXP fpixel0SEXP, SEXP fpixel1SEXP, SEXP lpixel0SEXP, SEXP lpixel1SEXP, SEXP extSEXP, SEXP datatypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel0(fpixel0SEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel1(fpixel1SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel0(lpixel0SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel1(lpixel1SEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Rcpp::traits::input_parameter< int >::type datatype(datatypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_img_subset(filename, fpixel0, fpixel1, lpixel0, lpixel1, ext, datatype));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
@@ -220,6 +237,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
     {"_Rfits_Cfits_delete_key", (DL_FUNC) &_Rfits_Cfits_delete_key, 3},
     {"_Rfits_Cfits_delete_header", (DL_FUNC) &_Rfits_Cfits_delete_header, 2},
+    {"_Rfits_Cfits_read_img_subset", (DL_FUNC) &_Rfits_Cfits_read_img_subset, 7},
     {NULL, NULL, 0}
 };
 
