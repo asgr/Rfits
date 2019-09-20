@@ -81,8 +81,13 @@ Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
   if(is.integer64(keyvalue)){typecode=81}
   if(typecode==0 & is.numeric(keyvalue)){
     if(keyvalue %% 1 == 0){
-      keyvalue=as.integer64(keyvalue)
-      typecode=81
+      if(keyvalue < 2^31){
+        keyvalue=as.integer(keyvalue)
+        typecode=31
+      }else{
+        keyvalue=as.integer64(keyvalue)
+        typecode=81
+      }
     }else{
       typecode=82
     }
@@ -118,7 +123,7 @@ Rfits_read_header=function(filename, ext=1){
   }
   
   #hdr vector
-  hdr = parseHdr(headertemp)
+  hdr = .parse_header(headertemp)
   
   #keyword list
   keynames = hdr[c(T,F)]
@@ -162,4 +167,26 @@ Rfits_write_header=function(filename, keyvalues, comments, keynames, ext=1){
       Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], comment = comments[[i]], ext=ext)
     }
   }
+}
+
+.parse_header=function(header){
+  #Based on parseHdr in FITSio
+  good = which(substr(header, 9, 10) == "= ")
+  header=header[good]
+  Nhead=length(header)
+  for (i in 1:Nhead) {
+    header[i] = strsplit(header[i], "/")[[1]][1]
+  }
+  hdr = unlist(strsplit(header, "="))
+  smark = grep("'", hdr)
+  for (i in smark) {
+    hdr[i] = gsub("''", "aAlJ2fZ47xx", hdr[i])
+    hdr[i] = strsplit(hdr[i], "'")[[1]][2]
+    hdr[i] = gsub("aAlJ2fZ47xx", "''", hdr[i])
+  }
+  for (i in 1:length(hdr)) {
+    hdr[i] = sub("^ *", "", hdr[i])
+    hdr[i] = sub(" *$", "", hdr[i])
+  }
+  return(invisible(hdr))
 }

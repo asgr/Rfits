@@ -23,4 +23,3 @@ import("bit64")
 import("checkmate")
 
 #import functions
-importFrom("FITSio", "parseHdr")

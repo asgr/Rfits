@@ -182,18 +182,3 @@ Rfits_write_image=function(filename, image, keyvalues, comments, keynames, numer
     Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext = 1)
   }
 }
-
-.changePrecision <- function(x, size) { 
-  x=as.vector(x)
-  # create a raw object to avoid direct file access 
-  virtualCon <- raw(); 
-  # write binary data to raw object and change (mostly cut) precision to size 
-  # size==1 # 8bit
-  # size==2 # 16bit
-  # size==4 # 32bit, single precision 
-  # size==8 # 64bit, double precision 
-  virtualCon <- writeBin(object=x, con=virtualCon, size=size); 
-  # re-read data 
-  x <- readBin(con=virtualCon, what=double(), size=size, n=length(x)); 
-  return(x); 
-} 

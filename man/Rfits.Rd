@@ -151,12 +151,37 @@ file_table = system.file('extdata', 'table.fits', package = "Rfits")
 temp_table = Rfits_read_table(file_table)
 temp_table[1:5,]
 
+library(magicaxis)
+
+#Read full image
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
+magimageWCS(temp_image)
+
+#And again with just a subset
+temp_image_sub=Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
+magimageWCS(temp_image_sub)
+
+#View header info
+temp_image$keyvalues$NAXIS1
+temp_image$keyvalues$CTYPE1
+
+#Read just the header
+temp_table_header_ext1=Rfits_read_header(file_table, ext = 1) #Meta table data
+temp_table_header_ext2=Rfits_read_header(file_table, ext = 2) #Column info
+temp_image_header=Rfits_read_header(file_image, ext = 1) #Meta image data
+temp_image_header$keyvalues$NAXIS1
+temp_image_header$keyvalues$CTYPE1
+
+#Check some things
+temp_table_header_ext1$keyvalues$NAXIS1
+temp_table_header_ext2$keyvalues$NAXIS1
+temp_table_header_ext2$keyvalues$NAXIS2
+temp_table_header_ext2$keyvalues$TTYPE3
+
+#Read individual key words on target file
 Rfits_read_key(file_image, 'NAXIS1')
 Rfits_read_key(file_image, 'CTYPE1', keytype = 'string')
-
-
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
