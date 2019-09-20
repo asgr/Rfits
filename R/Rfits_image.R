@@ -69,7 +69,10 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   if(missing(ylo)){ylo=1}else{subset=TRUE}
   if(missing(xhi)){xhi=naxis1}else{subset=TRUE}
   if(missing(yhi)){yhi=naxis2}else{subset=TRUE}
-  
+  if(xlo<1){xlo=1}
+  if(xhi>naxis1){xhi=naxis1}
+  if(ylo<1){ylo=1}
+  if(yhi>naxis2){yhi=naxis2}
   assertIntegerish(xlo, lower = 1, upper = naxis1, len = 1)
   assertIntegerish(xhi, lower = 1, upper = naxis1, len = 1)
   assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
@@ -99,7 +102,9 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
       hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$comments$CRPIX1,sep='')
       hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$comments$CRPIX2,sep='')
     }
-    return(invisible(list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, comments=hdr$comments, keynames=hdr$keynames)))
+    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, comments=hdr$comments, keynames=hdr$keynames)
+    class(output)='Rfits_image'
+    return(invisible(output))
   }else{
     return(invisible(image)) 
   }
@@ -111,6 +116,12 @@ Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overw
   assertPathForOutput(filename, overwrite=overwrite)
   if(testFileExists(filename) & overwrite){
     file.remove(filename)
+  }
+  if(class(image)=='Rfits_image'){
+    if(missing(keyvalues)){keyvalues=image$keyvalues}
+    if(missing(comments)){comments=image$comments}
+    if(missing(keynames)){keynames=image$keynames}
+    image=image$imDat
   }
   assertMatrix(image)
   
@@ -134,6 +145,7 @@ Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overw
   Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
   Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=1)
   if(!missing(keyvalues)){
-    Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext=1)
+    keyvalues$BITPIX = bitpix
+    Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext = 1)
   }
 }
