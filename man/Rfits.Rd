@@ -21,11 +21,12 @@ Generic header key, image and table readers and writers. Works with a wide range
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
 
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
-overwrite = TRUE)
+  overwrite = TRUE)
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
-Rfits_write_image(filename, image, overwrite = TRUE)
+Rfits_write_image(filename, image, keyvalues, comments, keynames, numeric = 'single',
+  integer = 'long', overwrite = TRUE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
@@ -74,6 +75,12 @@ Character list; (not required) comments associated with updates or added \option
 }
   \item{ext}{
 Integer scalar; the extension to use (usually starts at 1 for images and 2 for tables).
+}
+  \item{numeric}{
+Character scalar; the numeric data type to be written out for images. Can be '32' (32 bit), 'single' (32 bit), 'float' (32 bit), '64' (64 bit), 'double' (64 bit).
+}
+  \item{integer}{
+Character scalar; the integer data type to be written out for images. Can be '16' (16 bit), 'short' (16 bit), 'int' (16 bit), '32' (32 bit), 'long' (32 bit). 
 }
   \item{xlo}{
 Integer scalar; low x limit to cut out from \option{image} (1 or larger and less than \option{xhi}).

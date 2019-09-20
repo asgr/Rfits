@@ -405,7 +405,7 @@ void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long na
 // [[Rcpp::export]]
 void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 , long naxis2, int ext=1)
 {
-  int hdutype;
+  int hdutype, ii;
   long nelements = naxis1 * naxis2;
   long fpixel[] = {1, 1};
   
@@ -413,15 +413,27 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   //below need to work for integers and doubles:
   if(datatype == TINT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+    int data_i[nelements];
+    for (ii = 0; ii < nelements; ii++)  {
+      data_i[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (int *)data_i);
   }else if(datatype == TSHORT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+    short data_s[nelements];
+    for (ii = 0; ii < nelements; ii++)  {
+      data_s[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (short *)data_s);
   }else if(datatype == TLONG){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+    float data_f[nelements];
+    for (ii = 0; ii < nelements; ii++)  {
+      data_f[ii] = REAL(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (float *)data_f);
   }
   fits_invoke(close_file, fptr);
 }

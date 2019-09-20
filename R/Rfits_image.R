@@ -110,7 +110,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overwrite=TRUE){
+Rfits_write_image=function(filename, image, keyvalues, comments, keynames, numeric='single', integer='long', overwrite=TRUE){
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
   assertPathForOutput(filename, overwrite=overwrite)
@@ -124,22 +124,55 @@ Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overw
     image=image$imDat
   }
   assertMatrix(image)
+  if(!missing(keyvalues)){assertList(keyvalues)}
+  if(!missing(comments)){assertList(comments)}
+  if(!missing(keynames)){assertVector(keynames)}
+  if(is.numeric(numeric)){numeric=as.character(numeric)}
+  if(is.numeric(integer)){integer=as.character(integer)}
+  assertCharacter(numeric, len = 1)
+  assertCharacter(integer, len = 1)
   
   naxis=dim(image)
   
   bitpix=0
+  
+  if(max(image,na.rm=TRUE)>2^30){
+    integer='long'
+  }
+
   if(is.integer(image[1])){
-    bitpix=32
-    datatype=31
+    if(integer=='short' | integer=='int' | integer=='16'){
+      bitpix=16
+      datatype=21
+    }else if(integer=='long' | integer=='32'){
+      bitpix=32
+      datatype=31
+    }else{
+      stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
+    }
   }
   if(bitpix==0 & is.numeric(image[1])){
     if(all(image %% 1 == 0)){
       image=as.integer(image)
-      bitpix=32
-      datatype=31
+      if(integer=='short' | integer=='int' | integer=='16'){
+        bitpix=16
+        datatype=21
+      }else if(integer=='long' | integer=='32'){
+        bitpix=32
+        datatype=31
+      }else{
+        stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
+      }
     }else{
-      bitpix=-64
-      datatype=82
+      if(numeric=='single' | numeric=='float' | numeric=='32'){
+        bitpix=-32
+        datatype=42
+      }else if (numeric=='double' | numeric=='64'){
+        bitpix=-64
+        datatype=82
+      }else{
+        stop('numeric type must be single/float/32 or double/64')
+      }
     }
   }
   Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
@@ -149,3 +182,18 @@ Rfits_write_image=function(filename, image, keyvalues, comments, keynames, overw
     Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext = 1)
   }
 }
+
+.changePrecision <- function(x, size) { 
+  x=as.vector(x)
+  # create a raw object to avoid direct file access 
+  virtualCon <- raw(); 
+  # write binary data to raw object and change (mostly cut) precision to size 
+  # size==1 # 8bit
+  # size==2 # 16bit
+  # size==4 # 32bit, single precision 
+  # size==8 # 64bit, double precision 
+  virtualCon <- writeBin(object=x, con=virtualCon, size=size); 
+  # re-read data 
+  x <- readBin(con=virtualCon, what=double(), size=size, n=length(x)); 
+  return(x); 
+} 
