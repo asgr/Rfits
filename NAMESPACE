@@ -12,7 +12,7 @@ export(Rfits_read_header)
 export(Rfits_write_header)
 
 #Cfits things
-#export(Cfits_delete_header)
+export(Cfits_read_img_subset)
 
 #Rcpp
 useDynLib(Rfits, .registration=TRUE)

@@ -50,19 +50,56 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_image=function(filename, ext=1, header=TRUE){
+Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len = 1)
   
-  naxis1=Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
-  naxis2=Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+  #naxis1=Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
+  #naxis2=Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+  hdr=Rfits_read_header(filename = filename, ext = ext)
+  naxis1=hdr$keyvalues$NAXIS1
+  naxis2=hdr$keyvalues$NAXIS2
+  datatype=hdr$keyvalues$BITPIX
   
-  image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext)
+  subset=FALSE
+  
+  if(missing(xlo)){xlo=1}else{subset=TRUE}
+  if(missing(ylo)){ylo=1}else{subset=TRUE}
+  if(missing(xhi)){xhi=naxis1}else{subset=TRUE}
+  if(missing(yhi)){yhi=naxis2}else{subset=TRUE}
+  
+  assertIntegerish(xlo, lower = 1, upper = naxis1, len = 1)
+  assertIntegerish(xhi, lower = 1, upper = naxis1, len = 1)
+  assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
+  assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
+  
+  if(xhi<=xlo){stop('xhi must be larger than xlo')}
+  if(yhi<=ylo){stop('yhi must be larger than ylo')}
+  
+  image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype)
+  
   if(header){
-    header=Rfits_read_header(filename = filename, ext = ext)
-    return(invisible(list(imDat=image, hdr=header$hdr, header=header$header, keyvalues=header$keyvalues, comments=header$comments, keynames=header$keynames)))
+    if(subset){
+      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = xhi - xlo +1
+      hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = yhi - ylo +1
+      hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - xlo + 1)
+      hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - ylo + 1)
+      hdr$keyvalues$NAXIS1 = xhi - xlo +1
+      hdr$keyvalues$NAXIS2 = yhi - ylo +1
+      hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - xlo + 1
+      hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - ylo +1
+      hdr$comments$NAXIS1 = paste(hdr$comments$NAXIS1, 'SUBMOD')
+      hdr$comments$NAXIS2 = paste(hdr$comments$NAXIS2, 'SUBMOD')
+      hdr$comments$CRPIX1 = paste(hdr$comments$CRPIX1, 'SUBMOD')
+      hdr$comments$CRPIX2 = paste(hdr$comments$CRPIX2, 'SUBMOD')
+      hdr$header[grep('NAXIS1', temp$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$comments$NAXIS1,sep='')
+      hdr$header[grep('NAXIS2', temp$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$comments$NAXIS2,sep='')
+      hdr$header[grep('CRPIX1', temp$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$comments$CRPIX1,sep='')
+      hdr$header[grep('CRPIX2', temp$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$comments$CRPIX2,sep='')
+    }
+    return(invisible(list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, comments=hdr$comments, keynames=hdr$keynames)))
   }else{
     return(invisible(image)) 
   }
