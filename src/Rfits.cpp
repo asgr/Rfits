@@ -431,11 +431,12 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
-    float data_f[nelements];
+    //float data_f[nelements];
+    float *data_f = (float *)malloc(nelements * sizeof(float));
     for (ii = 0; ii < nelements; ii++)  {
       data_f[ii] = REAL(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (float *)data_f);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
   }
   fits_invoke(close_file, fptr);
 }
