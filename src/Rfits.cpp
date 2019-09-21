@@ -413,17 +413,19 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   //below need to work for integers and doubles:
   if(datatype == TINT){
-    int data_i[nelements];
+    //int data_i[nelements];
+    int *data_i = (int *)malloc(nelements * sizeof(int));
     for (ii = 0; ii < nelements; ii++)  {
       data_i[ii] = INTEGER(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (int *)data_i);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_i);
   }else if(datatype == TSHORT){
-    short data_s[nelements];
+    //short data_s[nelements];
+    short *data_s = (short *)malloc(nelements * sizeof(short));
     for (ii = 0; ii < nelements; ii++)  {
       data_s[ii] = INTEGER(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, (short *)data_s);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
   }else if(datatype == TLONG){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TDOUBLE){

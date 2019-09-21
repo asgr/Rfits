@@ -25,8 +25,8 @@ Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(tab
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
-Rfits_write_image(filename, image, keyvalues, comments, keynames, numeric = 'single',
-  integer = 'long', overwrite = TRUE)
+Rfits_write_image(filename, image, ext = 1, keyvalues, comments, keynames,
+  numeric = 'single', integer = 'long', overwrite = TRUE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
