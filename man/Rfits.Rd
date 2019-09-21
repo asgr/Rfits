@@ -25,7 +25,7 @@ Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(tab
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
-Rfits_write_image(filename, image, ext = 1, keyvalues, comments, keynames,
+Rfits_write_image(image, filename, ext = 1, keyvalues, comments, keynames,
   numeric = 'single', integer = 'long', overwrite = TRUE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
@@ -147,20 +147,41 @@ Rodrigo Tobar
 \code{FITSio}, ~~~
 }
 \examples{
+#Read table
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
 temp_table = Rfits_read_table(file_table)
 temp_table[1:5,]
 
-library(magicaxis)
+#Check write and read consistency
+file_table_temp = tempfile()
+Rfits_write_table(temp_table, file_table_temp)
+temp_table2 = Rfits_read_table(file_table_temp)
+cols_check = which(sapply(temp_table[1,], is.numeric))
+sum(temp_table[,..cols_check] - temp_table2[,..cols_check])
+
+#64 bit integer
+library(bit64)
+#The OBJID column requires integer64:
+is.integer64(temp_table$OBJID)
+#This cannot even be stored accurately in a numeric double:
+suppressWarnings(print(as.numeric(temp_table$OBJID[1:5]), digits = 20))
 
 #Read full image
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
+
+#Take a look
+library(magicaxis)
 magimageWCS(temp_image)
 
 #And again with just a subset
 temp_image_sub=Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
 magimageWCS(temp_image_sub)
+
+#check write and read consistency
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+temp_image2 = Rfits_read_image(file_image_temp)
 
 #View header info
 temp_image$keyvalues$NAXIS1

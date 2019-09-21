@@ -110,7 +110,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(filename, image, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', overwrite=TRUE){
+Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', overwrite=TRUE){
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
   assertPathForOutput(filename, overwrite=overwrite)

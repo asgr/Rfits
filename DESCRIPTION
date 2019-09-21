@@ -12,7 +12,7 @@ Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
 Description: Read and writes FITS image, tables and headers.
 License: LGPL-3
 Imports: Rcpp, bit64, checkmate
-Suggests: data.table, magicaxis
+Suggests: data.table, magicaxis, testthat
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
