@@ -413,25 +413,22 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   //below need to work for integers and doubles:
   if(datatype == TINT){
-    //int data_i[nelements];
-    int *data_i = (int *)malloc(nelements * sizeof(int));
-    for (ii = 0; ii < nelements; ii++)  {
-      data_i[ii] = INTEGER(data)[ii];
-    }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_i);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
-    //short data_s[nelements];
     short *data_s = (short *)malloc(nelements * sizeof(short));
     for (ii = 0; ii < nelements; ii++)  {
       data_s[ii] = INTEGER(data)[ii];
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
   }else if(datatype == TLONG){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+    long *data_l = (long *)malloc(nelements * sizeof(long));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_l[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
-    //float data_f[nelements];
     float *data_f = (float *)malloc(nelements * sizeof(float));
     for (ii = 0; ii < nelements; ii++)  {
       data_f[ii] = REAL(data)[ii];
