@@ -245,8 +245,6 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector tunits, Rcpp::String extname)
 {
   fitsfile *fptr;
-  
-  int hdutype;
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
   auto c_tunits = to_string_vector(tunits);
