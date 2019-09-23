@@ -180,6 +180,11 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames
   }
   #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
   Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+  
+  if(create_ext){
+    ext = Cfits_read_nhdu(filename)
+  }
+  
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
     Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext=ext)
