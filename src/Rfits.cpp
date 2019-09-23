@@ -16,6 +16,44 @@ std::runtime_error fits_status_to_exception(const char *func_name, int status)
     throw std::runtime_error(os.str());
 }
 
+
+/**
+ * Utility class that takes ownership of a fitsfile pointer
+ * and closes it automatically at destruction time.
+ */
+class fits_file {
+public:
+  fits_file() {}
+  fits_file(fitsfile *fptr) : m_fptr(fptr) {}
+  fits_file(const fits_file &other) = default;
+  fits_file(fits_file &&other) = default;
+  ~fits_file()
+  {
+    if (m_fptr) {
+      int status = 0;
+      fits_close_file(m_fptr, &status);
+    }
+  }
+
+  operator fitsfile*()
+  {
+    return m_fptr;
+  }
+
+  operator fitsfile**()
+  {
+    return &m_fptr;
+  }
+
+  fits_file &operator=(fitsfile *fptr)
+  {
+    m_fptr = fptr;
+	 return *this;
+  }
+
+  fitsfile *m_fptr = nullptr;
+};
+
 /**
  * Utility function to convert FITS API call errors into exceptions.
  *
@@ -62,7 +100,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
   int hdutype,anynull,typecode,ii;
   long nrow,repeat,width;
 
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_rows, fptr, &nrow);
   fits_invoke(get_coltype, fptr, colref, &typecode, &repeat, &width);
@@ -82,7 +120,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
       free(data[i]);
     }
     free(data);
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TBYTE ) {
@@ -91,7 +128,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TBYTE, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TINT ) {
@@ -100,7 +136,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TINT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TUINT ) {
@@ -109,7 +144,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TUINT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TINT32BIT ) {
@@ -118,7 +152,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TINT32BIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TSHORT ) {
@@ -127,7 +160,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TUSHORT ) {
@@ -136,7 +168,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TUSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TFLOAT ) {
@@ -145,7 +176,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TFLOAT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TLONG ) {
@@ -154,7 +184,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TLONG, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
   else if ( typecode == TLONGLONG ) {
@@ -163,7 +192,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TLONGLONG, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(double));
-    fits_invoke(close_file, fptr);
     out.attr("class") = "integer64";
     return out;
   }
@@ -173,7 +201,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     fits_invoke(read_col, fptr, TDOUBLE, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return out;
   }
 
@@ -185,10 +212,9 @@ int Cfits_read_nrow(Rcpp::String filename, int ext=2){
   int hdutype;
   long nrow;
 
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_rows, fptr, &nrow);
-  fits_invoke(close_file, fptr);
   return nrow;
 }
 
@@ -196,9 +222,8 @@ int Cfits_read_nrow(Rcpp::String filename, int ext=2){
 int Cfits_read_nhdu(Rcpp::String filename){
   int nhdu;
 
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(get_num_hdus, fptr, &nhdu);
-  fits_invoke(close_file, fptr);
   return nhdu;
 }
 
@@ -206,10 +231,9 @@ int Cfits_read_nhdu(Rcpp::String filename){
 int Cfits_read_ncol(Rcpp::String filename, int ext=2){
   int hdutype,ncol;
   
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_cols, fptr,&ncol);
-  fits_invoke(close_file, fptr);
   return ncol;
 }
 
@@ -217,7 +241,7 @@ int Cfits_read_ncol(Rcpp::String filename, int ext=2){
 SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   int hdutype, ncol;
 
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_cols, fptr, &ncol);
 
@@ -234,8 +258,6 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
     }
     ii++;
   }
-
-  fits_invoke(close_file, fptr);
   return out;
 }
 
@@ -244,17 +266,16 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
                          Rcpp::CharacterVector tunits, Rcpp::String extname)
 {
-  fitsfile *fptr;
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
   auto c_tunits = to_string_vector(tunits);
-  
-  fits_invoke(create_file, &fptr, filename.get_cstring());
+
+  fits_file fptr;
+  fits_invoke(create_file, fptr, filename.get_cstring());
   fits_invoke(create_hdu, fptr);
   fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
               c_ttypes.data(), c_tforms.data(), c_tunits.data(),
               (char *)extname.get_cstring());
-  fits_invoke(close_file, fptr);
 }
 
 // [[Rcpp::export]]
@@ -262,7 +283,7 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
   
   int hdutype,ii;
   //Rcout << filename.get_cstring() << std::endl;
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
   if ( typecode == TSTRING ) {
@@ -278,8 +299,6 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
   }else if(typecode == TDOUBLE){
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
   }
-  
-  fits_invoke(close_file, fptr);
 }
 
 // int CFITS_API ffgkey(fitsfile *fptr, const char *keyname, char *keyval, char *comm,
@@ -291,7 +310,7 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
 SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
   int hdutype;
   
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   char comment[81];
@@ -301,7 +320,6 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
     std::vector<double> keyvalue(1);
     fits_invoke(read_key, fptr, TDOUBLE, keyname.get_cstring(), keyvalue.data(), comment);
     std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return(out);
   }else if ( typecode == TSTRING){
     Rcpp::StringVector out(1);
@@ -310,7 +328,6 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
     fits_invoke(read_key, fptr, TSTRING, keyname.get_cstring(), keyvalue, comment);
     out[0] = keyvalue;
     //std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
-    fits_invoke(close_file, fptr);
     return(out);
   }
   throw std::runtime_error("unsupported type");
@@ -320,7 +337,7 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
 void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname, Rcpp::String comment, int ext=2, int typecode=1){
   int hdutype;
   
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   if ( typecode == TSTRING ) {
@@ -334,8 +351,6 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
   }else if(typecode == TDOUBLE){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), comment.get_cstring());
   }
-  
-  fits_invoke(close_file, fptr);
 }
 
 //fitsfile *fptr, int bitpix, int naxis, long *naxes, int *status
@@ -350,14 +365,11 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
 // [[Rcpp::export]]
 void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , long naxis2=100)
 {
-  fitsfile *fptr;
-  
   long naxes[] = {naxis1, naxis2};
-  
-  fits_invoke(create_file, &fptr, filename.get_cstring());
+  fits_file fptr;
+  fits_invoke(create_file, fptr, filename.get_cstring());
   fits_invoke(create_hdu, fptr);
   fits_invoke(create_img, fptr, bitpix, 2, naxes);
-  fits_invoke(close_file, fptr);
 }
 
 // // [[Rcpp::export]]
@@ -419,12 +431,12 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   long nelements = naxis1 * naxis2;
   long naxes[] = {naxis1, naxis2};
   long fpixel[] = {1, 1};
-  fitsfile *fptr;
+  fits_file fptr;
   
   //Rcout << "Here 1" << std::endl;
   
   if(create_file == 1){
-    fits_invoke(create_file, &fptr, filename.get_cstring());
+    fits_invoke(create_file, fptr, filename.get_cstring());
     fits_invoke(create_hdu, fptr);
     fits_invoke(create_img, fptr, bitpix, 2, naxes);
   }else{
@@ -462,14 +474,13 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
   }
-  fits_invoke(close_file, fptr);
 }
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
   int nkeys, keypos, ii, hdutype;
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   
@@ -480,41 +491,37 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
     fits_invoke(read_record, fptr, ii, card);
     out[ii-1] = card;
   }
-  fits_invoke(close_file, fptr);
   return(out);
 }
 
 // [[Rcpp::export]]
 void Cfits_delete_HDU(Rcpp::String filename, int ext=1){
   int hdutype;
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(delete_hdu, fptr, &hdutype);
-  fits_invoke(close_file, fptr);
 }
 
 // [[Rcpp::export]]
 void Cfits_delete_key(Rcpp::String filename, Rcpp::String keyname, int ext=1){
   int hdutype;
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(delete_key, fptr, keyname.get_cstring());
-  fits_invoke(close_file, fptr);
 }
 
 // [[Rcpp::export]]
 void Cfits_delete_header(Rcpp::String filename, int ext=1){
   int hdutype, nkeys, keypos, ii;
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READWRITE);
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   for (ii = 2; ii <= nkeys; ii++)  {
     fits_invoke(delete_record, fptr, 2);
   }
-  fits_invoke(close_file, fptr);
 }
 
 // [[Rcpp::export]]
@@ -523,8 +530,8 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
 {
   int anynull, nullvals = 0, hdutype;
   
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   long fpixel[] = {fpixel0, fpixel1};
@@ -539,7 +546,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<float> pixels(npixels);
     fits_invoke(read_subset, fptr, TFLOAT, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     NumericMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
@@ -547,7 +553,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<double> pixels(npixels);
     fits_invoke(read_subset, fptr, TDOUBLE, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     NumericMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
@@ -555,7 +560,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<int> pixels(npixels);
     fits_invoke(read_subset, fptr, TBYTE, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
@@ -563,7 +567,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<short> pixels(npixels);
     fits_invoke(read_subset, fptr, TSHORT, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
@@ -571,7 +574,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<long> pixels(npixels);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
