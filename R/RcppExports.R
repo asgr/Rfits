@@ -9,6 +9,10 @@ Cfits_read_nrow <- function(filename, ext = 2L) {
     .Call(`_Rfits_Cfits_read_nrow`, filename, ext)
 }
 
+Cfits_read_nhdu <- function(filename) {
+    .Call(`_Rfits_Cfits_read_nhdu`, filename)
+}
+
 Cfits_read_ncol <- function(filename, ext = 2L) {
     .Call(`_Rfits_Cfits_read_ncol`, filename, ext)
 }
@@ -33,12 +37,12 @@ Cfits_update_key <- function(filename, keyvalue, keyname, comment, ext = 2L, typ
     invisible(.Call(`_Rfits_Cfits_update_key`, filename, keyvalue, keyname, comment, ext, typecode))
 }
 
-Cfits_create_image <- function(filename, bitpix, naxis1, naxis2) {
+Cfits_create_image <- function(filename, bitpix = 32L, naxis1 = 100L, naxis2 = 100L) {
     invisible(.Call(`_Rfits_Cfits_create_image`, filename, bitpix, naxis1, naxis2))
 }
 
-Cfits_write_image <- function(filename, data, datatype, naxis1, naxis2, ext = 1L) {
-    invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis1, naxis2, ext))
+Cfits_write_image <- function(filename, data, datatype, naxis1, naxis2, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L) {
+    invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis1, naxis2, ext, create_ext, create_file, bitpix))
 }
 
 Cfits_read_header <- function(filename, ext = 1L) {

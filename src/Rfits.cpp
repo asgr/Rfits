@@ -193,9 +193,19 @@ int Cfits_read_nrow(Rcpp::String filename, int ext=2){
 }
 
 // [[Rcpp::export]]
+int Cfits_read_nhdu(Rcpp::String filename){
+  int nhdu;
+
+  auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_invoke(get_num_hdus, fptr, &nhdu);
+  fits_invoke(close_file, fptr);
+  return nhdu;
+}
+
+// [[Rcpp::export]]
 int Cfits_read_ncol(Rcpp::String filename, int ext=2){
   int hdutype,ncol;
-
+  
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_cols, fptr,&ncol);
@@ -235,13 +245,14 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector tunits, Rcpp::String extname)
 {
   fitsfile *fptr;
-
-  fits_invoke(create_file, &fptr, filename.get_cstring());
-  fits_invoke(create_hdu, fptr);
-
+  
+  int hdutype;
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
   auto c_tunits = to_string_vector(tunits);
+  
+  fits_invoke(create_file, &fptr, filename.get_cstring());
+  fits_invoke(create_hdu, fptr);
   fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
               c_ttypes.data(), c_tforms.data(), c_tunits.data(),
               (char *)extname.get_cstring());
@@ -252,7 +263,7 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
 void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode=1){
   
   int hdutype,ii;
-
+  //Rcout << filename.get_cstring() << std::endl;
   auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
@@ -339,7 +350,7 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
 //fits_write_pix(fitsfile *fptr, int datatype, long *fpixel,
 //               long nelements, void *array, int *status);
 // [[Rcpp::export]]
-void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long naxis2)
+void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , long naxis2=100)
 {
   fitsfile *fptr;
   
@@ -403,13 +414,31 @@ void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1 , long na
 // }
 
 // [[Rcpp::export]]
-void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 , long naxis2, int ext=1)
+void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 ,
+                       long naxis2, int ext=1, int create_ext=1, int create_file=1, int bitpix=32)
 {
   int hdutype, ii;
   long nelements = naxis1 * naxis2;
+  long naxes[] = {naxis1, naxis2};
   long fpixel[] = {1, 1};
+  fitsfile *fptr;
   
-  auto *fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  //Rcout << "Here 1" << std::endl;
+  
+  if(create_file == 1){
+    fits_invoke(create_file, &fptr, filename.get_cstring());
+    fits_invoke(create_hdu, fptr);
+    fits_invoke(create_img, fptr, bitpix, 2, naxes);
+  }else{
+    fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+    if(create_ext == 1){
+      int nhdu;
+      fits_invoke(create_hdu, fptr);
+      fits_invoke(create_img, fptr, bitpix, 2, naxes);
+      fits_invoke(get_num_hdus, fptr, &nhdu);
+      ext = nhdu + 1;
+    }
+  }
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   //below need to work for integers and doubles:
   if(datatype == TINT){

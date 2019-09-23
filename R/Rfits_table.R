@@ -75,12 +75,12 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   return(invisible(output))
 }
 
-Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), overwrite=TRUE){
+Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), overwrite_file=TRUE){
   assertDataFrame(table, min.rows = 1, min.cols = 1)
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
-  assertPathForOutput(filename, overwrite=overwrite)
-  if(testFileExists(filename) & overwrite){
+  assertPathForOutput(filename, overwrite=TRUE)
+  if(testFileExists(filename) & overwrite_file){
     file.remove(filename)
   }
   assertCharacter(extname, max.len = 1)
@@ -117,6 +117,6 @@ Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', di
   
   Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
   for(i in 1:ncol){
-    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, ext = 2, typecode = typecode[i])
+    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, typecode = typecode[i])
   }
 }

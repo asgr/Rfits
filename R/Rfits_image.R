@@ -110,11 +110,15 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', overwrite=TRUE){
+Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
-  assertPathForOutput(filename, overwrite=overwrite)
-  if(testFileExists(filename) & overwrite){
+  if(create_file){
+    assertPathForOutput(filename, overwrite=overwrite_file)
+  }else{
+    assertFileExists(filename)
+  }
+  if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
   if(class(image)=='Rfits_image'){
@@ -151,32 +155,31 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
     }
   }
-  if(bitpix==0 & is.numeric(image[1])){
-    if(all(image %% 1 == 0)){
-      image=as.integer(image)
-      if(integer=='short' | integer=='int' | integer=='16'){
-        bitpix=16
-        datatype=21
-      }else if(integer=='long' | integer=='32'){
-        bitpix=32
-        datatype=31
-      }else{
-        stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
-      }
+  if(bitpix==0){
+    # if(all(image %% 1 == 0)){
+    #   image=as.integer(image)
+    #   if(integer=='short' | integer=='int' | integer=='16'){
+    #     bitpix=16
+    #     datatype=21
+    #   }else if(integer=='long' | integer=='32'){
+    #     bitpix=32
+    #     datatype=31
+    #   }else{
+    #     stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
+    #   }
+    # }else{
+    if(numeric=='single' | numeric=='float' | numeric=='32'){
+      bitpix=-32
+      datatype=42
+    }else if (numeric=='double' | numeric=='64'){
+      bitpix=-64
+      datatype=82
     }else{
-      if(numeric=='single' | numeric=='float' | numeric=='32'){
-        bitpix=-32
-        datatype=42
-      }else if (numeric=='double' | numeric=='64'){
-        bitpix=-64
-        datatype=82
-      }else{
-        stop('numeric type must be single/float/32 or double/64')
-      }
+      stop('numeric type must be single/float/32 or double/64')
     }
   }
-  Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
-  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=ext)
+  #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
+  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
     Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext=ext)

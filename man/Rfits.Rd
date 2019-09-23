@@ -21,12 +21,13 @@ Generic header key, image and table readers and writers. Works with a wide range
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
 
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
-  overwrite = TRUE)
+  overwrite_file = TRUE)
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
 Rfits_write_image(image, filename, ext = 1, keyvalues, comments, keynames,
-  numeric = 'single', integer = 'long', overwrite = TRUE)
+  numeric = 'single', integer = 'long', create_ext = TRUE, create_file = TRUE,
+  overwrite_file = TRUE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
@@ -100,7 +101,13 @@ Character scalar; name of the table extension.
   \item{tunits}{
 Character vector; data units to be written out. Default is NULL. 
 }
-  \item{overwrite}{
+  \item{create_ext}{
+Logical; should a new extension be created (TRUE) or not (FALSE).
+}
+  \item{create_file}{
+Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it.
+}
+  \item{overwrite_file}{
 Logical; if file exists at location \option{filename}, should it be overwritten?
 }
   \item{data.table}{
