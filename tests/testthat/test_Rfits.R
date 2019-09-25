@@ -25,7 +25,7 @@ temp_image3 = Rfits_read_image(file_image_temp, ext=2)
 expect_identical(temp_image2$imDat, temp_image3$imDat) 
 
 Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, create_ext=T)
-#illegally read ext 5 and get error
+#illegally read ext 3 and get error that we ignore
 try(Rfits_read_image(file_image_temp, ext=3), silent=TRUE)
 #carry on writing
 temp=try(Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, create_ext=T))
