@@ -1,6 +1,5 @@
 #!/bin/sh
 
-rm -f src/Makevars
 rm -f src/cfitsio/*.o
 rm -f src/cfitsio/*.a
 rm -f src/cfitsio/*.so
