@@ -7,7 +7,7 @@ all: $(SHLIB)
 $(SHLIB): cfitsio
 
 cfitsio:
-	(cd cfitsio && pwd && /usr/bin/make libcfitsio.a)
+	(cd cfitsio && make libcfitsio.a)
 
 shlib-clean: clean
 
