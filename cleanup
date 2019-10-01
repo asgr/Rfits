@@ -1,7 +1,8 @@
 #!/bin/sh
 
-rm -f src/Makevars src/libprofit/include/profit/config.h
-rm -f src/libprofit/include/profit/cl/*-float.h
-rm -f src/libprofit/include/profit/cl/*-double.h
-rm -f src/*.o
-rm -f src/libprofit/src/*.o
+rm -f src/Makevars
+rm -f src/cfitsio/*.o
+rm -f src/cfitsio/*.a
+rm -f src/cfitsio/*.so
+rm -f src/cfitsio/config.log
+rm -f src/cfitsio/config.status
