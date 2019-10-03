@@ -21,7 +21,7 @@ Generic header key, image and table readers and writers. Works with a wide range
 Rfits_read_table(filename, ext = 2, data.table = TRUE)
 
 Rfits_write_table(table, filename, extname = 'Main', tunits = rep('\01', dim(table)[2]),
-  overwrite_file = TRUE)
+  create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE)
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 

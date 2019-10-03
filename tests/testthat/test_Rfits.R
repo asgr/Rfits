@@ -71,3 +71,9 @@ temp_table2 = Rfits_read_table(file_table_temp)
 
 #ex 11
 expect_identical(temp_table, temp_table2)
+
+Rfits_write_table(temp_table, file_table_temp, overwrite_file=F, create_file=F, create_ext=T)
+temp_table3 = Rfits_read_table(file_table_temp, ext=3)
+
+#ex 11
+expect_identical(temp_table, temp_table3)

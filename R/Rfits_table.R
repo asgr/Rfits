@@ -75,15 +75,23 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   return(invisible(output))
 }
 
-Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), overwrite_file=TRUE){
-  assertDataFrame(table, min.rows = 1, min.cols = 1)
+Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+  assertFlag(create_ext)
+  assertFlag(create_file)
+  assertFlag(overwrite_file)
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
-  assertPathForOutput(filename, overwrite=TRUE)
-  if(testFileExists(filename) & overwrite_file){
+  if(create_file){
+    assertPathForOutput(filename, overwrite=overwrite_file)
+  }else{
+    assertFileExists(filename)
+  }
+  if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
   assertCharacter(extname, max.len = 1)
+  
+  assertDataFrame(table, min.rows = 1, min.cols = 1)
   
   nrow=dim(table)[1]
   ncol=dim(table)[2]
@@ -115,8 +123,11 @@ Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', di
   assertCharacter(tforms, len = ncol)
   assertCharacter(tunits, len = ncol)
   
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname)
+  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, create_ext=create_ext, create_file=create_file)
+  if(create_ext){
+    ext = Cfits_read_nhdu(filename)
+  }
   for(i in 1:ncol){
-    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, typecode = typecode[i])
+    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, ext = ext, typecode = typecode[i])
   }
 }

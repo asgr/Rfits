@@ -111,6 +111,9 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
 }
 
 Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+  assertFlag(create_ext)
+  assertFlag(create_file)
+  assertFlag(overwrite_file)
   assertCharacter(filename, max.len = 1)
   filename=path.expand(filename)
   if(create_file){

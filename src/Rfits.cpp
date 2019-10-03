@@ -264,18 +264,37 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 // [[Rcpp::export]]
 void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
-                         Rcpp::CharacterVector tunits, Rcpp::String extname)
+                         Rcpp::CharacterVector tunits, Rcpp::String extname, int create_ext=1, int create_file=1)
 {
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
   auto c_tunits = to_string_vector(tunits);
 
   fits_file fptr;
-  fits_invoke(create_file, fptr, filename.get_cstring());
-  fits_invoke(create_hdu, fptr);
-  fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
-              c_ttypes.data(), c_tforms.data(), c_tunits.data(),
-              (char *)extname.get_cstring());
+  // fits_invoke(create_file, fptr, filename.get_cstring());
+  // fits_invoke(create_hdu, fptr);
+  // fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
+  //             c_ttypes.data(), c_tforms.data(), c_tunits.data(),
+  //             (char *)extname.get_cstring());
+  
+  if(create_file == 1){
+    fits_invoke(create_file, fptr, filename.get_cstring());
+    fits_invoke(create_hdu, fptr);
+    fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
+                c_ttypes.data(), c_tforms.data(), c_tunits.data(),
+                (char *)extname.get_cstring());
+  }else{
+    fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+    if(create_ext == 1){
+      int nhdu, hdutype;
+      fits_invoke(get_num_hdus, fptr, &nhdu);
+      fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
+      fits_invoke(create_hdu, fptr);
+      fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
+                  c_ttypes.data(), c_tforms.data(), c_tunits.data(),
+                  (char *)extname.get_cstring());
+    }
+  }
 }
 
 // [[Rcpp::export]]
@@ -357,7 +376,7 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
 // BYTE_IMG      =   8   ( 8-bit byte pixels, 0 - 255)
 //   SHORT_IMG     =  16   (16 bit integer pixels)
 //   LONG_IMG      =  32   (32-bit integer pixels)
-//   LONGLONG_IMG  =  64   (64-bit integer pixels)
+//   LONGLONG_IMG  =  64   (64-bit inxteger pixels)
 //   FLOAT_IMG     = -32   (32-bit floating point pixels)
 //   DOUBLE_IMG    = -64   (64-bit floating point pixels)
 //fits_write_pix(fitsfile *fptr, int datatype, long *fpixel,
