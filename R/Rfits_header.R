@@ -169,6 +169,18 @@ Rfits_write_header=function(filename, keyvalues, comments, keynames, ext=1){
   }
 }
 
+Rfits_info=function(filename){
+  ext = Cfits_read_nhdu(filename)
+  headers=list()
+  info={}
+  for(i in 1:ext){
+    temp = Rfits_read_header(filename, i)
+    info = c(info, temp$header[1])
+    headers=c(headers, list(temp))
+  }
+  return(invisible(list(summary = info, headers=headers)))
+}
+
 .parse_header=function(header){
   #Based on parseHdr in FITSio
   good = which(substr(header, 9, 10) == "= ")

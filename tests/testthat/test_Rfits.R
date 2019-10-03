@@ -75,5 +75,24 @@ expect_identical(temp_table, temp_table2)
 Rfits_write_table(temp_table, file_table_temp, overwrite_file=F, create_file=F, create_ext=T)
 temp_table3 = Rfits_read_table(file_table_temp, ext=3)
 
-#ex 11
+#ex 12
 expect_identical(temp_table, temp_table3)
+
+file_mix_temp = tempfile()
+Rfits_write_image(temp_image, file_mix_temp)
+Rfits_write_table(temp_table, file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
+
+temp_image3 = Rfits_read_image(file_mix_temp)
+
+#ex 13
+expect_identical(temp_image$imDat, temp_image3$imDat) 
+
+temp_table4 = Rfits_read_table(file_mix_temp, ext=2)
+
+#ex 14
+expect_identical(temp_table, temp_table4)
+
+file_mix_summary = Rfits_info(file_mix_temp)$summary
+
+#ex 15
+expect_length(file_mix_summary, 2)

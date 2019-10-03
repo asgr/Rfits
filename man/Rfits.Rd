@@ -10,6 +10,7 @@
 \alias{Rfits_delete_key}
 \alias{Rfits_read_header}
 \alias{Rfits_write_header}
+\alias{Rfits_info}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Readers and Writers
@@ -38,11 +39,13 @@ Rfits_delete_key(filename, keyname, ext = 1)
 Rfits_read_header(filename, ext = 1)
 
 Rfits_write_header(filename, keyvalues, comments, keynames, ext=1)
+
+Rfits_info(filename)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{filename}{
-Character scalar; path to FITS file.
+Character scalar; path to FITS file, either to be written to or read.
 }
   \item{table}{
 Data.frame or data.table; data to be written out as a binary FITS table.
@@ -141,6 +144,8 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{Rfits_read_key}: scalar numeric or string.
 
 \code{Rfits_read_header}: list containing the unformatted header string vector (\option{header}), the keyname / keyvalue stripped version (\option{hdr}), the named \option{keyvalues} list, the named \option{comments} list, and the vector of non-comment keynames (\option{keynames}).
+
+\code{Rfits_info}: list containing top level summary (\option{summary}), and list of all headers contained in target file (\option{headers}).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

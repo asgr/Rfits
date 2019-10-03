@@ -10,6 +10,7 @@ export(Rfits_write_key)
 export(Rfits_delete_key)
 export(Rfits_read_header)
 export(Rfits_write_header)
+export(Rfits_info)
 
 #Cfits things
 #export(Cfits_read_img_subset)
