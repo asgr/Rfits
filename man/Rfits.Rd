@@ -157,7 +157,7 @@ Rodrigo Tobar
 }
 
 \seealso{
-\code{FITSio}, ~~~
+\code{FITSio}, \code{astro}
 }
 \examples{
 #Read table
