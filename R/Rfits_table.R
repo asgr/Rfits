@@ -57,11 +57,11 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   assertIntegerish(ext, len = 1)
   assertFlag(data.table)
   
-  ncol=Cfits_read_ncol(filename)
+  ncol=Cfits_read_ncol(filename, ext=ext)
   output=list()
   
   for(i in 1:ncol){
-    output[[i]]=Cfits_read_col(filename,colref=i)
+    output[[i]]=Cfits_read_col(filename,colref=i,ext=ext)
   }
   
   if(data.table){
@@ -75,7 +75,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   return(invisible(output))
 }
 
-Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -107,7 +107,7 @@ Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', di
   tforms[check.int]="1J" # will become typecode = TINT = 31
   tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
   tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-  tforms[check.char]=paste(sapply(table[,check.char],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+  tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
   
   if(length(grep('1K|1J|1D|A',tforms)) != ncol){
     stop(paste('Unrecognised column data type in column',which(!1:ncol %in% grep('1K|1J|1D|A',tforms))))
@@ -123,10 +123,8 @@ Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', di
   assertCharacter(tforms, len = ncol)
   assertCharacter(tunits, len = ncol)
   
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, create_ext=create_ext, create_file=create_file)
-  if(create_ext){
-    ext = Cfits_read_nhdu(filename)
-  }
+  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, ext=ext, create_ext=create_ext, create_file=create_file)
+  ext = Cfits_read_nhdu(filename)
   for(i in 1:ncol){
     Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, ext = ext, typecode = typecode[i])
   }

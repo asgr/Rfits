@@ -96,3 +96,22 @@ file_mix_summary = Rfits_info(file_mix_temp)$summary
 
 #ex 15
 expect_length(file_mix_summary, 2)
+
+Rfits_write_image(temp_image$imDat[1:100,1:100], file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
+Rfits_write_table(temp_table[1:50,], file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
+
+temp_image4 = Rfits_read_image(file_mix_temp, ext=3)
+
+#ex 16
+expect_identical(temp_image4$imDat, temp_image$imDat[1:100,1:100])
+
+temp_table5 = Rfits_read_table(file_mix_temp, ext=4)
+
+#ex 17
+expect_identical(temp_table5, temp_table[1:50,])
+
+Rfits_write_table(temp_table[1:60,], file_mix_temp, overwrite_file=F, create_file=F, create_ext=F, ext=3) #delete ext 3 and append to end
+temp_table6 = Rfits_read_table(file_mix_temp, ext=4)
+
+#ex 17
+expect_identical(temp_table6, temp_table[1:60,])
