@@ -264,12 +264,14 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 // [[Rcpp::export]]
 void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
-                         Rcpp::CharacterVector tunits, Rcpp::String extname, int create_ext=1, int create_file=1)
+                         Rcpp::CharacterVector tunits, Rcpp::String extname, int ext=2, int create_ext=1, int create_file=1)
 {
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
   auto c_tunits = to_string_vector(tunits);
 
+  int nhdu, hdutype;
+  
   fits_file fptr;
   // fits_invoke(create_file, fptr, filename.get_cstring());
   // fits_invoke(create_hdu, fptr);
@@ -279,22 +281,21 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
   
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
-    fits_invoke(create_hdu, fptr);
-    fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
-                c_ttypes.data(), c_tforms.data(), c_tunits.data(),
-                (char *)extname.get_cstring());
   }else{
     fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
     if(create_ext == 1){
-      int nhdu, hdutype;
       fits_invoke(get_num_hdus, fptr, &nhdu);
       fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
-      fits_invoke(create_hdu, fptr);
-      fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
-                  c_ttypes.data(), c_tforms.data(), c_tunits.data(),
-                  (char *)extname.get_cstring());
+    }else{
+      fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+      fits_invoke(delete_hdu, fptr, &hdutype);
     }
   }
+  
+  fits_invoke(create_hdu, fptr);
+  fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
+              c_ttypes.data(), c_tforms.data(), c_tunits.data(),
+              (char *)extname.get_cstring());
 }
 
 // [[Rcpp::export]]
@@ -456,19 +457,21 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
   
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
-    fits_invoke(create_hdu, fptr);
-    fits_invoke(create_img, fptr, bitpix, 2, naxes);
   }else{
     fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
     if(create_ext == 1){
       int nhdu;
-      fits_invoke(create_hdu, fptr);
-      fits_invoke(create_img, fptr, bitpix, 2, naxes);
       fits_invoke(get_num_hdus, fptr, &nhdu);
-      ext = nhdu + 1;
+      fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
+    }else{
+      fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+      fits_invoke(delete_hdu, fptr, &hdutype);
     }
   }
-  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  fits_invoke(create_hdu, fptr);
+  fits_invoke(create_img, fptr, bitpix, 2, naxes);
+
   //below need to work for integers and doubles:
   if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));

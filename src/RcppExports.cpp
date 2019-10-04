@@ -67,8 +67,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_create_bintable
-void Cfits_create_bintable(Rcpp::String filename, int tfields, Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms, Rcpp::CharacterVector tunits, Rcpp::String extname, int create_ext, int create_file);
-RcppExport SEXP _Rfits_Cfits_create_bintable(SEXP filenameSEXP, SEXP tfieldsSEXP, SEXP ttypesSEXP, SEXP tformsSEXP, SEXP tunitsSEXP, SEXP extnameSEXP, SEXP create_extSEXP, SEXP create_fileSEXP) {
+void Cfits_create_bintable(Rcpp::String filename, int tfields, Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms, Rcpp::CharacterVector tunits, Rcpp::String extname, int ext, int create_ext, int create_file);
+RcppExport SEXP _Rfits_Cfits_create_bintable(SEXP filenameSEXP, SEXP tfieldsSEXP, SEXP ttypesSEXP, SEXP tformsSEXP, SEXP tunitsSEXP, SEXP extnameSEXP, SEXP extSEXP, SEXP create_extSEXP, SEXP create_fileSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
@@ -77,9 +77,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type tforms(tformsSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type tunits(tunitsSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type extname(extnameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
     Rcpp::traits::input_parameter< int >::type create_ext(create_extSEXP);
     Rcpp::traits::input_parameter< int >::type create_file(create_fileSEXP);
-    Cfits_create_bintable(filename, tfields, ttypes, tforms, tunits, extname, create_ext, create_file);
+    Cfits_create_bintable(filename, tfields, ttypes, tforms, tunits, extname, ext, create_ext, create_file);
     return R_NilValue;
 END_RCPP
 }
@@ -228,7 +229,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_nhdu", (DL_FUNC) &_Rfits_Cfits_read_nhdu, 1},
     {"_Rfits_Cfits_read_ncol", (DL_FUNC) &_Rfits_Cfits_read_ncol, 2},
     {"_Rfits_Cfits_read_colname", (DL_FUNC) &_Rfits_Cfits_read_colname, 3},
-    {"_Rfits_Cfits_create_bintable", (DL_FUNC) &_Rfits_Cfits_create_bintable, 8},
+    {"_Rfits_Cfits_create_bintable", (DL_FUNC) &_Rfits_Cfits_create_bintable, 9},
     {"_Rfits_Cfits_write_col", (DL_FUNC) &_Rfits_Cfits_write_col, 6},
     {"_Rfits_Cfits_read_key", (DL_FUNC) &_Rfits_Cfits_read_key, 4},
     {"_Rfits_Cfits_update_key", (DL_FUNC) &_Rfits_Cfits_update_key, 6},

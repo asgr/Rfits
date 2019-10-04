@@ -61,7 +61,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   output=list()
   
   for(i in 1:ncol){
-    output[[i]]=Cfits_read_col(filename,colref=i)
+    output[[i]]=Cfits_read_col(filename,colref=i,ext=ext)
   }
   
   if(data.table){
@@ -75,7 +75,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE){
   return(invisible(output))
 }
 
-Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -123,7 +123,7 @@ Rfits_write_table=function(table, filename, extname='Main', tunits=rep('\01', di
   assertCharacter(tforms, len = ncol)
   assertCharacter(tunits, len = ncol)
   
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, create_ext=create_ext, create_file=create_file)
+  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, ext=ext, create_ext=create_ext, create_file=create_file)
   if(create_ext){
     ext = Cfits_read_nhdu(filename)
   }
