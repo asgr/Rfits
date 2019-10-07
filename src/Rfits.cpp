@@ -264,7 +264,8 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 // [[Rcpp::export]]
 void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector ttypes, Rcpp::CharacterVector tforms,
-                         Rcpp::CharacterVector tunits, Rcpp::String extname, int ext=2, int create_ext=1, int create_file=1)
+                         Rcpp::CharacterVector tunits, Rcpp::String extname, int ext=2,
+                         int create_ext=1, int create_file=1, int table_type=2)
 {
   auto c_ttypes = to_string_vector(ttypes);
   auto c_tforms = to_string_vector(tforms);
@@ -273,11 +274,6 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
   int nhdu, hdutype;
   
   fits_file fptr;
-  // fits_invoke(create_file, fptr, filename.get_cstring());
-  // fits_invoke(create_hdu, fptr);
-  // fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
-  //             c_ttypes.data(), c_tforms.data(), c_tunits.data(),
-  //             (char *)extname.get_cstring());
   
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
@@ -294,7 +290,7 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
     }
   }
   
-  fits_invoke(create_tbl, fptr, BINARY_TBL, 0, tfields,
+  fits_invoke(create_tbl, fptr, table_type, 0, tfields,
               c_ttypes.data(), c_tforms.data(), c_tunits.data(),
               (char *)extname.get_cstring());
 }

@@ -113,5 +113,11 @@ expect_identical(temp_table5, temp_table[1:50,])
 Rfits_write_table(temp_table[1:60,], file_mix_temp, overwrite_file=F, create_file=F, create_ext=F, ext=3) #delete ext 3 and append to end
 temp_table6 = Rfits_read_table(file_mix_temp, ext=4)
 
-#ex 17
+#ex 18
 expect_identical(temp_table6, temp_table[1:60,])
+
+Rfits_write_table(temp_table, file_table_temp, table_type = 'ascii')
+temp_table7=Rfits_read_table(file_table_temp)
+
+#ex 19
+expect_equal(temp_table7[,c(1,3:35)], temp_table[,c(1,3:35)]) #int64 is truncated to int by cfitsio ascii reader

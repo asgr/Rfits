@@ -21,8 +21,8 @@ Cfits_read_colname <- function(filename, colref = 1L, ext = 2L) {
     .Call(`_Rfits_Cfits_read_colname`, filename, colref, ext)
 }
 
-Cfits_create_bintable <- function(filename, tfields, ttypes, tforms, tunits, extname, ext = 2L, create_ext = 1L, create_file = 1L) {
-    invisible(.Call(`_Rfits_Cfits_create_bintable`, filename, tfields, ttypes, tforms, tunits, extname, ext, create_ext, create_file))
+Cfits_create_bintable <- function(filename, tfields, ttypes, tforms, tunits, extname, ext = 2L, create_ext = 1L, create_file = 1L, table_type = 2L) {
+    invisible(.Call(`_Rfits_Cfits_create_bintable`, filename, tfields, ttypes, tforms, tunits, extname, ext, create_ext, create_file, table_type))
 }
 
 Cfits_write_col <- function(filename, data, nrow, colref = 1L, ext = 2L, typecode = 1L) {
