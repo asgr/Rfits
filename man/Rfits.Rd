@@ -13,6 +13,7 @@
 \alias{Rfits_delete_key}
 \alias{Rfits_write_comment}
 \alias{Rfits_write_history}
+\alias{Rfits_write_date}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Readers and Writers
@@ -48,6 +49,8 @@ Rfits_delete_key(filename, keyname, ext = 1)
 Rfits_write_comment(filename, comment = "", ext = 1)
 
 Rfits_write_history(filename, history = "", ext = 1) 
+
+Rfits_write_date(filename, ext = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -149,19 +152,31 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{header} functions work with any FITS header, reading and writing them in their entirety.
 }
 \value{
-\code{Rfits_write_} functions just have the side effect of writing data out.
+\code{Rfits_read_table}: read table  into data.frame or data.table.
+
+\code{Rfits_read_image}: read image into numeric or integer matrix.
+
+\code{Rfits_read_key}: read single key entry into scalar numeric or string.
+
+\code{Rfits_read_header}: read header into list containing the unformatted header string vector (\option{header}), the keyname / keyvalue stripped version (\option{hdr}), the named \option{keyvalues} list, the named \option{comments} list, and the vector of non-comment keynames (\option{keynames}).
+
+\code{Rfits_info}: read headers and summary into list containing top level summary (\option{summary}), and list of all headers contained in target file (\option{headers}).
+
+\code{Rfits_write_table} write out table to target FITS extension.
+
+\code{Rfits_write_image} write out image to target FITS extension.
+
+\code{Rfits_write_header} write out full header to target FITS extension.
+
+\code{Rfits_write_key} write single key to target FITS extension header.
+
+\code{Rfits_write_comment} write single comment (COMMENT) entry to target FITS extension header.
+
+\code{Rfits_write_history} write single history (HISTORY) entry to target FITS extension header.
+
+\code{Rfits_write_date} write date entry (DATE) to target FITS extension header.
 
 \code{Rfits_delete_key} deletes the specified \option{keyname}.
-
-\code{Rfits_read_table}: data.frame or data.table.
-
-\code{Rfits_read_image}: numeric or integer matrix.
-
-\code{Rfits_read_key}: scalar numeric or string.
-
-\code{Rfits_read_header}: list containing the unformatted header string vector (\option{header}), the keyname / keyvalue stripped version (\option{hdr}), the named \option{keyvalues} list, the named \option{comments} list, and the vector of non-comment keynames (\option{keynames}).
-
-\code{Rfits_info}: list containing top level summary (\option{summary}), and list of all headers contained in target file (\option{headers}).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

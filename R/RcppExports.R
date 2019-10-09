@@ -45,6 +45,10 @@ Cfits_write_comment <- function(filename, comment, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_write_comment`, filename, comment, ext))
 }
 
+Cfits_write_date <- function(filename, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_date`, filename, ext))
+}
+
 Cfits_create_image <- function(filename, bitpix = 32L, naxis1 = 100L, naxis2 = 100L) {
     invisible(.Call(`_Rfits_Cfits_create_image`, filename, bitpix, naxis1, naxis2))
 }

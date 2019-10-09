@@ -114,6 +114,14 @@ Rfits_write_history=function(filename, history="", ext=1){
   Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
 }
 
+Rfits_write_date=function(filename, ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+
+  Cfits_write_date(filename=filename, ext=ext)
+}
+
 Rfits_delete_key=function(filename, keyname, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)

@@ -153,6 +153,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// Cfits_write_date
+void Cfits_write_date(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Cfits_write_date(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_write_date(filename, ext);
+    return R_NilValue;
+END_RCPP
+}
 // Cfits_create_image
 void Cfits_create_image(Rcpp::String filename, int bitpix, long naxis1, long naxis2);
 RcppExport SEXP _Rfits_Cfits_create_image(SEXP filenameSEXP, SEXP bitpixSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP) {
@@ -260,6 +271,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_update_key", (DL_FUNC) &_Rfits_Cfits_update_key, 6},
     {"_Rfits_Cfits_write_history", (DL_FUNC) &_Rfits_Cfits_write_history, 3},
     {"_Rfits_Cfits_write_comment", (DL_FUNC) &_Rfits_Cfits_write_comment, 3},
+    {"_Rfits_Cfits_write_date", (DL_FUNC) &_Rfits_Cfits_write_date, 2},
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 4},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 9},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},

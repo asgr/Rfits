@@ -391,6 +391,16 @@ void Cfits_write_comment(Rcpp::String filename, Rcpp::String comment, int ext=1)
   fits_invoke(write_comment, fptr, comment.get_cstring());
 }
 
+// [[Rcpp::export]]
+void Cfits_write_date(Rcpp::String filename, int ext=1){
+  int hdutype;
+  
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  fits_invoke(write_date, fptr);
+}
+
 
 //fitsfile *fptr, int bitpix, int naxis, long *naxes, int *status
 // BYTE_IMG      =   8   ( 8-bit byte pixels, 0 - 255)

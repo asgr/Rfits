@@ -1,8 +1,8 @@
 Package: Rfits
 Type: Package
 Title: FITS Readers and Writers
-Version: 0.2.5
-Date: 2019-10-08
+Version: 0.2.6
+Date: 2019-10-09
 Authors@R: c(
     person(given='Aaron', family='Robotham', email='aaron.robotham@uwa.edu.au',
         role=c('aut', 'cre'), comment=c(ORCID='0000-0003-0429-3579')),

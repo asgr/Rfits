@@ -12,6 +12,7 @@ export(Rfits_read_header)
 export(Rfits_write_header)
 export(Rfits_write_comment)
 export(Rfits_write_history)
+export(Rfits_write_date)
 export(Rfits_info)
 
 #Cfits things
