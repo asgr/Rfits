@@ -5,12 +5,14 @@
 \alias{Rfits_write_table}
 \alias{Rfits_read_image}
 \alias{Rfits_write_image}
-\alias{Rfits_read_key}
-\alias{Rfits_write_key}
-\alias{Rfits_delete_key}
 \alias{Rfits_read_header}
 \alias{Rfits_write_header}
 \alias{Rfits_info}
+\alias{Rfits_read_key}
+\alias{Rfits_write_key}
+\alias{Rfits_delete_key}
+\alias{Rfits_write_comment}
+\alias{Rfits_write_history}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Readers and Writers
@@ -27,21 +29,25 @@ Rfits_write_table(table, filename, ext = 2, extname = 'Main',
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
-Rfits_write_image(image, filename, ext = 1, keyvalues, comments, keynames,
-  numeric = 'single', integer = 'long', create_ext = TRUE, create_file = TRUE,
-  overwrite_file = TRUE)
-
-Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
-
-Rfits_write_key(filename, keyname, keyvalue, comment = "", ext = 1)
-
-Rfits_delete_key(filename, keyname, ext = 1)
+Rfits_write_image(image, filename, ext = 1, keyvalues, keycomments, keynames, 
+    comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
+    create_file = TRUE, overwrite_file = TRUE) 
 
 Rfits_read_header(filename, ext = 1)
 
-Rfits_write_header(filename, keyvalues, comments, keynames, ext=1)
+Rfits_write_header(filename, keyvalues, keycomments, keynames, comment, history, ext = 1) 
 
 Rfits_info(filename)
+
+Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
+
+Rfits_write_key(filename, keyname, keyvalue, keycomment = "", ext = 1)
+
+Rfits_delete_key(filename, keyname, ext = 1)
+
+Rfits_write_comment(filename, comment = "", ext = 1)
+
+Rfits_write_history(filename, history = "", ext = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -64,7 +70,7 @@ Logical; should the header be read along with the image matrix. If TRUE (default
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  
 }
   \item{keynames}{
-Character list; (not required) keynames in FITS header to be updated or added (if not present). If not supplied then the keynames will be taken from the names of \option{keyvalues}.
+Character vector; (not required) keynames in FITS header to be updated or added (if not present). If not supplied then the keynames will be taken from the names of \option{keyvalues}.
 }
   \item{keytype}{
 Character scalar; type of key to be read in, either "numeric" or "string". 
@@ -75,11 +81,17 @@ Scalar; value to be written (updated or added) into header (can be any type, e.g
   \item{keyvalues}{
 List; values to be written (updated or added) into header (can be any type, e.g. numeric, integer, string).
 }
-  \item{comment}{
-Character scalar; (not required) comment associated with updates or added \option{keyname}.  
+  \item{keycomment}{
+Character scalar; (not required) comments associated with updated or added \option{keyname}.  
 }
-  \item{comments}{
-Character list; (not required) comments associated with updates or added \option{keynames}.  
+  \item{keycomments}{
+Character vector; (not required) comments associated with updated or added \option{keynames}.  
+}
+  \item{comment}{
+Character scalar/vector; (not required) comments associated with FITS extension.  
+}
+  \item{history}{
+Character scalar/vector; (not required) history information associated with with FITS extension. 
 }
   \item{numeric}{
 Character scalar; the numeric data type to be written out for images. Can be '32' (32 bit), 'single' (32 bit), 'float' (32 bit), '64' (64 bit), 'double' (64 bit).

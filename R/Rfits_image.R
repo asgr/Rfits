@@ -93,16 +93,16 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
       hdr$keyvalues$NAXIS2 = yhi - ylo +1
       hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - xlo + 1
       hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - ylo +1
-      hdr$comments$NAXIS1 = paste(hdr$comments$NAXIS1, 'SUBMOD')
-      hdr$comments$NAXIS2 = paste(hdr$comments$NAXIS2, 'SUBMOD')
-      hdr$comments$CRPIX1 = paste(hdr$comments$CRPIX1, 'SUBMOD')
-      hdr$comments$CRPIX2 = paste(hdr$comments$CRPIX2, 'SUBMOD')
-      hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$comments$NAXIS1,sep='')
-      hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$comments$NAXIS2,sep='')
-      hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$comments$CRPIX1,sep='')
-      hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$comments$CRPIX2,sep='')
+      hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
+      hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
+      hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
+      hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
+      hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
+      hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
+      hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
+      hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
     }
-    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, comments=hdr$comments, keynames=hdr$keynames)
+    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history)
     class(output)='Rfits_image'
     return(invisible(output))
   }else{
@@ -110,7 +110,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames, numeric='single', integer='long', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keynames, comment, history, numeric='single', integer='long', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -126,14 +126,18 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames
   }
   if(class(image)=='Rfits_image'){
     if(missing(keyvalues)){keyvalues=image$keyvalues}
-    if(missing(comments)){comments=image$comments}
+    if(missing(keycomments)){keycomments=image$keycomments}
     if(missing(keynames)){keynames=image$keynames}
+    if(missing(comment)){comment=image$comment}
+    if(missing(history)){history=image$history}
     image=image$imDat
   }
   assertMatrix(image)
   if(!missing(keyvalues)){assertList(keyvalues)}
-  if(!missing(comments)){assertList(comments)}
-  if(!missing(keynames)){assertVector(keynames)}
+  if(!missing(keycomments)){assertList(keycomments)}
+  if(!missing(keynames)){assertCharacter(keynames)}
+  if(!missing(comment)){assertCharacter(comment, null.ok = TRUE)}
+  if(!missing(history)){assertCharacter(history, null.ok = TRUE)}
   if(is.numeric(numeric)){numeric=as.character(numeric)}
   if(is.numeric(integer)){integer=as.character(integer)}
   assertCharacter(numeric, len = 1)
@@ -186,6 +190,10 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, comments, keynames
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
-    Rfits_write_header(filename = filename, keyvalues = keyvalues, comments = comments, keynames = keynames, ext=ext)
+    checkAA=grep("FITS \\(Flexible Image Transport System\\) format is defined in 'Astronomy",comment)
+    if(length(checkAA)>0){comment = comment[-checkAA]}
+    checkAA=grep("and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H",comment)
+    if(length(checkAA)>0){comment = comment[-checkAA]}
+    Rfits_write_header(filename = filename, keyvalues = keyvalues, keycomments = keycomments, keynames = keynames, comment=comment, history=history, ext=ext)
   }
 }

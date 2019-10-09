@@ -67,13 +67,13 @@ Rfits_read_key=function(filename, keyname, keytype='numeric', ext = 1){
   return(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
 }
 
-Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
+Rfits_write_key=function(filename, keyname, keyvalue, keycomment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
   assertCharacter(keyname, len = 1)
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
-  assertCharacter(comment, len = 1)
+  assertCharacter(keycomment, len = 1)
   assertIntegerish(ext, len = 1)
   
   typecode=0
@@ -93,7 +93,25 @@ Rfits_write_key=function(filename, keyname, keyvalue, comment="", ext=1){
     }
   }
   if(is.character(keyvalue)){typecode=16}
-  Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, comment=comment, ext=ext, typecode=typecode)
+  Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode)
+}
+
+Rfits_write_comment=function(filename, comment="", ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+  assertCharacter(comment, len = 1)
+  
+  Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext)
+}
+
+Rfits_write_history=function(filename, history="", ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+  assertCharacter(history, len = 1)
+  
+  Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
 }
 
 Rfits_delete_key=function(filename, keyname, ext=1){
@@ -115,9 +133,25 @@ Rfits_read_header=function(filename, ext=1){
   header=Cfits_read_header(filename=filename, ext=ext)
   
   #remove comments for parsing
-  remove=grep(pattern = 'COMMENT', header)
-  if(length(remove)>0){
-    headertemp = header[-remove]
+  loc_comment = grep(pattern = 'COMMENT', header)
+  loc_history = grep(pattern = 'HISTORY', header)
+  
+  if(length(loc_comment)>0){
+    comment = gsub('COMMENT ', '', header[loc_comment])
+    comment = gsub('  ','',comment)
+  }else{
+    comment = NULL
+  }
+  
+  if(length(loc_history)>0){
+    history = gsub('HISTORY ', '', header[loc_history])
+    history = gsub('  ','',history)
+  }else{
+    history = NULL
+  }
+  
+  if(length(loc_comment)>0 | length(loc_history)>0){
+    headertemp = header[-c(loc_comment, loc_history)]
   }else{
     headertemp = header
   }
@@ -136,35 +170,53 @@ Rfits_read_header=function(filename, ext=1){
   names(keyvalues)=keynames
   
   #comments list
-  comments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
-  names(comments) = keynames
+  keycomments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
+  names(keycomments) = keynames
   
-  return(list(header=header, hdr=hdr, keyvalues=keyvalues, comments=comments, keynames=keynames))
+  return(list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments, keynames=keynames, comment=comment, history=history))
 }
 
-Rfits_write_header=function(filename, keyvalues, comments, keynames, ext=1){
+Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment, history, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
   assertIntegerish(ext, len = 1)
   assertList(keyvalues, min.len = 1)
-  if(! missing(comments)){
-    if(is.list(comments)){
-      assertList(comments, len = length(keyvalues))
-      comments=unlist(comments)
+  if(! missing(keycomments)){
+    if(is.list(keycomments)){
+      assertList(keycomments, len = length(keyvalues))
+      keycomments=unlist(keycomments)
     }
-    assertCharacter(comments, len = length(keyvalues))
+    assertCharacter(keycomments, len = length(keyvalues))
   }
   if(missing(keynames)){
     keynames=names(keyvalues)
   }
   assertCharacter(keynames, max.len=length(keyvalues))
+  if(! missing(comment)){
+    assertCharacter(comment, null.ok = TRUE)
+  }
+  if(! missing(history)){
+    assertCharacter(history, null.ok = TRUE)
+  }
   
   for(i in 1:length(keyvalues)){
-    if(missing(comments)){
-      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], comment="", ext=ext)
+    if(missing(keycomments)){
+      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
     }else{
-      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], comment = comments[[i]], ext=ext)
+      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+    }
+  }
+  
+  if(length(comment) > 0){
+    for(i in comment){
+      Rfits_write_comment(filename, comment=i)
+    }
+  }
+  
+  if(length(history) > 0){
+    for(i in history){
+      Rfits_write_history(filename, history=i)
     }
   }
 }

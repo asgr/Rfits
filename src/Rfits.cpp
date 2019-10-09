@@ -351,7 +351,8 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
 }
 
 // [[Rcpp::export]]
-void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname, Rcpp::String comment, int ext=2, int typecode=1){
+void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname,
+                      Rcpp::String keycomment, int ext=1, int typecode=1){
   int hdutype;
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
@@ -360,15 +361,36 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
   if ( typecode == TSTRING ) {
     char *s_keyvalue;
     s_keyvalue = (char*)CHAR(STRING_ELT(keyvalue, 0));
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), s_keyvalue, comment.get_cstring());
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), s_keyvalue, keycomment.get_cstring());
   }else if (typecode == TINT){
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), comment.get_cstring());
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), keycomment.get_cstring());
   }else if(typecode == TLONGLONG){
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), comment.get_cstring());
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }else if(typecode == TDOUBLE){
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), comment.get_cstring());
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }
 }
+
+// [[Rcpp::export]]
+void Cfits_write_history(Rcpp::String filename, Rcpp::String history, int ext=1){
+  int hdutype;
+  
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  fits_invoke(write_history, fptr, history.get_cstring());
+}
+
+// [[Rcpp::export]]
+void Cfits_write_comment(Rcpp::String filename, Rcpp::String comment, int ext=1){
+  int hdutype;
+  
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  fits_invoke(write_comment, fptr, comment.get_cstring());
+}
+
 
 //fitsfile *fptr, int bitpix, int naxis, long *naxes, int *status
 // BYTE_IMG      =   8   ( 8-bit byte pixels, 0 - 255)

@@ -10,6 +10,8 @@ export(Rfits_write_key)
 export(Rfits_delete_key)
 export(Rfits_read_header)
 export(Rfits_write_header)
+export(Rfits_write_comment)
+export(Rfits_write_history)
 export(Rfits_info)
 
 #Cfits things

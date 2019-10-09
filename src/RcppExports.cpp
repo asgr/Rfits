@@ -115,17 +115,41 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_update_key
-void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname, Rcpp::String comment, int ext, int typecode);
-RcppExport SEXP _Rfits_Cfits_update_key(SEXP filenameSEXP, SEXP keyvalueSEXP, SEXP keynameSEXP, SEXP commentSEXP, SEXP extSEXP, SEXP typecodeSEXP) {
+void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname, Rcpp::String keycomment, int ext, int typecode);
+RcppExport SEXP _Rfits_Cfits_update_key(SEXP filenameSEXP, SEXP keyvalueSEXP, SEXP keynameSEXP, SEXP keycommentSEXP, SEXP extSEXP, SEXP typecodeSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< SEXP >::type keyvalue(keyvalueSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type keyname(keynameSEXP);
-    Rcpp::traits::input_parameter< Rcpp::String >::type comment(commentSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type keycomment(keycommentSEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
     Rcpp::traits::input_parameter< int >::type typecode(typecodeSEXP);
-    Cfits_update_key(filename, keyvalue, keyname, comment, ext, typecode);
+    Cfits_update_key(filename, keyvalue, keyname, keycomment, ext, typecode);
+    return R_NilValue;
+END_RCPP
+}
+// Cfits_write_history
+void Cfits_write_history(Rcpp::String filename, Rcpp::String history, int ext);
+RcppExport SEXP _Rfits_Cfits_write_history(SEXP filenameSEXP, SEXP historySEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type history(historySEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_write_history(filename, history, ext);
+    return R_NilValue;
+END_RCPP
+}
+// Cfits_write_comment
+void Cfits_write_comment(Rcpp::String filename, Rcpp::String comment, int ext);
+RcppExport SEXP _Rfits_Cfits_write_comment(SEXP filenameSEXP, SEXP commentSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type comment(commentSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Cfits_write_comment(filename, comment, ext);
     return R_NilValue;
 END_RCPP
 }
@@ -234,6 +258,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_write_col", (DL_FUNC) &_Rfits_Cfits_write_col, 6},
     {"_Rfits_Cfits_read_key", (DL_FUNC) &_Rfits_Cfits_read_key, 4},
     {"_Rfits_Cfits_update_key", (DL_FUNC) &_Rfits_Cfits_update_key, 6},
+    {"_Rfits_Cfits_write_history", (DL_FUNC) &_Rfits_Cfits_write_history, 3},
+    {"_Rfits_Cfits_write_comment", (DL_FUNC) &_Rfits_Cfits_write_comment, 3},
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 4},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 9},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},

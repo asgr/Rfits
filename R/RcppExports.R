@@ -33,8 +33,16 @@ Cfits_read_key <- function(filename, keyname, typecode, ext = 1L) {
     .Call(`_Rfits_Cfits_read_key`, filename, keyname, typecode, ext)
 }
 
-Cfits_update_key <- function(filename, keyvalue, keyname, comment, ext = 2L, typecode = 1L) {
-    invisible(.Call(`_Rfits_Cfits_update_key`, filename, keyvalue, keyname, comment, ext, typecode))
+Cfits_update_key <- function(filename, keyvalue, keyname, keycomment, ext = 1L, typecode = 1L) {
+    invisible(.Call(`_Rfits_Cfits_update_key`, filename, keyvalue, keyname, keycomment, ext, typecode))
+}
+
+Cfits_write_history <- function(filename, history, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_history`, filename, history, ext))
+}
+
+Cfits_write_comment <- function(filename, comment, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_comment`, filename, comment, ext))
 }
 
 Cfits_create_image <- function(filename, bitpix = 32L, naxis1 = 100L, naxis2 = 100L) {
