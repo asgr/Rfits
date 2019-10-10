@@ -26,7 +26,8 @@ Rfits_read_table(filename, ext = 2, data.table = TRUE)
 
 Rfits_write_table(table, filename, ext = 2, extname = 'Main',
   tunits = rep('\01', dim(table)[2]), create_ext = TRUE, create_file = TRUE,
-  overwrite_file = TRUE, table_type = 'binary')
+  overwrite_file = TRUE, table_type = 'binary', NA_replace = -999, NaN_replace = -9999,
+  Inf_replace = -99999)
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
@@ -134,6 +135,15 @@ Logical; should a \code{data.table} be returned?
 }
   \item{table_type}{
 Character scalar; type of table to be written. Must be one of 'binary' (default) or 'ascii'.  
+}
+  \item{NA_replace}{
+Integer scalar; value to replace NA (since FITS does not support NA). If numeric, it will be converted to integer internally.  
+}
+  \item{NaN_replace}{
+Integer scalar; value to replace NaN (since FITS does not support NaN). If numeric, it will be converted to integer internally.  
+}
+  \item{Inf_replace}{
+Integer scalar; value to replace Inf (since FITS does not support Inf). If numeric, it will be converted to integer internally.  
 }
 }
 \details{

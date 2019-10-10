@@ -3,6 +3,8 @@ library(Rfits)
 library(testthat)
 library(FITSio)
 
+
+
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 temp_image_FITSio = readFITS(file_image)
@@ -121,3 +123,14 @@ temp_table7=Rfits_read_table(file_table_temp)
 
 #ex 19
 expect_equal(temp_table7[,c(1,3:35)], temp_table[,c(1,3:35)]) #int64 is truncated to int by cfitsio ascii reader
+
+temp_profound = read.table(system.file('extdata', 'profound.tab', package = "Rfits"))
+file_profound_bin = tempfile()
+file_profound_ascii = tempfile()
+Rfits_write_table(temp_profound, filename = file_profound_bin)
+Rfits_write_table(temp_profound, filename = file_profound_ascii, table_type = 'ascii')
+
+temp_profound2 = Rfits_read_table(file_profound_bin)
+temp_profound3 = Rfits_read_table(file_profound_ascii)
+
+expect_equal(temp_profound2, temp_profound3)
