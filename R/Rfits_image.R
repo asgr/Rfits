@@ -81,7 +81,11 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   if(xhi<=xlo){stop('xhi must be larger than xlo')}
   if(yhi<=ylo){stop('yhi must be larger than ylo')}
   
-  image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype)
+  if(subset){
+    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
+  }else{
+    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext, datatype=datatype)
+  }
   
   if(header){
     if(subset){
@@ -142,7 +146,7 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keyna
   if(is.numeric(integer)){integer=as.character(integer)}
   assertCharacter(numeric, len = 1)
   assertCharacter(integer, len = 1)
-  
+
   naxis=dim(image)
   
   bitpix=0
@@ -185,7 +189,6 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keyna
       stop('numeric type must be single/float/32 or double/64')
     }
   }
-  #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
   Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
@@ -194,6 +197,7 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keyna
     if(length(checkAA)>0){comment = comment[-checkAA]}
     checkAA=grep("and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H",comment)
     if(length(checkAA)>0){comment = comment[-checkAA]}
+    filename=strsplit(filename,split = "[",fixed=TRUE)[[1]][1]
     Rfits_write_header(filename = filename, keyvalues = keyvalues, keycomments = keycomments, keynames = keynames, comment=comment, history=history, ext=ext)
   }
 }
