@@ -14,6 +14,8 @@ export(Rfits_write_comment)
 export(Rfits_write_history)
 export(Rfits_write_date)
 export(Rfits_info)
+export(Rfits_header_to_hdr)
+export(Rfits_hdr_to_keyvalues)
 
 #Cfits things
 #export(Cfits_read_img_subset)

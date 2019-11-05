@@ -165,17 +165,11 @@ Rfits_read_header=function(filename, ext=1){
   }
   
   #hdr vector
-  hdr = .parse_header(headertemp)
+  hdr = Rfits_header_to_hdr(headertemp)
   
   #keyword list
-  keynames = hdr[c(T,F)]
-  suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
-  isint = unlist(keyvalues[!is.na(keyvalues)]) %% 1 == 0
-  keyvalues[!is.na(keyvalues)][isint] = as.integer(keyvalues[!is.na(keyvalues)][isint])
-  keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
-  keyvalues[hdr[c(F,T)] == 'T']=TRUE
-  keyvalues[hdr[c(F,T)] == 'F']=FALSE
-  names(keyvalues)=keynames
+  keyvalues = Rfits_hdr_to_keyvalues(hdr)
+  keynames = names(keyvalues)
   
   #comments list
   keycomments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
@@ -216,20 +210,27 @@ Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment,
     }
   }
   
-  if(length(comment) > 0){
-    for(i in comment){
-      Rfits_write_comment(filename, comment=i)
+  if(!missing(comment)){
+    if(length(comment) > 0){
+      for(i in comment){
+        Rfits_write_comment(filename, comment=i)
+      }
     }
   }
   
-  if(length(history) > 0){
-    for(i in history){
-      Rfits_write_history(filename, history=i)
+  if(!missing(history)){
+    if(length(history) > 0){
+      for(i in history){
+        Rfits_write_history(filename, history=i)
+      }
     }
   }
 }
 
 Rfits_info=function(filename){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
   ext = Cfits_read_nhdu(filename)
   headers=list()
   info={}
@@ -241,7 +242,7 @@ Rfits_info=function(filename){
   return(invisible(list(summary = info, headers=headers)))
 }
 
-.parse_header=function(header){
+Rfits_header_to_hdr=function(header){
   #Based on parseHdr in FITSio
   good = which(substr(header, 9, 10) == "= ")
   header=header[good]
@@ -260,5 +261,18 @@ Rfits_info=function(filename){
     hdr[i] = sub("^ *", "", hdr[i])
     hdr[i] = sub(" *$", "", hdr[i])
   }
-  return(invisible(hdr))
+  return(hdr)
+}
+
+Rfits_hdr_to_keyvalues=function(hdr){
+  keynames = hdr[c(T,F)]
+  suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
+  goodkey = !is.na(keyvalues)
+  suppressWarnings({isint = unlist(keyvalues[goodkey]) %% 1 == 0 & unlist(keyvalues[goodkey]) <= .Machine$integer.max})
+  keyvalues[goodkey][isint] = as.integer(keyvalues[goodkey][isint])
+  keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
+  keyvalues[hdr[c(F,T)] == 'T']=TRUE
+  keyvalues[hdr[c(F,T)] == 'F']=FALSE
+  names(keyvalues)=keynames
+  return(keyvalues)
 }

@@ -56,12 +56,17 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   assertAccess(filename, access='r')
   assertIntegerish(ext, len = 1)
   
-  #naxis1=Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
-  #naxis2=Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
   hdr=Rfits_read_header(filename = filename, ext = ext)
-  naxis1=hdr$keyvalues$NAXIS1
-  naxis2=hdr$keyvalues$NAXIS2
-  datatype=hdr$keyvalues$BITPIX
+  
+  if(isTRUE(hdr$keyvalues$ZIMAGE)){
+    naxis1=hdr$keyvalues$ZNAXIS1
+    naxis2=hdr$keyvalues$ZNAXIS2
+    datatype=hdr$keyvalues$ZBITPIX
+  }else{
+    naxis1=hdr$keyvalues$NAXIS1
+    naxis2=hdr$keyvalues$NAXIS2
+    datatype=hdr$keyvalues$BITPIX
+  }
   
   subset=FALSE
   
@@ -81,7 +86,12 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   if(xhi<=xlo){stop('xhi must be larger than xlo')}
   if(yhi<=ylo){stop('yhi must be larger than ylo')}
   
-  image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype)
+  if(subset){
+    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo,
+                                lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
+  }else{
+    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext, datatype=datatype)
+  }
   
   if(header){
     if(subset){
@@ -102,7 +112,8 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
       hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
       hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
     }
-    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues, keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history)
+    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
+                keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history)
     class(output)='Rfits_image'
     return(invisible(output))
   }else{
@@ -110,7 +121,10 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
   }
 }
 
-Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keynames, comment, history, numeric='single', integer='long', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE){
+Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
+                           keynames, comment, history, numeric='single',
+                           integer='long', create_ext=TRUE, create_file=TRUE,
+                           overwrite_file=TRUE){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -133,11 +147,11 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keyna
     image=image$imDat
   }
   assertMatrix(image)
-  if(!missing(keyvalues)){assertList(keyvalues)}
-  if(!missing(keycomments)){assertList(keycomments)}
-  if(!missing(keynames)){assertCharacter(keynames)}
-  if(!missing(comment)){assertCharacter(comment, null.ok = TRUE)}
-  if(!missing(history)){assertCharacter(history, null.ok = TRUE)}
+  if(!missing(keyvalues)){keyvalues=as.list(keyvalues)}
+  if(!missing(keycomments)){keycomments=as.list(keycomments)}
+  if(!missing(keynames)){keynames=as.character(keynames)}
+  if(!missing(comment)){comment=as.character(comment)}
+  if(!missing(history)){history=as.character(history)}
   if(is.numeric(numeric)){numeric=as.character(numeric)}
   if(is.numeric(integer)){integer=as.character(integer)}
   assertCharacter(numeric, len = 1)
@@ -186,14 +200,22 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments, keyna
     }
   }
   #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
-  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1], naxis2=naxis[2], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1],
+                    naxis2=naxis[2], ext=ext, create_ext=create_ext,
+                    create_file=create_file, bitpix=bitpix)
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
-    checkAA=grep("FITS \\(Flexible Image Transport System\\) format is defined in 'Astronomy",comment)
-    if(length(checkAA)>0){comment = comment[-checkAA]}
-    checkAA=grep("and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H",comment)
-    if(length(checkAA)>0){comment = comment[-checkAA]}
-    Rfits_write_header(filename = filename, keyvalues = keyvalues, keycomments = keycomments, keynames = keynames, comment=comment, history=history, ext=ext)
+    
+    if(!missing(comment)){
+      checkAA=grep("FITS \\(Flexible Image Transport System\\) format is defined in 'Astronomy",comment)
+      if(length(checkAA)>0){comment = comment[-checkAA]}
+      checkAA=grep("and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H",comment)
+      if(length(checkAA)>0){comment = comment[-checkAA]}
+    }
+    filename=strsplit(filename,split = "[",fixed=TRUE)[[1]][1]
+    Rfits_write_header(filename = filename, keyvalues = keyvalues,
+                       keycomments = keycomments, keynames = keynames,
+                       comment=comment, history=history, ext=ext)
   }
 }

@@ -432,56 +432,56 @@ void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , 
   fits_invoke(create_img, fptr, bitpix, 2, naxes);
 }
 
-// // [[Rcpp::export]]
-// SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
-//                                    int ext=1, int datatype=-32)
-// {
-//   int anynull, nullvals = 0, hdutype;
-//   
-//   fitsfile *fptr;
-//   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
-//   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-//   
-//   int npixels = naxis1 * naxis2;
-//   
-//   if (datatype==FLOAT_IMG){
-//     std::vector<float> pixels(npixels);
-//     fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
-//     fits_invoke(close_file, fptr);
-//     NumericMatrix pixel_matrix(naxis1, naxis2);
-//     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-//     return(pixel_matrix);
-//   }else if (datatype==DOUBLE_IMG){
-//     std::vector<double> pixels(npixels);
-//     fits_invoke(read_img, fptr, TDOUBLE, 1, npixels, &nullvals, pixels.data(), &anynull);
-//     fits_invoke(close_file, fptr);
-//     NumericMatrix pixel_matrix(naxis1, naxis2);
-//     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-//     return(pixel_matrix);
-//   }else if (datatype==BYTE_IMG){
-//     std::vector<int> pixels(npixels);
-//     fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
-//     fits_invoke(close_file, fptr);
-//     IntegerMatrix pixel_matrix(naxis1, naxis2);
-//     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-//     return(pixel_matrix);
-//   }else if (datatype==SHORT_IMG){
-//     std::vector<short> pixels(npixels);
-//     fits_invoke(read_img, fptr, TSHORT, 1, npixels, &nullvals, pixels.data(), &anynull);
-//     fits_invoke(close_file, fptr);
-//     IntegerMatrix pixel_matrix(naxis1, naxis2);
-//     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-//     return(pixel_matrix);
-//   }else if (datatype==LONG_IMG){
-//     std::vector<long> pixels(npixels);
-//     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
-//     fits_invoke(close_file, fptr);
-//     IntegerMatrix pixel_matrix(naxis1, naxis2);
-//     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-//     return(pixel_matrix);
-//   }
-//   throw std::runtime_error("unsupported type");
-// }
+// [[Rcpp::export]]
+SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
+                                   int ext=1, int datatype=-32)
+{
+  int anynull, nullvals = 0, hdutype;
+
+  fitsfile *fptr;
+  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+
+  int npixels = naxis1 * naxis2;
+
+  if (datatype==FLOAT_IMG){
+    std::vector<float> pixels(npixels);
+    fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==DOUBLE_IMG){
+    std::vector<double> pixels(npixels);
+    fits_invoke(read_img, fptr, TDOUBLE, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==BYTE_IMG){
+    std::vector<int> pixels(npixels);
+    fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==SHORT_IMG){
+    std::vector<short> pixels(npixels);
+    fits_invoke(read_img, fptr, TSHORT, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==LONG_IMG){
+    std::vector<long> pixels(npixels);
+    fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
+    fits_invoke(close_file, fptr);
+    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }
+  throw std::runtime_error("unsupported type");
+}
 
 // [[Rcpp::export]]
 void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 ,
