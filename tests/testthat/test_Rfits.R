@@ -3,8 +3,6 @@ library(Rfits)
 library(testthat)
 library(FITSio)
 
-
-
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 temp_image_FITSio = readFITS(file_image)
