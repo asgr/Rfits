@@ -219,3 +219,14 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
                        comment=comment, history=history, ext=ext)
   }
 }
+
+plot.Rfits_image=function(x, ...){
+  if(class(x)!='Rfits_image'){
+    stop('Object class is not of type Rfits_image!')
+  }
+  if(requireNamespace("Rwcs", quietly = TRUE)){
+    Rwcs::Rwcs_image(x)
+  }else{
+    message('The Rwcs package is needed to plot a Rfits_image object.')
+  }
+}

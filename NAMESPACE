@@ -16,6 +16,9 @@ export(Rfits_write_date)
 export(Rfits_info)
 export(Rfits_header_to_hdr)
 export(Rfits_hdr_to_keyvalues)
+export(plot.Rfits_image)
+
+S3method("plot","Rfits_image")
 
 #Cfits things
 #export(Cfits_read_img_subset)

@@ -27,7 +27,7 @@ Utility converstion functions, should you be stuck with an older format header.
 \value{
 \code{Rfits_header_to_hdr} return a \option{hdr} format header. See Examples.
 
-\code{Rfits_hdr_to_keyvalues} return a \option{kayvalues} format header that is the standard in \code{Rfits}. See Examples.
+\code{Rfits_hdr_to_keyvalues} return a \option{keyvalues} format header that is the standard in \code{Rfits}. See Examples.
 }
 \author{
 Aaron Robotham
