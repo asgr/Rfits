@@ -237,7 +237,7 @@ Rfits_info=function(filename){
   for(i in 1:ext){
     temp = Rfits_read_header(filename, i)
     info = c(info, temp$header[1])
-    headers=c(headers, list(temp))
+    headers = c(headers, list(temp))
   }
   return(invisible(list(summary = info, headers=headers)))
 }
@@ -245,12 +245,12 @@ Rfits_info=function(filename){
 Rfits_header_to_hdr=function(header){
   #Based on parseHdr in FITSio
   good = which(substr(header, 9, 10) == "= ")
-  header=header[good]
-  Nhead=length(header)
+  header = header[good]
+  Nhead = length(header)
   for (i in 1:Nhead) {
     header[i] = strsplit(header[i], "/")[[1]][1]
   }
-  hdr = unlist(strsplit(header, "="))
+  hdr = unlist(strsplit(header, "= "))
   smark = grep("'", hdr)
   for (i in smark) {
     hdr[i] = gsub("''", "aAlJ2fZ47xx", hdr[i])
