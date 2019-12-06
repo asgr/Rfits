@@ -178,14 +178,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_read_img
-SEXP Cfits_read_img(Rcpp::String filename, int naxis1, int naxis2, int ext, int datatype);
+SEXP Cfits_read_img(Rcpp::String filename, long naxis1, long naxis2, int ext, int datatype);
 RcppExport SEXP _Rfits_Cfits_read_img(SEXP filenameSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP extSEXP, SEXP datatypeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
-    Rcpp::traits::input_parameter< int >::type naxis1(naxis1SEXP);
-    Rcpp::traits::input_parameter< int >::type naxis2(naxis2SEXP);
+    Rcpp::traits::input_parameter< long >::type naxis1(naxis1SEXP);
+    Rcpp::traits::input_parameter< long >::type naxis2(naxis2SEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
     Rcpp::traits::input_parameter< int >::type datatype(datatypeSEXP);
     rcpp_result_gen = Rcpp::wrap(Cfits_read_img(filename, naxis1, naxis2, ext, datatype));

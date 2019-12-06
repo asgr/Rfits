@@ -433,7 +433,7 @@ void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , 
 }
 
 // [[Rcpp::export]]
-SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
+SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100,
                                    int ext=1, int datatype=-32)
 {
   int anynull, nullvals = 0, hdutype;
@@ -442,7 +442,7 @@ SEXP Cfits_read_img(Rcpp::String filename, int naxis1=100, int naxis2=100,
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  int npixels = naxis1 * naxis2;
+  long npixels = naxis1 * naxis2;
 
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(npixels);
