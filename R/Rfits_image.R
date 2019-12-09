@@ -68,6 +68,10 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
     datatype=hdr$keyvalues$BITPIX
   }
   
+  if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
+    stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+  }
+  
   subset=FALSE
   
   if(missing(xlo)){xlo=1}else{subset=TRUE}
