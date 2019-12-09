@@ -59,7 +59,7 @@ Rfits_write_date(filename, ext = 1)
 Character scalar; path to FITS file, either to be written to or read.
 }
   \item{ext}{
-Integer scalar; the extension to read or write (usually starts at 1 for images and 2 for tables). For writing, what really happens is the specified extension is deleted, all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
+Integer scalar; the extension to read or write (usually starts at 1 for images and 2 for tables). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
   \item{table}{
 Data.frame or data.table; data to be written out as a binary FITS table.
@@ -122,7 +122,7 @@ Character scalar; name of the table extension.
 Character vector; data units to be written out. Default is NULL. 
 }
   \item{create_ext}{
-Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard).
+Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
   \item{create_file}{
 Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
@@ -155,7 +155,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{table} functions work with binary FITS tables and R data.frames and data.tables.
 
-\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. Currently when writing out the only option is to create a new file (cannot append to existing FITS). This may change in the future.
+\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
 
 \code{key} functions work with any FITS header and single keyname inputs and outputs (there is not a full header read yet). Note when writing, if key is already present it will be replaced, if not present the new key will be added at the end of the header.
 
