@@ -2,6 +2,7 @@
 \alias{Rfits}
 \alias{Rfits_table}
 \alias{Rfits_read_table}
+\alias{Rfits_read_colnames}
 \alias{Rfits_write_table}
 \alias{Rfits_read_image}
 \alias{Rfits_write_image}
@@ -22,7 +23,9 @@ FITS Readers and Writers
 Generic header key, image and table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_table(filename, ext = 2, data.table = TRUE)
+Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL, verbose = FALSE)
+
+Rfits_read_colnames(filename, ext = 2)
 
 Rfits_write_table(table, filename, ext = 2, extname = 'Main',
   tunits = rep('\01', dim(table)[2]), create_ext = TRUE, create_file = TRUE,
@@ -63,6 +66,12 @@ Integer scalar; the extension to read or write (usually starts at 1 for images a
 }
   \item{table}{
 Data.frame or data.table; data to be written out as a binary FITS table.
+}
+  \item{cols}{
+Vector; either a vector of integer column numbers to be extracted from the target FITS table, or a vector of column names (all must be present in the target FITS table).  
+}
+  \item{verbose}{
+Logical; should the progress of table reading be displayed? This is probably only useful for very large (many GB) that might take a long time to load.
 }
   \item{image}{
 Numeric or integer matrix; data to be written out as a FITS image.
@@ -155,6 +164,8 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{table} functions work with binary FITS tables and R data.frames and data.tables.
 
+\code{colnames} function to simply read the available column names in a target FITS table.
+
 \code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
 
 \code{key} functions work with any FITS header and single keyname inputs and outputs (there is not a full header read yet). Note when writing, if key is already present it will be replaced, if not present the new key will be added at the end of the header.
@@ -162,7 +173,9 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{header} functions work with any FITS header, reading and writing them in their entirety.
 }
 \value{
-\code{Rfits_read_table}: read table  into data.frame or data.table.
+\code{Rfits_read_table}: read table into data.frame or data.table.
+
+\code{Rfits_read_colnames}: read table column names into a character vector.
 
 \code{Rfits_read_image}: read image into numeric or integer matrix.
 

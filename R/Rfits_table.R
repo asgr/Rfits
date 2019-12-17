@@ -50,29 +50,57 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_table=function(filename, ext=2, data.table=TRUE){
+Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len = 1)
   assertFlag(data.table)
   
-  ncol=Cfits_read_ncol(filename, ext=ext)
-  output=list()
+  ncol = Cfits_read_ncol(filename, ext=ext)
+  colnames = Cfits_read_colname(filename, ext=ext)
   
-  for(i in 1:ncol){
-    output[[i]]=Cfits_read_col(filename,colref=i,ext=ext)
+  if(! is.null(cols)){
+    if(is.character(cols)){
+      assertCharacter(cols)
+      cols = match(cols, colnames)
+    }
+    assertIntegerish(cols, any.missing = FALSE)
+    colnames = colnames[cols]
+  }else{
+    cols = 1:ncol
+  }
+
+  output=list()
+  count=1
+  
+  for(i in cols){
+    if(verbose){
+      message("Extracting column: ",colnames[count],", which is ",count," of ", length(cols))
+    }
+    output[[count]]=Cfits_read_col(filename,colref=i,ext=ext)
+    count = count + 1
   }
   
   if(data.table){
     output=data.table::as.data.table(output)
-    colnames(output)=Cfits_read_colname(filename, ext=ext)
+    
   }else{
     output=as.data.frame(output)
-    colnames(output)=Cfits_read_colname(filename, ext=ext)
   }
   
+  colnames(output) = colnames
+  
   return(invisible(output))
+}
+
+Rfits_read_colnames=function(filename, ext=2){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  assertIntegerish(ext, len = 1)
+  colnames=Cfits_read_colname(filename, ext=ext)
+  return(colnames)
 }
 
 Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999){
