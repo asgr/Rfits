@@ -30,7 +30,7 @@ Rfits_read_colnames(filename, ext = 2)
 Rfits_write_table(table, filename, ext = 2, extname = 'Main',
   tunits = rep('\01', dim(table)[2]), create_ext = TRUE, create_file = TRUE,
   overwrite_file = TRUE, table_type = 'binary', NA_replace = -999, NaN_replace = -9999,
-  Inf_replace = -99999)
+  Inf_replace = -99999, verbose = FALSE)
 
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
 
@@ -71,7 +71,7 @@ Data.frame or data.table; data to be written out as a binary FITS table.
 Vector; either a vector of integer column numbers to be extracted from the target FITS table, or a vector of column names (all must be present in the target FITS table).  
 }
   \item{verbose}{
-Logical; should the progress of table reading be displayed? This is probably only useful for very large (many GB) that might take a long time to load.
+Logical; should the progress of table reading and writing be displayed? This is probably only useful for very large (many GB) that might take a long time to read or write.
 }
   \item{image}{
 Numeric or integer matrix; data to be written out as a FITS image.

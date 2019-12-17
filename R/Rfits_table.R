@@ -76,7 +76,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   
   for(i in cols){
     if(verbose){
-      message("Extracting column: ",colnames[count],", which is ",count," of ", length(cols))
+      message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
     output[[count]]=Cfits_read_col(filename,colref=i,ext=ext)
     count = count + 1
@@ -103,7 +103,9 @@ Rfits_read_colnames=function(filename, ext=2){
   return(colnames)
 }
 
-Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999){
+Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), 
+                           create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
+                           NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999, verbose = FALSE){
   assertDataFrame(table, min.rows = 1, min.cols = 1)
   
   nrow=dim(table)[1]
@@ -191,6 +193,9 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, ext=ext, create_ext=create_ext, create_file=create_file, table_type=table_type)
   ext = Cfits_read_nhdu(filename)
   for(i in 1:ncol){
+    if(verbose){
+      message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
+    }
     table[[i]][is.na(table[[i]])] = NA_replace
     table[[i]][is.nan(table[[i]])] = NaN_replace
     table[[i]][is.infinite(table[[i]])] = Inf_replace
