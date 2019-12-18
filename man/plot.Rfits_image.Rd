@@ -26,7 +26,7 @@ Outputs the final image list containing x,y and z. Generally run for the side ef
 Aaron Robotham
 }
 \seealso{
-/code{\link{Rfits}}, ~~~
+\code{\link{Rfits_image}}, ~~~
 }
 \examples{
 \dontrun{
