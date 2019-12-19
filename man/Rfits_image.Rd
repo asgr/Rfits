@@ -1,4 +1,5 @@
 \name{Rfits_image}
+\alias{Rfits}
 \alias{Rfits_image}
 \alias{Rfits_read_image}
 \alias{Rfits_write_image}
@@ -10,7 +11,8 @@ FITS Image Readers and Writers
 Generic image readers and writers.
 }
 \usage{
-Rfits_read_image(filename, ext = 1, header = TRUE, xlo, xhi, ylo, yhi)
+Rfits_read_image(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
+  yhi = NULL)
 
 Rfits_write_image(image, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
@@ -25,7 +27,7 @@ Numeric or integer matrix; data to be written out as a FITS image.
 Character scalar; path to FITS file, either to be written to or read.
 }
   \item{ext}{
-Integer scalar; the extension to read or write (usually starts at 1 for images and 2 for tables). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
+Integer scalar; the extension to read or write (usually starts at 1 for images). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
   \item{header}{
 Logical; should the header be read along with the image matrix. If TRUE (default) then the output of \code{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{Rfits_read_header} (all at the same level), if FALSE then it is just the raw image matrix.

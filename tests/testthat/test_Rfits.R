@@ -142,3 +142,9 @@ temp_compress=Rfits_read_image(file_image_temp,ext=2)
 
 #ex 21
 expect(abs(log10(sum(temp_image$imDat)/sum(temp_compress$imDat))) < 1e-4, failure_message = 'Images differ too much!')
+
+#ex 24
+temp_point = Rfits_point(file_image)
+expect_equal(temp_image$imDat[1:5,1:5], temp_point[1:5,1:5])
+
+

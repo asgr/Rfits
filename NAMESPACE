@@ -4,20 +4,62 @@
 export(Rfits_read_table)
 export(Rfits_read_colnames)
 export(Rfits_write_table)
+
 export(Rfits_read_image)
 export(Rfits_write_image)
+export(plot.Rfits_image)
+
+export(Rfits_info)
+export(Rfits_read_header)
+export(Rfits_write_header)
+export(Rfits_header_to_hdr)
+export(Rfits_hdr_to_keyvalues)
+
 export(Rfits_read_key)
 export(Rfits_write_key)
 export(Rfits_delete_key)
-export(Rfits_read_header)
-export(Rfits_write_header)
 export(Rfits_write_comment)
 export(Rfits_write_history)
 export(Rfits_write_date)
-export(Rfits_info)
-export(Rfits_header_to_hdr)
-export(Rfits_hdr_to_keyvalues)
-export(plot.Rfits_image)
+
+export(Rfits_point)
+
+export(`&.Rfits_image`)
+export(`|.Rfits_image`)
+
+export(`!=.Rfits_image`)
+export(`==.Rfits_image`)
+export(`<.Rfits_image`)
+export(`<=.Rfits_image`)
+export(`>.Rfits_image`)
+export(`>=.Rfits_image`)
+
+export(`+.Rfits_image`)
+export(`-.Rfits_image`)
+export(`*.Rfits_image`)
+export(`/.Rfits_image`)
+export(`^.Rfits_image`)
+export(`%/%.Rfits_image`)
+export(`%*%.Rfits_image`)
+
+S3method("&", Rfits_image)
+S3method("|", Rfits_image)
+
+S3method("!=", Rfits_image)
+S3method("==", Rfits_image)
+S3method("<", Rfits_image)
+S3method("<=", Rfits_image)
+S3method(">", Rfits_image)
+S3method(">=", Rfits_image)
+
+S3method("+", Rfits_image)
+S3method("-", Rfits_image)
+S3method("*", Rfits_image)
+S3method("^", Rfits_image)
+S3method("/", Rfits_image)
+S3method("%%", Rfits_image)
+S3method("%/%", Rfits_image)
+S3method("%*%", Rfits_image)
 
 S3method("plot","Rfits_image")
 

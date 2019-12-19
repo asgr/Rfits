@@ -50,50 +50,62 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_image=function(filename, ext=1, header=TRUE, xlo, xhi, ylo, yhi){
+Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len = 1)
   
-  hdr=Rfits_read_header(filename = filename, ext = ext)
-  
-  if(isTRUE(hdr$keyvalues$ZIMAGE)){
-    naxis1=hdr$keyvalues$ZNAXIS1
-    naxis2=hdr$keyvalues$ZNAXIS2
-    datatype=hdr$keyvalues$ZBITPIX
-  }else{
-    naxis1=hdr$keyvalues$NAXIS1
-    naxis2=hdr$keyvalues$NAXIS2
-    datatype=hdr$keyvalues$BITPIX
-  }
-  
-  if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
-    stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
-  }
-  
   subset=FALSE
   
-  if(missing(xlo)){xlo=1}else{subset=TRUE}
-  if(missing(ylo)){ylo=1}else{subset=TRUE}
-  if(missing(xhi)){xhi=naxis1}else{subset=TRUE}
-  if(missing(yhi)){yhi=naxis2}else{subset=TRUE}
-  if(xlo<1){xlo=1}
-  if(xhi>naxis1){xhi=naxis1}
-  if(ylo<1){ylo=1}
-  if(yhi>naxis2){yhi=naxis2}
-  assertIntegerish(xlo, lower = 1, upper = naxis1, len = 1)
-  assertIntegerish(xhi, lower = 1, upper = naxis1, len = 1)
-  assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
-  assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
-  
-  if(xhi<=xlo){stop('xhi must be larger than xlo')}
-  if(yhi<=ylo){stop('yhi must be larger than ylo')}
+  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | header){
+    
+    hdr=Rfits_read_header(filename = filename, ext = ext)
+    
+    if(isTRUE(hdr$keyvalues$ZIMAGE)){
+      naxis1=hdr$keyvalues$ZNAXIS1
+      naxis2=hdr$keyvalues$ZNAXIS2
+      datatype=hdr$keyvalues$ZBITPIX
+    }else{
+      naxis1=hdr$keyvalues$NAXIS1
+      naxis2=hdr$keyvalues$NAXIS2
+      datatype=hdr$keyvalues$BITPIX
+    }
+    
+    if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
+      stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+    }
+    
+    if(is.null(xlo)){xlo=1}else{subset=TRUE}
+    if(is.null(ylo)){ylo=1}else{subset=TRUE}
+    if(is.null(xhi)){xhi=naxis1}else{subset=TRUE}
+    if(is.null(yhi)){yhi=naxis2}else{subset=TRUE}
+    if(xlo<1){xlo=1}
+    if(xhi>naxis1){xhi=naxis1}
+    if(ylo<1){ylo=1}
+    if(yhi>naxis2){yhi=naxis2}
+    assertIntegerish(xlo, lower = 1, upper = naxis1, len = 1)
+    assertIntegerish(xhi, lower = 1, upper = naxis1, len = 1)
+    assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
+    assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
+    
+    if(xhi<xlo){stop('xhi must be larger than xlo')}
+    if(yhi<ylo){stop('yhi must be larger than ylo')}
+  }
   
   if(subset){
     image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo,
                                 lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
   }else{
+    if(try(Rfits_read_key(filename, ext=2, keyname = 'ZIMAGE', keytype = 'string'), silent=TRUE)=='T'){
+      naxis1 = Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext)
+      naxis2 = Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext)
+      datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
+    }else{
+      naxis1 = Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
+      naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+      datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
+    }
     image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext, datatype=datatype)
   }
   
