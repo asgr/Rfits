@@ -144,5 +144,3 @@ expect(abs(log10(sum(temp_image$imDat)/sum(temp_compress$imDat))) < 1e-4, failur
 #ex 24
 temp_point = Rfits_point(file_image)
 expect_equal(temp_image$imDat[1:5,1:5], temp_point[1:5,1:5])
-
-

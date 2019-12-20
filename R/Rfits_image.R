@@ -97,14 +97,14 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo,
                                 lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
   }else{
-    naxis1 = try(Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext), silent = TRUE)
+    naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent = TRUE)
     if(is.numeric(naxis1)){
-      naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
-      datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
-    }else{
-      naxis1 = Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext)
       naxis2 = Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext)
       datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
+    }else{
+      naxis1 = Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
+      naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+      datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
     image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext, datatype=datatype)
   }
