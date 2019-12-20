@@ -31,95 +31,127 @@ Rfits_point=function(filename, ext=1, header=FALSE){
 `&.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] & e2
 }
 
 `|.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] | e2
 }
 
 `!=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] != e2
 }
 
 `==.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] == e2
 }
 
 `<.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] < e2
 }
 
 `<=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] <= e2
 }
 
 `>.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] > e2
 }
 
 `>=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] >= e2
 }
 
 `+.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] + e2
 }
 
 `-.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] - e2
 }
 
 `*.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] * e2
 }
 
 `/.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] / e2
 }
 
 `^.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] ^ e2
 }
 
 `%%.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] %% e2
 }
 
 `%/%.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] %/% e2
 }
 
 `%*%.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
+  if (inherits(e2, 'Rfits_image'))
+    e2 = e2[,]
   e1[,] %*% e2
 }
