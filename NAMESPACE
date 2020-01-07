@@ -23,17 +23,15 @@ export(Rfits_write_history)
 export(Rfits_write_date)
 
 export(Rfits_point)
-
+export(`[.Rfits_image`)
 export(`&.Rfits_image`)
 export(`|.Rfits_image`)
-
 export(`!=.Rfits_image`)
 export(`==.Rfits_image`)
 export(`<.Rfits_image`)
 export(`<=.Rfits_image`)
 export(`>.Rfits_image`)
 export(`>=.Rfits_image`)
-
 export(`+.Rfits_image`)
 export(`-.Rfits_image`)
 export(`*.Rfits_image`)
@@ -42,16 +40,15 @@ export(`^.Rfits_image`)
 export(`%/%.Rfits_image`)
 export(`%*%.Rfits_image`)
 
+S3method("[", Rfits_image)
 S3method("&", Rfits_image)
 S3method("|", Rfits_image)
-
 S3method("!=", Rfits_image)
 S3method("==", Rfits_image)
 S3method("<", Rfits_image)
 S3method("<=", Rfits_image)
 S3method(">", Rfits_image)
 S3method(">=", Rfits_image)
-
 S3method("+", Rfits_image)
 S3method("-", Rfits_image)
 S3method("*", Rfits_image)

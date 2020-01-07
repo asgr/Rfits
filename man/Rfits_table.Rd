@@ -11,7 +11,8 @@ FITS Table Readers and Writers
 Generic table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL, verbose = FALSE)
+Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL, verbose = FALSE,
+  header = FALSE)
 
 Rfits_read_colnames(filename, ext = 2)
 
@@ -36,6 +37,9 @@ Vector; either a vector of integer column numbers to be extracted from the targe
 }
   \item{verbose}{
 Logical; should the progress of table reading and writing be displayed? This is probably only useful for very large (many GB) that might take a long time to read or write.
+}
+  \item{header}{
+Logical; if TRUE then \code{Rfits_table} gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_info}} (see examples). Default is FALSE, so no table header information is explictly copied over.
 }
   \item{extname}{
 Character scalar; name of the table extension. 
@@ -70,8 +74,9 @@ Integer scalar; value to replace Inf (since FITS does not support Inf). If numer
 }
 \details{
 R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
-
-\code{Rfits_read_table} reads in tabular data from a FITS file.
+}
+\value{
+\code{Rfits_read_table} reads in tabular data from a FITS file, either as a data.frame or data.table. Also gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_info}} (see examples). It is done this way so carrying the header info does not affect the data.frame or data.table class of the table (which is still just a normal table in every other respect). This meets the principle of least surprise since people nearly always just want to work with the table and rarely care about table header info (which is really there to help read in the table in CFITSIO).
 
 \code{Rfits_write_table_} writes tabular data (data.frames and data.tables) to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 }
@@ -89,8 +94,13 @@ Rodrigo Tobar
 \examples{
 #Read table
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
-temp_table = Rfits_read_table(file_table)
+temp_table = Rfits_read_table(file_table, header=TRUE)
 temp_table[1:5,]
+
+#Extra header attributes (does not affect the data.frame or data.table class)
+attributes(temp_table)$info$summary
+attributes(temp_table)$info$headers[[1]]$header
+attributes(temp_table)$info$headers[[2]]$header[1:5]
 
 #Check write and read consistency
 file_table_temp = tempfile()

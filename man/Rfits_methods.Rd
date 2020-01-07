@@ -1,5 +1,6 @@
 \name{Rfits_methods}
 \alias{Rfits_methods}
+\alias{[.Rfits_image}
 \alias{&.Rfits_image}
 \alias{|.Rfits_image}
 \alias{xor.Rfits_image}
@@ -25,6 +26,7 @@
   Binary operators for Rfits_image objects.
 }
 \usage{
+\method{[}{Rfits_image}(x,i,j)
 \method{&}{Rfits_image}(e1,e2)
 \method{|}{Rfits_image}(e1,e2)
 \method{!=}{Rfits_image}(e1,e2)
@@ -43,6 +45,9 @@
 \method{\%*\%}{Rfits_image}(e1,e2)
 }
 \arguments{
+  \item{i}{Integer vector, a contiguous vector os desired i indices to extract}
+  \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
+  \item{x}{ an object of class 'Rfits_image'}
   \item{e1}{ an object of class 'Rfits_image'}
   \item{e2}{ anything else}
 }

@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=FALSE){
+Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=FALSE, header=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -90,6 +90,10 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   }
   
   colnames(output) = colnames
+  
+  if(header){
+    attributes(output)$info = Rfits_info(filename)
+  }
   
   return(invisible(output))
 }

@@ -30,7 +30,7 @@ Character scalar; path to FITS file, either to be written to or read.
 Integer scalar; the extension to read or write (usually starts at 1 for images). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
   \item{header}{
-Logical; should the header be read along with the image matrix. If TRUE (default) then the output of \code{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{Rfits_read_header} (all at the same level), if FALSE then it is just the raw image matrix.
+Logical; should the header be read along with the image matrix. If TRUE (default) then the output of \code{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if FALSE then it is just the raw image matrix.
 }
   \item{keyvalues}{
 List; values to be written (updated or added) into header (can be any type, e.g. numeric, integer, string).
@@ -82,7 +82,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_write_image} writes data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 
-\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \option{Rfits_read_header} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
+\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
 }
 \value{
 \code{Rfits_read_image}: read image into numeric or integer matrix.

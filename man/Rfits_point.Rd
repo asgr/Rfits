@@ -27,6 +27,11 @@ This function creates a pointer to a FITS file. This contains the bare essential
 }
 \value{
 A pointer to a FITS file of class Rfits_image. There are numerous methods for this class (see \code{\link{Rfits_methods}})
+
+\item{filename}{Character scalar; path to FITS file}
+\item{ext}{Integer scalar; position of the FITS extension of interest}
+\item{keyvalues}{List; named \option{keyvalues} list header, as per \code{\link{Rfits_read_header}}}
+\item{header}{Logical; should a bespoke header be extracted for each subset operation? Setting to TRUE adds computational overhead.}
 }
 \author{
 Aaron Robotham
