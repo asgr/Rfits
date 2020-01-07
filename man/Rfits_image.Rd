@@ -85,7 +85,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
 }
 \value{
-\code{Rfits_read_image}: read image into numeric or integer matrix.
+\code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}.
 
 \code{Rfits_write_image} write out image to target FITS extension.
 }

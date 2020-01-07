@@ -1,55 +1,58 @@
 \name{Rfits_methods}
 \alias{Rfits_methods}
-\alias{[.Rfits_image}
-\alias{&.Rfits_image}
-\alias{|.Rfits_image}
-\alias{xor.Rfits_image}
-\alias{!=.Rfits_image}
-\alias{==.Rfits_image}
-\alias{<.Rfits_image}
-\alias{<=.Rfits_image}
-\alias{>.Rfits_image}
-\alias{>=.Rfits_image}
-\alias{+.Rfits_image}
-\alias{-.Rfits_image}
-\alias{*.Rfits_image}
-\alias{^.Rfits_image}
-\alias{/.Rfits_image}
-\alias{\%/\%.Rfits_image}
-\alias{\%\%.Rfits_image}
-\alias{\%*\%.Rfits_image}
+\alias{print.Rfits_image_pointer}
+\alias{[.Rfits_image_pointer}
+\alias{&.Rfits_image_pointer}
+\alias{|.Rfits_image_pointer}
+\alias{xor.Rfits_image_pointer}
+\alias{!=.Rfits_image_pointer}
+\alias{==.Rfits_image_pointer}
+\alias{<.Rfits_image_pointer}
+\alias{<=.Rfits_image_pointer}
+\alias{>.Rfits_image_pointer}
+\alias{>=.Rfits_image_pointer}
+\alias{+.Rfits_image_pointer}
+\alias{-.Rfits_image_pointer}
+\alias{*.Rfits_image_pointer}
+\alias{^.Rfits_image_pointer}
+\alias{/.Rfits_image_pointer}
+\alias{\%/\%.Rfits_image_pointer}
+\alias{\%\%.Rfits_image_pointer}
+\alias{\%*\%.Rfits_image_pointer}
 \alias{binattr}
 \title{
-  Binary Operators for Rfits_image Objects
+  Binary Operators for Rfits_image_pointer Objects
 }
 \description{
-  Binary operators for Rfits_image objects.
+  Binary operators for Rfits_image_pointer objects.
 }
 \usage{
-\method{[}{Rfits_image}(x,i,j)
-\method{&}{Rfits_image}(e1,e2)
-\method{|}{Rfits_image}(e1,e2)
-\method{!=}{Rfits_image}(e1,e2)
-\method{==}{Rfits_image}(e1,e2)
-\method{<}{Rfits_image}(e1,e2)
-\method{<=}{Rfits_image}(e1,e2)
-\method{>}{Rfits_image}(e1,e2)
-\method{>=}{Rfits_image}(e1,e2)
-\method{+}{Rfits_image}(e1,e2)
-\method{-}{Rfits_image}(e1,e2)
-\method{*}{Rfits_image}(e1,e2)
-\method{^}{Rfits_image}(e1,e2)
-\method{/}{Rfits_image}(e1,e2)
-\method{\%/\%}{Rfits_image}(e1,e2)
-\method{\%\%}{Rfits_image}(e1,e2)
-\method{\%*\%}{Rfits_image}(e1,e2)
+\method{print}{Rfits_image_pointer}(x,  ...)
+\method{[}{Rfits_image_pointer}(x,i,j)
+\method{&}{Rfits_image_pointer}(e1,e2)
+\method{|}{Rfits_image_pointer}(e1,e2)
+\method{!=}{Rfits_image_pointer}(e1,e2)
+\method{==}{Rfits_image_pointer}(e1,e2)
+\method{<}{Rfits_image_pointer}(e1,e2)
+\method{<=}{Rfits_image_pointer}(e1,e2)
+\method{>}{Rfits_image_pointer}(e1,e2)
+\method{>=}{Rfits_image_pointer}(e1,e2)
+\method{+}{Rfits_image_pointer}(e1,e2)
+\method{-}{Rfits_image_pointer}(e1,e2)
+\method{*}{Rfits_image_pointer}(e1,e2)
+\method{^}{Rfits_image_pointer}(e1,e2)
+\method{/}{Rfits_image_pointer}(e1,e2)
+\method{\%/\%}{Rfits_image_pointer}(e1,e2)
+\method{\%\%}{Rfits_image_pointer}(e1,e2)
+\method{\%*\%}{Rfits_image_pointer}(e1,e2)
 }
 \arguments{
   \item{i}{Integer vector, a contiguous vector os desired i indices to extract}
   \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
-  \item{x}{ an object of class 'Rfits_image'}
-  \item{e1}{ an object of class 'Rfits_image'}
+  \item{x}{ an object of class 'Rfits_image_pointer'}
+  \item{e1}{ an object of class 'Rfits_image_pointer'}
   \item{e2}{ anything else}
+  \item{\dots}{Unused, but required}
 }
 \value{
   \code{\link{&}}, \code{\link{|}}, \code{\link{xor}}, \code{\link{!=}}, \code{\link{==}}, 
