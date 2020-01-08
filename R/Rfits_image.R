@@ -241,7 +241,7 @@ plot.Rfits_image=function(x, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly = TRUE)){
-    Rwcs::Rwcs_image(x)
+    Rwcs::Rwcs_image(x, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
   }
