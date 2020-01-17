@@ -4,6 +4,7 @@ export(Rfits_read_colnames)
 export(Rfits_write_table)
 
 export(Rfits_read_image)
+export(Rfits_read_cube)
 export(Rfits_write_image)
 export(print.Rfits_image_pointer)
 

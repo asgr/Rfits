@@ -1,8 +1,11 @@
 \name{Rfits_image}
 \alias{Rfits}
 \alias{Rfits_image}
+\alias{Rfits_cube}
 \alias{Rfits_read_image}
+\alias{Rfits_read_cube}
 \alias{Rfits_write_image}
+\alias{Rfits_write_cube}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Image and Cube Readers and Writers
@@ -13,15 +16,22 @@ Generic image and cube readers and writers.
 \usage{
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
   yhi = NULL)
+  
+Rfits_read_cube(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
+  yhi = NULL)
 
-Rfits_write_image(image, filename, ext = 1, keyvalues, keycomments, keynames, 
+Rfits_write_image(data, filename, ext = 1, keyvalues, keycomments, keynames, 
+    comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
+    create_file = TRUE, overwrite_file = TRUE) 
+    
+Rfits_write_cube(data, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
     create_file = TRUE, overwrite_file = TRUE) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{image}{
-Numeric or integer matrix; data to be written out as a FITS image.
+  \item{data}{
+Numeric or integer matrix or 3D array; data to be written out as a FITS image or cube.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.
@@ -80,7 +90,11 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_read_image} reads in data from a FITS file. This can be either an image or a cube. Note that image subsetting does not work for cubes (you have to read in the full cube).
 
+\code{Rfits_read_cube} is an alias for \code{Rfits_read_image}, but is there for potentially neater code.
+
 \code{Rfits_write_image} writes image or cube data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
+
+\code{Rfits_write_cube} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
 
 When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix or cube array. You can either overwrite a current file or create a new extension to an already present FITS file. 
 }

@@ -151,7 +151,9 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
   }
 }
 
-Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
+Rfits_read_cube = Rfits_read_image
+
+Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
                            overwrite_file=TRUE){
@@ -168,15 +170,15 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
-  if(class(image)=='Rfits_image' | class(image)=='Rfits_cube'){
-    if(missing(keyvalues)){keyvalues=image$keyvalues}
-    if(missing(keycomments)){keycomments=image$keycomments}
-    if(missing(keynames)){keynames=image$keynames}
-    if(missing(comment)){comment=image$comment}
-    if(missing(history)){history=image$history}
-    image=image$imDat
+  if(class(data)=='Rfits_image' | class(data)=='Rfits_cube'){
+    if(missing(keyvalues)){keyvalues=data$keyvalues}
+    if(missing(keycomments)){keycomments=data$keycomments}
+    if(missing(keynames)){keynames=data$keynames}
+    if(missing(comment)){comment=data$comment}
+    if(missing(history)){history=data$history}
+    data=data$imDat
   }
-  assertArray(image)
+  assertArray(data)
   if(!missing(keyvalues)){keyvalues=as.list(keyvalues)}
   if(!missing(keycomments)){keycomments=as.list(keycomments)}
   if(!missing(keynames)){keynames=as.character(keynames)}
@@ -187,7 +189,7 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
   assertCharacter(numeric, len = 1)
   assertCharacter(integer, len = 1)
   
-  naxes = dim(image)
+  naxes = dim(data)
   naxis = length(naxes)
   if(naxis == 2){
     naxes = c(naxes,1)
@@ -195,11 +197,11 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
   
   bitpix=0
   
-  if(max(image,na.rm=TRUE)>2^30){
+  if(max(data,na.rm=TRUE)>2^30){
     integer='long'
   }
 
-  if(is.integer(image[1])){
+  if(is.integer(data[1])){
     if(integer=='short' | integer=='int' | integer=='16'){
       bitpix=16
       datatype=21
@@ -211,18 +213,6 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
     }
   }
   if(bitpix==0){
-    # if(all(image %% 1 == 0)){
-    #   image=as.integer(image)
-    #   if(integer=='short' | integer=='int' | integer=='16'){
-    #     bitpix=16
-    #     datatype=21
-    #   }else if(integer=='long' | integer=='32'){
-    #     bitpix=32
-    #     datatype=31
-    #   }else{
-    #     stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
-    #   }
-    # }else{
     if(numeric=='single' | numeric=='float' | numeric=='32'){
       bitpix=-32
       datatype=42
@@ -233,8 +223,8 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
       stop('numeric type must be single/float/32 or double/64')
     }
   }
-  #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
-  Cfits_write_image(filename, data=image, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+  
+  Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
                     naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
                     create_file=create_file, bitpix=bitpix)
   ext = Cfits_read_nhdu(filename)
@@ -253,6 +243,8 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
                        comment=comment, history=history, ext=ext)
   }
 }
+
+Rfits_write_cube = Rfits_write_image
 
 plot.Rfits_image=function(x, ...){
   if(class(x)!='Rfits_image'){
