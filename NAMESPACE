@@ -58,6 +58,7 @@ S3method("%/%", Rfits_image_pointer)
 S3method("%*%", Rfits_image_pointer)
 
 S3method("plot","Rfits_image")
+S3method("plot","Rfits_cube")
 
 #Cfits things
 #export(Cfits_read_img_subset)

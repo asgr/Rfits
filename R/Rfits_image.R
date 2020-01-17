@@ -71,6 +71,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
       naxis2=hdr$keyvalues$NAXIS2
       datatype=hdr$keyvalues$BITPIX
     }
+    naxis3 = 1
     
     if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
       stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
@@ -100,13 +101,22 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent = TRUE)
     if(is.numeric(naxis1)){
       naxis2 = Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext)
+      naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent = TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
     }else{
       naxis1 = Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
       naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+      naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent = TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
-    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, ext=ext, datatype=datatype)
+    if(!is.numeric(naxis3)){
+      naxis3 = 1
+    }
+    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                         ext=ext, datatype=datatype)
+    if(naxis3 > 1){
+      image = array(image, dim=c(naxis1, naxis2, naxis3))
+    }
   }
   
   if(header){
@@ -130,7 +140,11 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     }
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
                 keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history)
-    class(output)='Rfits_image'
+    if(naxis3==1){
+      class(output)='Rfits_image'
+    }else if(naxis3>1){
+      class(output)='Rfits_cube'
+    }
     return(invisible(output))
   }else{
     return(invisible(image)) 
@@ -154,7 +168,7 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
-  if(class(image)=='Rfits_image'){
+  if(class(image)=='Rfits_image' | class(image)=='Rfits_cube'){
     if(missing(keyvalues)){keyvalues=image$keyvalues}
     if(missing(keycomments)){keycomments=image$keycomments}
     if(missing(keynames)){keynames=image$keynames}
@@ -162,7 +176,7 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
     if(missing(history)){history=image$history}
     image=image$imDat
   }
-  assertMatrix(image)
+  assertArray(image)
   if(!missing(keyvalues)){keyvalues=as.list(keyvalues)}
   if(!missing(keycomments)){keycomments=as.list(keycomments)}
   if(!missing(keynames)){keynames=as.character(keynames)}
@@ -173,7 +187,11 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
   assertCharacter(numeric, len = 1)
   assertCharacter(integer, len = 1)
   
-  naxis=dim(image)
+  naxes = dim(image)
+  naxis = length(naxes)
+  if(naxis == 2){
+    naxes = c(naxes,1)
+  }
   
   bitpix=0
   
@@ -216,8 +234,8 @@ Rfits_write_image=function(image, filename, ext=1, keyvalues, keycomments,
     }
   }
   #Cfits_create_image(filename, bitpix=bitpix, naxis1=naxis[1], naxis2=naxis[2])
-  Cfits_write_image(filename, data=image, datatype=datatype, naxis1=naxis[1],
-                    naxis2=naxis[2], ext=ext, create_ext=create_ext,
+  Cfits_write_image(filename, data=image, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+                    naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
                     create_file=create_file, bitpix=bitpix)
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
@@ -244,5 +262,16 @@ plot.Rfits_image=function(x, ...){
     Rwcs::Rwcs_image(x, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
+  }
+}
+
+plot.Rfits_cube=function(x, slice=1, ...){
+  if(class(x)!='Rfits_cube'){
+    stop('Object class is not of type Rfits_image!')
+  }
+  if(requireNamespace("Rwcs", quietly = TRUE)){
+    Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, ...)
+  }else{
+    message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
 }

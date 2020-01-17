@@ -433,7 +433,7 @@ void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , 
 }
 
 // [[Rcpp::export]]
-SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100,
+SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, long naxis3=1,
                                    int ext=1, int datatype=-32)
 {
   int anynull, nullvals = 0, hdutype;
@@ -442,41 +442,41 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100,
   fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  long npixels = naxis1 * naxis2;
+  long npixels = naxis1 * naxis2 * naxis3;
 
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(npixels);
     fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
     fits_invoke(close_file, fptr);
-    NumericMatrix pixel_matrix(naxis1, naxis2);
+    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     std::vector<double> pixels(npixels);
     fits_invoke(read_img, fptr, TDOUBLE, 1, npixels, &nullvals, pixels.data(), &anynull);
     fits_invoke(close_file, fptr);
-    NumericMatrix pixel_matrix(naxis1, naxis2);
+    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
     std::vector<int> pixels(npixels);
     fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
     fits_invoke(close_file, fptr);
-    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
     std::vector<short> pixels(npixels);
     fits_invoke(read_img, fptr, TSHORT, 1, npixels, &nullvals, pixels.data(), &anynull);
     fits_invoke(close_file, fptr);
-    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(npixels);
     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
     fits_invoke(close_file, fptr);
-    IntegerMatrix pixel_matrix(naxis1, naxis2);
+    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }
@@ -484,14 +484,19 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100,
 }
 
 // [[Rcpp::export]]
-void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxis1 ,
-                       long naxis2, int ext=1, int create_ext=1, int create_file=1, int bitpix=32)
+void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis, long naxis1,
+                       long naxis2, long naxis3=1, int ext=1, int create_ext=1, int create_file=1,
+                       int bitpix=32)
 {
   int hdutype, ii;
-  long nelements = naxis1 * naxis2;
-  long naxes[] = {naxis1, naxis2};
-  long fpixel[] = {1, 1};
   fits_file fptr;
+  long nelements = naxis1 * naxis2 * naxis3;
+  
+  long naxes_image[] = {naxis1, naxis2};
+  long fpixel_image[] = {1, 1};
+  
+  long naxes_cube[] = {naxis1, naxis2, naxis3};
+  long fpixel_cube[] = {1, 1, 1};
   
   //Rcout << "Here 1" << std::endl;
   
@@ -510,33 +515,65 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, long naxi
       fits_invoke(delete_hdu, fptr, &hdutype);
     }
   }
-
-  fits_invoke(create_img, fptr, bitpix, 2, naxes);
-
-  //below need to work for integers and doubles:
-  if(datatype == TINT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
-  }else if(datatype == TSHORT){
-    short *data_s = (short *)malloc(nelements * sizeof(short));
-    for (ii = 0; ii < nelements; ii++)  {
-      data_s[ii] = INTEGER(data)[ii];
+  
+  if(naxis==2){
+    fits_invoke(create_img, fptr, bitpix, 2, naxes_image);
+    
+    //below need to work for integers and doubles:
+    if(datatype == TINT){
+      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, INTEGER(data));
+    }else if(datatype == TSHORT){
+      short *data_s = (short *)malloc(nelements * sizeof(short));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_s[ii] = INTEGER(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_s);
+    }else if(datatype == TLONG){
+      long *data_l = (long *)malloc(nelements * sizeof(long));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_l[ii] = INTEGER(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_l);
+    }else if(datatype == TDOUBLE){
+      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, REAL(data));
+    }else if(datatype == TFLOAT){
+      float *data_f = (float *)malloc(nelements * sizeof(float));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_f[ii] = REAL(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_f);
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
-  }else if(datatype == TLONG){
-    long *data_l = (long *)malloc(nelements * sizeof(long));
-    for (ii = 0; ii < nelements; ii++)  {
-      data_l[ii] = INTEGER(data)[ii];
-    }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
-  }else if(datatype == TDOUBLE){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
-  }else if(datatype == TFLOAT){
-    float *data_f = (float *)malloc(nelements * sizeof(float));
-    for (ii = 0; ii < nelements; ii++)  {
-      data_f[ii] = REAL(data)[ii];
-    }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
   }
+  
+  if(naxis==3){
+    fits_invoke(create_img, fptr, bitpix, 3, naxes_cube);
+    
+    //below need to work for integers and doubles:
+    if(datatype == TINT){
+      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, INTEGER(data));
+    }else if(datatype == TSHORT){
+      short *data_s = (short *)malloc(nelements * sizeof(short));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_s[ii] = INTEGER(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_s);
+    }else if(datatype == TLONG){
+      long *data_l = (long *)malloc(nelements * sizeof(long));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_l[ii] = INTEGER(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_l);
+    }else if(datatype == TDOUBLE){
+      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, REAL(data));
+    }else if(datatype == TFLOAT){
+      float *data_f = (float *)malloc(nelements * sizeof(float));
+      for (ii = 0; ii < nelements; ii++)  {
+        data_f[ii] = REAL(data)[ii];
+      }
+      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_f);
+    }
+  }
+
 }
 
 // [[Rcpp::export]]

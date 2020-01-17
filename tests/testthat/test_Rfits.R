@@ -144,3 +144,10 @@ expect(abs(log10(sum(temp_image$imDat)/sum(temp_compress$imDat))) < 1e-4, failur
 #ex 24
 temp_point = Rfits_point(file_image)
 expect_equal(temp_image$imDat[1:5,1:5], temp_point[1:5,1:5])
+
+#ex 25
+temp_cube = Rfits_read_image(system.file('extdata', 'cube.fits', package = "Rfits"))
+file_cube_temp = tempfile()
+Rfits_write_image(temp_cube, file_cube_temp)
+temp_cube2 = Rfits_read_image(file_cube_temp)
+expect_identical(temp_cube$imDat, temp_cube2$imDat)

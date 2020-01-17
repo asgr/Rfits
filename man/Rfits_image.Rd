@@ -5,10 +5,10 @@
 \alias{Rfits_write_image}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-FITS Image Readers and Writers
+FITS Image and Cube Readers and Writers
 }
 \description{
-Generic image readers and writers.
+Generic image and cube readers and writers.
 }
 \usage{
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
@@ -78,11 +78,11 @@ Logical; if file exists at location \option{filename}, should it be overwritten 
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
 
-\code{Rfits_read_image} reads in data from a FITS file.
+\code{Rfits_read_image} reads in data from a FITS file. This can be either an image or a cube. Note that image subsetting does not work for cubes (you have to read in the full cube).
 
-\code{Rfits_write_image} writes data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
+\code{Rfits_write_image} writes image or cube data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 
-\code{image} functions work with binary FITS images and R numeric or integer matrices. When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix. You can either overwrite a current file or create a new extension to an already presen FITS file. 
+When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if \option{header}=FALSE then it is just the raw image matrix or cube array. You can either overwrite a current file or create a new extension to an already present FITS file. 
 }
 \value{
 \code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}.
