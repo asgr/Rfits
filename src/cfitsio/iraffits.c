@@ -1872,7 +1872,7 @@ char *cval;	/* character string containing the value for variable
 
     /* Put quotes around string */
     value[0] = squot;
-    strncpy (&value[1],cval,lcval);
+    memcpy (&value[1],cval,lcval);
     value[lcval+1] = squot;
     value[lcval+2] = 0;
 
