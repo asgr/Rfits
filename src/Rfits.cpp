@@ -497,7 +497,10 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
   
   long naxes_cube[] = {naxis1, naxis2, naxis3};
   long fpixel_cube[] = {1, 1, 1};
-  
+
+  long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
+  long *axes = (naxis == 2) ? naxes_image : naxes_cube;
+
   //Rcout << "Here 1" << std::endl;
   
   if(create_file == 1){
@@ -515,63 +518,32 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
       fits_invoke(delete_hdu, fptr, &hdutype);
     }
   }
-  
-  if(naxis==2){
-    fits_invoke(create_img, fptr, bitpix, 2, naxes_image);
-    
-    //below need to work for integers and doubles:
-    if(datatype == TINT){
-      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, INTEGER(data));
-    }else if(datatype == TSHORT){
-      short *data_s = (short *)malloc(nelements * sizeof(short));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_s[ii] = INTEGER(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_s);
-    }else if(datatype == TLONG){
-      long *data_l = (long *)malloc(nelements * sizeof(long));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_l[ii] = INTEGER(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_l);
-    }else if(datatype == TDOUBLE){
-      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, REAL(data));
-    }else if(datatype == TFLOAT){
-      float *data_f = (float *)malloc(nelements * sizeof(float));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_f[ii] = REAL(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_image, nelements, data_f);
+
+  fits_invoke(create_img, fptr, bitpix, naxis, axes);
+
+  //below need to work for integers and doubles:
+  if(datatype == TINT){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+  }else if(datatype == TSHORT){
+    short *data_s = (short *)malloc(nelements * sizeof(short));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_s[ii] = INTEGER(data)[ii];
     }
-  }
-  
-  if(naxis==3){
-    fits_invoke(create_img, fptr, bitpix, 3, naxes_cube);
-    
-    //below need to work for integers and doubles:
-    if(datatype == TINT){
-      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, INTEGER(data));
-    }else if(datatype == TSHORT){
-      short *data_s = (short *)malloc(nelements * sizeof(short));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_s[ii] = INTEGER(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_s);
-    }else if(datatype == TLONG){
-      long *data_l = (long *)malloc(nelements * sizeof(long));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_l[ii] = INTEGER(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_l);
-    }else if(datatype == TDOUBLE){
-      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, REAL(data));
-    }else if(datatype == TFLOAT){
-      float *data_f = (float *)malloc(nelements * sizeof(float));
-      for (ii = 0; ii < nelements; ii++)  {
-        data_f[ii] = REAL(data)[ii];
-      }
-      fits_invoke(write_pix, fptr, datatype, fpixel_cube, nelements, data_f);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
+  }else if(datatype == TLONG){
+    long *data_l = (long *)malloc(nelements * sizeof(long));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_l[ii] = INTEGER(data)[ii];
     }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+  }else if(datatype == TDOUBLE){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+  }else if(datatype == TFLOAT){
+    float *data_f = (float *)malloc(nelements * sizeof(float));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_f[ii] = REAL(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
   }
 
 }
