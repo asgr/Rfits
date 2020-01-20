@@ -1,19 +1,24 @@
-\name{plot.Rfits_image}
+\name{plot.Rfits}
 \alias{plot.Rfits_image}
+\alias{plot.Rfits_cube}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-WCS Plot Method
+WCS Plot Methods for Images and Cubes
 }
 \description{
 Makes a nice WCS image of a sensibly described image read in with \code{\link{Rfits_read_image}}.
 }
 \usage{
 \method{plot}{Rfits_image}(x, ...)
+\method{plot}{Rfits_cube}(x, slice = 1, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{x}{
 An object of class \code{Rfits_image}, e.g. as read in by \code{\link{Rfits_read_image}}.
+}
+  \item{slice}{
+Integer scalar; the slice of the FITS cube to display.  
 }
   \item{\dots}{
 Extra options to pass to \code{Rwcs_image}.
