@@ -133,7 +133,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
   else if ( typecode == TBYTE ) {
     int nullval = 0;
     // std::vector<Rbyte> col(nrow);
-    std::vector<int> col(nrow);
+    std::vector<Rbyte> col(nrow);
     fits_invoke(read_col, fptr, TBYTE, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
