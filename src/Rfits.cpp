@@ -5,6 +5,8 @@
 
 #include "cfitsio/fitsio.h"
 
+// Comments with Rcout << something here << std::endl;
+
 using namespace Rcpp;
 
 std::runtime_error fits_status_to_exception(const char *func_name, int status)
@@ -104,7 +106,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_rows, fptr, &nrow);
   fits_invoke(get_coltype, fptr, colref, &typecode, &repeat, &width);
-
+  
   if ( typecode == TSTRING ) {
     int cwidth;
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
@@ -126,6 +128,14 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     int nullval = 0;
     std::vector<Rbyte> col(nrow);
     fits_invoke(read_col, fptr, TBIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    Rcpp::LogicalVector out(nrow);
+    std::copy(col.begin(), col.end(), out.begin());
+    return out;
+  }
+  else if ( typecode == TLOGICAL ) {
+    int nullval = 0;
+    std::vector<Rbyte> col(nrow);
+    fits_invoke(read_col, fptr, TLOGICAL, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::LogicalVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -308,7 +318,6 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
 void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode=1){
   
   int hdutype,ii;
-  //Rcout << filename.get_cstring() << std::endl;
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
@@ -501,8 +510,6 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
   long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
   long *axes = (naxis == 2) ? naxes_image : naxes_cube;
 
-  //Rcout << "Here 1" << std::endl;
-  
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
     fits_invoke(create_hdu, fptr);

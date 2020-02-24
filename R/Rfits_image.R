@@ -139,7 +139,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
       hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
     }
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
-                keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history)
+                keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
     if(naxis3==1){
       class(output)='Rfits_image'
     }else if(naxis3>1){

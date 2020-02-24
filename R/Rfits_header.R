@@ -247,10 +247,12 @@ Rfits_header_to_hdr=function(header){
   good = which(substr(header, 9, 10) == "= ")
   header = header[good]
   Nhead = length(header)
+  headlist = list()
   for (i in 1:Nhead) {
-    header[i] = strsplit(header[i], "/")[[1]][1]
+    headtemp = strsplit(header[i], "/")[[1]][1]
+    headlist[[i]] = c(substr(headtemp, 1, 8), substr(headtemp, 10, nchar(headtemp)))
   }
-  hdr = unlist(strsplit(header, "= "))
+  hdr = unlist(headlist)
   smark = grep("'", hdr)
   for (i in smark) {
     hdr[i] = gsub("''", "aAlJ2fZ47xx", hdr[i])
@@ -268,7 +270,7 @@ Rfits_hdr_to_keyvalues=function(hdr){
   keynames = hdr[c(T,F)]
   suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
   goodkey = !is.na(keyvalues)
-  suppressWarnings({isint = unlist(keyvalues[goodkey]) %% 1 == 0 & unlist(keyvalues[goodkey]) <= .Machine$integer.max})
+  suppressWarnings({isint = unlist(keyvalues[goodkey]) %% 1 == 0 & abs(unlist(keyvalues[goodkey])) <= .Machine$integer.max})
   keyvalues[goodkey][isint] = as.integer(keyvalues[goodkey][isint])
   keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
   keyvalues[hdr[c(F,T)] == 'T']=TRUE

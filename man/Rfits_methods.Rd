@@ -1,6 +1,9 @@
 \name{Rfits_methods}
 \alias{Rfits_methods}
+\alias{print.Rfits_image}
+\alias{dim.Rfits_image}
 \alias{print.Rfits_image_pointer}
+\alias{dim.Rfits_image_pointer}
 \alias{[.Rfits_image_pointer}
 \alias{&.Rfits_image_pointer}
 \alias{|.Rfits_image_pointer}
@@ -27,7 +30,10 @@
   Binary operators for Rfits_image_pointer objects.
 }
 \usage{
+\method{print}{Rfits_image}(x,  ...)
+\method{dim}{Rfits_image}(x)
 \method{print}{Rfits_image_pointer}(x,  ...)
+\method{dim}{Rfits_image_pointer}(x)
 \method{[}{Rfits_image_pointer}(x,i,j)
 \method{&}{Rfits_image_pointer}(e1,e2)
 \method{|}{Rfits_image_pointer}(e1,e2)
