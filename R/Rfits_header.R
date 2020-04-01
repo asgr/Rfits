@@ -244,14 +244,16 @@ Rfits_info=function(filename){
 
 Rfits_header_to_hdr=function(header){
   #Based on parseHdr in FITSio
-  good = which(substr(header, 9, 10) == "= ")
-  header = header[good]
-  Nhead = length(header)
+  good = sort(unique(c(which(substr(header, 9, 10) == "= "), grep('HIERARCH', header))))
+  header_good = header[good]
+  Nhead = length(header_good)
   headlist = list()
   for (i in 1:Nhead) {
-    headtemp = strsplit(header[i], "/")[[1]][1]
-    headlist[[i]] = c(substr(headtemp, 1, 8), substr(headtemp, 10, nchar(headtemp)))
+    headtemp = strsplit(header_good[i], "/")[[1]][1]
+    find_eq = gregexpr('=', headtemp)[[1]][1] #more generic, even though it should be at character 9 in FITS standard
+    headlist[[i]] = c(substr(headtemp, 1, find_eq-1), substr(headtemp, find_eq+1, nchar(headtemp)))
   }
+  
   hdr = unlist(headlist)
   smark = grep("'", hdr)
   for (i in smark) {
