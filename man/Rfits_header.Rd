@@ -75,7 +75,7 @@ Character scalar/vector; (not required) history information associated with with
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
 
-\code{Rfits_read_} reads in kay and header data from a FITS file.
+\code{Rfits_read_} reads in key and header data from a FITS file.
 
 \code{Rfits_write_} writes key and header data to a FITS file.
 

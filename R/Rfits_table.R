@@ -108,7 +108,7 @@ Rfits_read_colnames=function(filename, ext=2){
 }
 
 Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), 
-                           create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
+                           tforms='auto', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
                            NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999, verbose = FALSE){
   assertDataFrame(table, min.rows = 1, min.cols = 1)
   
@@ -130,6 +130,7 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   }
   assertCharacter(extname, max.len = 1)
   assertCharacter(tunits, len = ncol)
+  assert(testCharacter(tforms, len = 1) | testCharacter(tforms, len = ncol))
   assertCharacter(table_type, len = 1)
   table_type = tolower(table_type)
   assertSubset(table_type, c('binary','ascii'))
@@ -158,25 +159,28 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   if(table_type == 'ascii'){
     table_type = 1
     
-    tforms=character(ncol)
-    tforms[check.logical]="I9"
-    tforms[check.int]="I9"
-    tforms[check.integer64]='I20'
-    tforms[check.double]="D18.10"
-    tforms[check.char]=paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
-    
+    if(tforms == 'auto'){
+      tforms=character(ncol)
+      tforms[check.logical]="I9"
+      tforms[check.int]="I9"
+      tforms[check.integer64]='I20'
+      tforms[check.double]="D18.10"
+      tforms[check.char]=paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
+    }
     if(length(grep('I|D|A',tforms)) != ncol){
       stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('I|D|A',tforms))),sep='\n'))
     }
   }else if(table_type == 'binary'){
     table_type = 2
     
-    tforms=character(ncol)
-    tforms[check.logical]="1J"
-    tforms[check.int]="1J" # will become typecode = TINT = 31
-    tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
-    tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-    tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+    if(tforms == 'auto'){
+      tforms=character(ncol)
+      tforms[check.logical]="1J"
+      tforms[check.int]="1J" # will become typecode = TINT = 31
+      tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
+      tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
+      tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+    }
     
     if(length(grep('1B|1K|1J|1D|A',tforms)) != ncol){
       stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|A',tforms))),sep='\n'))
@@ -194,7 +198,9 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   assertCharacter(tforms, len = ncol)
   assertCharacter(tunits, len = ncol)
   
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms, tunits=tunits, extname=extname, ext=ext, create_ext=create_ext, create_file=create_file, table_type=table_type)
+  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms,
+                        tunits=tunits, extname=extname, ext=ext, create_ext=create_ext,
+                        create_file=create_file, table_type=table_type)
   ext = Cfits_read_nhdu(filename)
   for(i in 1:ncol){
     if(verbose){

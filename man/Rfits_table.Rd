@@ -11,15 +11,15 @@ FITS Table Readers and Writers
 Generic table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL, verbose = FALSE,
-  header = FALSE)
+Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL,
+  verbose = FALSE, header = FALSE)
 
 Rfits_read_colnames(filename, ext = 2)
 
 Rfits_write_table(table, filename, ext = 2, extname = 'Main',
-  tunits = rep('\01', dim(table)[2]), create_ext = TRUE, create_file = TRUE,
-  overwrite_file = TRUE, table_type = 'binary', NA_replace = -999, NaN_replace = -9999,
-  Inf_replace = -99999, verbose = FALSE)
+  tunits = rep('\01', dim(table)[2]), tforms='auto', create_ext = TRUE,
+  create_file = TRUE, overwrite_file = TRUE, table_type = 'binary',
+  NA_replace = -999, NaN_replace = -9999, Inf_replace = -99999, verbose = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -46,6 +46,9 @@ Character scalar; name of the table extension.
 }
   \item{tunits}{
 Character vector; data units to be written out. Default is NULL. 
+}
+  \item{tforms}{
+Character vector; this should usually be left at the default of 'auto', where the table writer will choose sensible values for the table formatting. If you are an advanced user who needs more control, then this must be the same length as the number of columns being written, and specify FITS standard formatting types (do some Googling to find those, but they look like I9, I20, D18.10 for ASCII \option{table_type}, and 1J, 1K and 1D for binary \option{table_type}).
 }
   \item{create_ext}{
 Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
