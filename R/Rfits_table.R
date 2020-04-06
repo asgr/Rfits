@@ -159,7 +159,7 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   if(table_type == 'ascii'){
     table_type = 1
     
-    if(tforms == 'auto'){
+    if(tforms[1] == 'auto'){
       tforms=character(ncol)
       tforms[check.logical]="I9"
       tforms[check.int]="I9"
@@ -173,7 +173,7 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   }else if(table_type == 'binary'){
     table_type = 2
     
-    if(tforms == 'auto'){
+    if(tforms[1] == 'auto'){
       tforms=character(ncol)
       tforms[check.logical]="1J"
       tforms[check.int]="1J" # will become typecode = TINT = 31
