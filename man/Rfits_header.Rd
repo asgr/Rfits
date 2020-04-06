@@ -18,11 +18,11 @@ FITS Header Readers and Writers
 Generic header key readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_header(filename, ext = 1)
+Rfits_read_header(filename, ext = 1, remove_HIERARCH = FALSE)
 
 Rfits_write_header(filename, keyvalues, keycomments, keynames, comment, history, ext = 1) 
 
-Rfits_info(filename)
+Rfits_info(filename, remove_HIERARCH = FALSE)
 
 Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
 
@@ -70,6 +70,9 @@ Character scalar/vector; (not required) comments associated with FITS extension.
 }
   \item{history}{
 Character scalar/vector; (not required) history information associated with with FITS extension. 
+}
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
 }
 \details{

@@ -92,6 +92,13 @@ Rfits_write_key=function(filename, keyname, keyvalue, keycomment="", ext=1){
       typecode=82
     }
   }
+  
+  if(nchar(keyname) > 8){
+    if(substr(keyname, 1, 8) != 'HIERARCH'){
+      keyname = paste0('HIERARCH  ', keyname)
+    }
+  }
+    
   if(is.character(keyvalue)){typecode=16}
   Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode)
 }
@@ -131,7 +138,7 @@ Rfits_delete_key=function(filename, keyname, ext=1){
   Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
-Rfits_read_header=function(filename, ext=1){
+Rfits_read_header=function(filename, ext=1, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -165,7 +172,7 @@ Rfits_read_header=function(filename, ext=1){
   }
   
   #hdr vector
-  hdr = Rfits_header_to_hdr(headertemp)
+  hdr = Rfits_header_to_hdr(headertemp, remove_HIERARCH=remove_HIERARCH)
   
   #keyword list
   keyvalues = Rfits_hdr_to_keyvalues(hdr)
@@ -227,7 +234,7 @@ Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment,
   }
 }
 
-Rfits_info=function(filename){
+Rfits_info=function(filename, remove_HIERARCH = FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -235,20 +242,24 @@ Rfits_info=function(filename){
   headers=list()
   info={}
   for(i in 1:ext){
-    temp = Rfits_read_header(filename, i)
+    temp = Rfits_read_header(filename, i, remove_HIERARCH = remove_HIERARCH)
     info = c(info, temp$header[1])
     headers = c(headers, list(temp))
   }
   return(invisible(list(summary = info, headers=headers)))
 }
 
-Rfits_header_to_hdr=function(header){
+Rfits_header_to_hdr=function(header, remove_HIERARCH = FALSE){
   #Based on parseHdr in FITSio
-  good = sort(unique(c(which(substr(header, 9, 10) == "= "), grep('HIERARCH', header))))
+  sel_HIERARCH = grep('HIERARCH', header)
+  good = sort(unique(c(which(substr(header, 9, 10) == "= "),sel_HIERARCH)))
+  if(remove_HIERARCH){
+    header = sub('HIERARCH  ', '', header)
+  }
   header_good = header[good]
   Nhead = length(header_good)
   headlist = list()
-  for (i in 1:Nhead) {
+  for (i in 1:Nhead){
     headtemp = strsplit(header_good[i], "/")[[1]][1]
     find_eq = gregexpr('=', headtemp)[[1]][1] #more generic, even though it should be at character 9 in FITS standard
     headlist[[i]] = c(substr(headtemp, 1, find_eq-1), substr(headtemp, find_eq+1, nchar(headtemp)))

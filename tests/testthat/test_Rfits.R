@@ -151,3 +151,14 @@ file_cube_temp = tempfile()
 Rfits_write_image(temp_cube, file_cube_temp)
 temp_cube2 = Rfits_read_image(file_cube_temp)
 expect_identical(temp_cube$imDat, temp_cube2$imDat)
+
+#ex 26
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+temp_image$keyvalues$`HIERARCH  TEST` = 100L
+temp_image$keynames=c(temp_image$keynames, 'HIERARCH  TEST')
+temp_image$keycomments$`HIEARCH  TEST` = ''
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+temp_image_hier = Rfits_read_image(file_image_temp, remove_HIERARCH = FALSE)
+expect_identical(temp_image$keyvalues, temp_image_hier$keyvalues)

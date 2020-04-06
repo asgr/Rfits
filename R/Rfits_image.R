@@ -50,7 +50,8 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL){
+Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
+                          yhi=NULL, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -60,7 +61,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
   
   if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | header){
     
-    hdr=Rfits_read_header(filename = filename, ext = ext)
+    hdr=Rfits_read_header(filename = filename, ext = ext, remove_HIERARCH = remove_HIERARCH)
     
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
       naxis1=hdr$keyvalues$ZNAXIS1

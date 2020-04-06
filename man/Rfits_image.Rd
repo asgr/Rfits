@@ -15,10 +15,10 @@ Generic image and cube readers and writers.
 }
 \usage{
 Rfits_read_image(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
-  yhi = NULL)
+  yhi = NULL, remove_HIERARCH = FALSE)
   
 Rfits_read_cube(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
-  yhi = NULL)
+  yhi = NULL, remove_HIERARCH = FALSE)
 
 Rfits_write_image(data, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
@@ -83,6 +83,9 @@ Logical; should a new file be created (TRUE) or not (FALSE). If not then the fil
 }
   \item{overwrite_file}{
 Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
+}
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
 }
 \details{

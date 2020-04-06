@@ -12,7 +12,7 @@ Generic table readers and writers. Works with a wide range of data types includi
 }
 \usage{
 Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL,
-  verbose = FALSE, header = FALSE)
+  verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE)
 
 Rfits_read_colnames(filename, ext = 2)
 
@@ -73,6 +73,9 @@ Integer scalar; value to replace NaN (since FITS does not support NaN). If numer
 }
   \item{Inf_replace}{
 Integer scalar; value to replace Inf (since FITS does not support Inf). If numeric, it will be converted to integer internally.  
+}
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
 }
 \details{

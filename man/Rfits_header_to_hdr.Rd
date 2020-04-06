@@ -9,7 +9,7 @@ Header Converters
 Utility functios to convert between header formats.
 }
 \usage{
-Rfits_header_to_hdr(header)
+Rfits_header_to_hdr(header, remove_HIERARCH = FALSE)
 Rfits_hdr_to_keyvalues(hdr)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -29,6 +29,9 @@ WCSAXES =                    2 / Number of World Coordinate System axes
 }
   \item{hdr}{
 Character vector; alternates keyname/kevalue pairs. This is the same format used in the \code{FITSio} package. See Examples.
+}
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
 }
 \details{
