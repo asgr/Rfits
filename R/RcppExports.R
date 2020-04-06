@@ -81,3 +81,11 @@ Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, lpixel0 
     .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, lpixel0, lpixel1, ext, datatype)
 }
 
+Cfits_write_chksum <- function(filename) {
+    invisible(.Call(`_Rfits_Cfits_write_chksum`, filename))
+}
+
+Cfits_verify_chksum <- function(filename, verbose) {
+    .Call(`_Rfits_Cfits_verify_chksum`, filename, verbose)
+}
+

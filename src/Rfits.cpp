@@ -660,8 +660,40 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
   throw std::runtime_error("unsupported type");
 }
 
-//int fits_read_subset(fitsfile *fptr, int  datatype, long *fpixel,
-//                     long *lpixel, long *inc, void *nulval,  void *array,
-//                     int *anynul, int *status)
-  
-  
+// [[Rcpp::export]]
+void Cfits_write_chksum(Rcpp::String filename){
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(write_chksum, fptr);
+}
+
+// [[Rcpp::export]]
+SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
+  int dataok, hduok;
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(verify_chksum, fptr, &dataok, &hduok);
+  if(verbose == 1){
+    if(dataok == 1){
+      Rcpp::Rcout << "DATASUM is correct\n";
+    }
+    if(dataok == 0){
+      Rcpp::Rcout << "DATASUM is missing\n";
+    }
+    if(dataok == -1){
+      Rcpp::Rcout << "DATASUM is incorrect\n";
+    }
+    if(hduok == 1){
+      Rcpp::Rcout << "CHECKSUM is correct\n";
+    }
+    if(hduok == 0){
+      Rcpp::Rcout << "CHECKSUM is missing\n";
+    }
+    if(hduok == -1){
+      Rcpp::Rcout << "CHECKSUM is incorrect\n";
+    }
+  }
+  Rcpp::IntegerVector out(2);
+  out[0] = dataok;
+  out[1] = hduok;
+  return(out);
+}
+

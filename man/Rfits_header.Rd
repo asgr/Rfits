@@ -10,6 +10,8 @@
 \alias{Rfits_write_comment}
 \alias{Rfits_write_history}
 \alias{Rfits_write_date}
+\alias{Rfits_write_chksum}
+\alias{Rfits_verify_chksum}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Header Readers and Writers
@@ -35,6 +37,10 @@ Rfits_write_comment(filename, comment = "", ext = 1)
 Rfits_write_history(filename, history = "", ext = 1) 
 
 Rfits_write_date(filename, ext = 1)
+
+Rfits_write_chksum(filename)
+
+Rfits_verify_chksum(filename, verbose = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -74,6 +80,9 @@ Character scalar/vector; (not required) history information associated with with
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
+  \item{verbose}{
+Logical; should DATASUM and CHECKSUM results be directly printed to screen?  
+}
 }
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
@@ -103,7 +112,11 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_write_date} write date entry (DATE) to target FITS extension header.
 
+\code{Rfits_write_chksum} write the FITS CHECKSUM and DATASUM header values. These are computed by CFITSIO and are either updated or added to the first FITS extension (1).
+
 \code{Rfits_delete_key} deletes the specified \option{keyname}.
+
+\code{Rfits_verify_chksum} verifies the FITS CHECKSUM and DATASUM header values. If verbose=TRUE, it will print the status for both CHECKSUM and DATASUM, where either one can be: present and correct, present and incorrect, or missing. It also returns a two element vector for DATASUM and CHECKSUM checks respectively, where 'correct' = present and correct, 'incorrect' = present and incorrect, 'missing' = missing.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

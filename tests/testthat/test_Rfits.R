@@ -162,3 +162,15 @@ file_image_temp = tempfile()
 Rfits_write_image(temp_image, file_image_temp)
 temp_image_hier = Rfits_read_image(file_image_temp, remove_HIERARCH = FALSE)
 expect_identical(temp_image$keyvalues, temp_image_hier$keyvalues)
+
+#ex 27
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+Rfits_write_chksum(file_image_temp)
+temp_check = Rfits_verify_chksum(file_image_temp)
+expect_identical(as.character(temp_check['DATASUM']), "correct")
+
+#ex 28
+expect_identical(as.character(temp_check['CHECKSUM']), "correct")

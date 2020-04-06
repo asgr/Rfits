@@ -20,6 +20,8 @@ export(Rfits_delete_key)
 export(Rfits_write_comment)
 export(Rfits_write_history)
 export(Rfits_write_date)
+export(Rfits_write_chksum)
+export(Rfits_verify_chksum)
 
 export(Rfits_point)
 export(`[.Rfits_image_pointer`)

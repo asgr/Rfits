@@ -291,3 +291,17 @@ Rfits_hdr_to_keyvalues=function(hdr){
   names(keyvalues)=keynames
   return(keyvalues)
 }
+
+Rfits_write_chksum=function(filename){
+  Cfits_write_chksum(filename)
+}
+
+Rfits_verify_chksum=function(filename, verbose = TRUE){
+  out=Cfits_verify_chksum(filename, verbose)
+  out=as.character(out)
+  names(out) = c('DATASUM', 'CHECKSUM')
+  out[out=='1'] = 'correct'
+  out[out=='0'] = 'missing'
+  out[out=='-1'] = 'incorrect'
+  return(invisible(out))
+}

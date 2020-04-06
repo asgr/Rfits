@@ -276,6 +276,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Cfits_write_chksum
+void Cfits_write_chksum(Rcpp::String filename);
+RcppExport SEXP _Rfits_Cfits_write_chksum(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Cfits_write_chksum(filename);
+    return R_NilValue;
+END_RCPP
+}
+// Cfits_verify_chksum
+SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose);
+RcppExport SEXP _Rfits_Cfits_verify_chksum(SEXP filenameSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_verify_chksum(filename, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
@@ -298,6 +320,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_delete_key", (DL_FUNC) &_Rfits_Cfits_delete_key, 3},
     {"_Rfits_Cfits_delete_header", (DL_FUNC) &_Rfits_Cfits_delete_header, 2},
     {"_Rfits_Cfits_read_img_subset", (DL_FUNC) &_Rfits_Cfits_read_img_subset, 7},
+    {"_Rfits_Cfits_write_chksum", (DL_FUNC) &_Rfits_Cfits_write_chksum, 1},
+    {"_Rfits_Cfits_verify_chksum", (DL_FUNC) &_Rfits_Cfits_verify_chksum, 2},
     {NULL, NULL, 0}
 };
 
