@@ -698,7 +698,35 @@ SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
 }
 
 // [[Rcpp::export]]
-SEXP Cfits_get_chksum(Rcpp::String filename, int verbose){
-  
+SEXP Cfits_get_chksum(Rcpp::String filename){
+  unsigned long datasum, hdusum;
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(get_chksum, fptr, &datasum, &hdusum);
+  Rcpp::NumericVector out(2);
+  out.attr("class") = "integer64";
+  std::memcpy(&(out[0]), &datasum, 8);
+  std::memcpy(&(out[1]), &hdusum, 8);
+  return(out);
 }
+
+// [[Rcpp::export]]
+SEXP Cfits_encode_chksum(unsigned long sum, int complement=0){
+  char ascii[16];
+  fits_encode_chksum(sum, complement, (char *)ascii);
+  Rcpp::StringVector out;
+  out = ascii;
+  return(out);
+}
+
+// [[Rcpp::export]]
+SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
+  unsigned long sum;
+  fits_decode_chksum((char *)ascii.get_cstring(), complement, &sum);
+  Rcpp::NumericVector out(1);
+  out.attr("class") = "integer64";
+  std::memcpy(&(out[0]), &sum, 8);
+  return(out);
+}
+
+
 

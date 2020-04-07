@@ -298,6 +298,41 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Cfits_get_chksum
+SEXP Cfits_get_chksum(Rcpp::String filename);
+RcppExport SEXP _Rfits_Cfits_get_chksum(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_get_chksum(filename));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Cfits_encode_chksum
+SEXP Cfits_encode_chksum(unsigned long sum, int complement);
+RcppExport SEXP _Rfits_Cfits_encode_chksum(SEXP sumSEXP, SEXP complementSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< unsigned long >::type sum(sumSEXP);
+    Rcpp::traits::input_parameter< int >::type complement(complementSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_encode_chksum(sum, complement));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Cfits_decode_chksum
+SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement);
+RcppExport SEXP _Rfits_Cfits_decode_chksum(SEXP asciiSEXP, SEXP complementSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type ascii(asciiSEXP);
+    Rcpp::traits::input_parameter< int >::type complement(complementSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_decode_chksum(ascii, complement));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
@@ -322,6 +357,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_img_subset", (DL_FUNC) &_Rfits_Cfits_read_img_subset, 7},
     {"_Rfits_Cfits_write_chksum", (DL_FUNC) &_Rfits_Cfits_write_chksum, 1},
     {"_Rfits_Cfits_verify_chksum", (DL_FUNC) &_Rfits_Cfits_verify_chksum, 2},
+    {"_Rfits_Cfits_get_chksum", (DL_FUNC) &_Rfits_Cfits_get_chksum, 1},
+    {"_Rfits_Cfits_encode_chksum", (DL_FUNC) &_Rfits_Cfits_encode_chksum, 2},
+    {"_Rfits_Cfits_decode_chksum", (DL_FUNC) &_Rfits_Cfits_decode_chksum, 2},
     {NULL, NULL, 0}
 };
 

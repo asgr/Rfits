@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_key=function(filename, keyname, keytype='numeric', ext = 1){
+Rfits_read_key=function(filename, keyname, keytype='numeric', ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -234,7 +234,7 @@ Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment,
   }
 }
 
-Rfits_info=function(filename, remove_HIERARCH = FALSE){
+Rfits_info=function(filename, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -249,7 +249,7 @@ Rfits_info=function(filename, remove_HIERARCH = FALSE){
   return(invisible(list(summary = info, headers=headers)))
 }
 
-Rfits_header_to_hdr=function(header, remove_HIERARCH = FALSE){
+Rfits_header_to_hdr=function(header, remove_HIERARCH=FALSE){
   #Based on parseHdr in FITSio
   sel_HIERARCH = grep('HIERARCH', header)
   good = sort(unique(c(which(substr(header, 9, 10) == "= "),sel_HIERARCH)))
@@ -286,17 +286,24 @@ Rfits_hdr_to_keyvalues=function(hdr){
   suppressWarnings({isint = unlist(keyvalues[goodkey]) %% 1 == 0 & abs(unlist(keyvalues[goodkey])) <= .Machine$integer.max})
   keyvalues[goodkey][isint] = as.integer(keyvalues[goodkey][isint])
   keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
-  keyvalues[hdr[c(F,T)] == 'T']=TRUE
-  keyvalues[hdr[c(F,T)] == 'F']=FALSE
-  names(keyvalues)=keynames
+  keyvalues[hdr[c(F,T)] == 'T'] = TRUE
+  keyvalues[hdr[c(F,T)] == 'F'] = FALSE
+  names(keyvalues) = keynames
   return(keyvalues)
 }
 
 Rfits_write_chksum=function(filename){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
   Cfits_write_chksum(filename)
 }
 
-Rfits_verify_chksum=function(filename, verbose = TRUE){
+Rfits_verify_chksum=function(filename, verbose=TRUE){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  assertLogical(verbose)
   out=Cfits_verify_chksum(filename, verbose)
   out=as.character(out)
   names(out) = c('DATASUM', 'CHECKSUM')
@@ -304,4 +311,22 @@ Rfits_verify_chksum=function(filename, verbose = TRUE){
   out[out=='0'] = 'missing'
   out[out=='-1'] = 'incorrect'
   return(invisible(out))
+}
+
+Rfits_get_chksum=function(filename){
+  out = Cfits_get_chksum(filename)
+  names(out) = c('DATASUM', 'CHECKSUM')
+  return(out)
+}
+
+Rfits_encode_chksum=function(checksum, complement=FALSE){
+  assertNumeric(checksum, max.len=1)
+  assertLogical(complement)
+  return(Cfits_encode_chksum(checksum, complement=complement))
+}
+
+Rfits_decode_chksum=function(checksum, complement=FALSE){
+  assertCharacter(checksum, max.len=1)
+  assertLogical(complement)
+  return(Cfits_decode_chksum(checksum, complement=complement))
 }

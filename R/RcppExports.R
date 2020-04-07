@@ -89,3 +89,15 @@ Cfits_verify_chksum <- function(filename, verbose) {
     .Call(`_Rfits_Cfits_verify_chksum`, filename, verbose)
 }
 
+Cfits_get_chksum <- function(filename) {
+    .Call(`_Rfits_Cfits_get_chksum`, filename)
+}
+
+Cfits_encode_chksum <- function(sum, complement = 0L) {
+    .Call(`_Rfits_Cfits_encode_chksum`, sum, complement)
+}
+
+Cfits_decode_chksum <- function(ascii, complement = 0L) {
+    .Call(`_Rfits_Cfits_decode_chksum`, ascii, complement)
+}
+

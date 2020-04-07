@@ -12,6 +12,9 @@
 \alias{Rfits_write_date}
 \alias{Rfits_write_chksum}
 \alias{Rfits_verify_chksum}
+\alias{Rfits_get_chksum}
+\alias{Rfits_encode_chksum}
+\alias{Rfits_decode_chksum}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Header Readers and Writers
@@ -41,6 +44,12 @@ Rfits_write_date(filename, ext = 1)
 Rfits_write_chksum(filename)
 
 Rfits_verify_chksum(filename, verbose = TRUE)
+
+Rfits_get_chksum(filename)
+
+Rfits_encode_chksum(checksum, complement = FALSE)
+
+Rfits_decode_chksum(checksum, complement = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -83,6 +92,12 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
   \item{verbose}{
 Logical; should DATASUM and CHECKSUM results be directly printed to screen?  
 }
+  \item{checksum}{
+Either numeric or character scalar; values to be encoded/decoded respectively (only for advanced users).
+}
+  \item{complement}{
+Logical; should the checksums be complemented (only for advanced users).  
+}
 }
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
@@ -112,11 +127,17 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_write_date} write date entry (DATE) to target FITS extension header.
 
-\code{Rfits_write_chksum} write the FITS CHECKSUM and DATASUM header values. These are computed by CFITSIO and are either updated or added to the first FITS extension (1).
+\code{Rfits_write_chksum} write the FITS CHECKSUM (for the HDU) and DATASUM (for the data) header values. These are computed by CFITSIO and are either updated or added to the first FITS extension (1).
 
 \code{Rfits_delete_key} deletes the specified \option{keyname}.
 
 \code{Rfits_verify_chksum} verifies the FITS CHECKSUM and DATASUM header values. If verbose=TRUE, it will print the status for both CHECKSUM and DATASUM, where either one can be: present and correct, present and incorrect, or missing. It also returns a two element vector for DATASUM and CHECKSUM checks respectively, where 'correct' = present and correct, 'incorrect' = present and incorrect, 'missing' = missing.
+
+\code{Rfits_get_checksum} return 64 bit integer vector containing DATASUM and CHECKSUM check sums for target file.
+
+\code{Rfits_encode_chksum} converts a numeric checksum to an ascii one (advanced users only).
+
+\code{Rfits_decode_chksum} converts an ascii checksum to a numeric one (advanced users only).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
