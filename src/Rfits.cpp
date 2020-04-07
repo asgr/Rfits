@@ -697,3 +697,8 @@ SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
   return(out);
 }
 
+// [[Rcpp::export]]
+SEXP Cfits_get_chksum(Rcpp::String filename, int verbose){
+  
+}
+
