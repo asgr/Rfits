@@ -268,3 +268,32 @@ plot.Rfits_cube=function(x, slice=1, ...){
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
 }
+
+Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
+  if(requireNamespace("tdigest", quietly = TRUE)){
+    fd = tdigest::tdigest({}, compression=compression)
+    image_ydim = dim(image)[2]
+    if(chunk > image_ydim){chunk = image_ydim}
+    loop = floor(image_ydim / chunk) - 1
+    for(i in 0:loop){
+      if(verbose & (i+1)%%10==0){
+        message(i+1,' of ',loop+1)
+      }
+      if(is.null(mask)){
+        tdigest::td_merge(tdigest::tdigest(image[,i*chunk+1:chunk],compression=compression),fd)
+      }else{
+        tdigest::td_merge(tdigest::tdigest(image[,i*chunk+1:chunk][mask[,i*chunk+1:chunk]==0],compression=compression),fd)
+      }
+    }
+    if(loop*chunk + chunk < image_ydim){
+      if(is.null(mask)){
+        tdigest::td_merge(tdigest::tdigest(image[,(loop*chunk+chunk+1):image_ydim],compression=compression),fd)
+      }else{
+        tdigest::td_merge(tdigest::tdigest(image[,(loop*chunk+chunk+1):image_ydim][mask[,(loop*chunk+chunk+1):image_ydim]==0],compression=compression),fd)
+      }
+    }
+    return(fd)
+  }else{
+    stop('The tdigest package is needed for Rfits_tdigest to work. Please install from CRAN.', call. = FALSE)
+  }
+}
