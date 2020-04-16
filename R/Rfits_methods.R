@@ -22,6 +22,17 @@ print.Rfits_image=function(x , ...){
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
 }
 
+print.Rfits_cube=function(x , ...){
+  cat('File path:',x$filename,'\n')
+  cat('Extension:',x$ext,'\n')
+  cat('Class: Rfits_image\n')
+  cat('RAM size:',round(object.size(x)/(2^20),4),'Mb\n')
+  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
+  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
+  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
+  cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
+}
+
 print.Rfits_image_pointer=function(x , ...){
   cat('File path:',x$filename,'\n')
   cat('Extension:',x$ext,'\n')
@@ -33,6 +44,10 @@ print.Rfits_image_pointer=function(x , ...){
 }
 
 dim.Rfits_image=function(x){
+  return(dim(x$imDat))
+}
+
+dim.Rfits_cube=function(x){
   return(dim(x$imDat))
 }
 
@@ -61,6 +76,15 @@ dim.Rfits_image_pointer=function(x){
   }
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=x$header,  xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi))
 }
+
+`[.Rfits_image` = function(x, i, j){
+  return(x$imDat[i,j])
+}
+
+`[.Rfits_cube` = function(x, i, j, k){
+  return(x$imDat[i,j,k])
+}
+
 
 `&.Rfits_image_pointer`=function(e1, e2){
   if (missing(e2)) 

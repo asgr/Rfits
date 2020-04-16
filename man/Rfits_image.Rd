@@ -124,6 +124,14 @@ Rodrigo Tobar
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
 
+#For convenience we can access the matrix part directly
+temp_image$imDat[1:5,1:5] #explicit
+temp_image[1:5,1:5] #convenient
+
+#And we can print and check dim easily
+print(temp_image)
+dim(temp_image)
+
 #Take a look
 library(magicaxis)
 magimageWCS(temp_image)
@@ -136,6 +144,18 @@ magimageWCS(temp_image_sub)
 file_image_temp = tempfile()
 Rfits_write_image(temp_image, file_image_temp)
 temp_image2 = Rfits_read_image(file_image_temp)
+
+#And now a cube
+temp_cube = Rfits_read_image(system.file('extdata', 'cube.fits',
+  package = "Rfits"))
+  
+#For convenience we can access the array part directly
+temp_cube$imDat[26:30,26:30,1:2] #explicit
+temp_cube[26:30,26:30,1:2] #convenient
+
+#And we can print and check dim easily
+print(temp_cube)
+dim(temp_cube)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
