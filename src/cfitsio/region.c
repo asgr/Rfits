@@ -107,8 +107,7 @@ int fits_read_ascii_region( const char *filename,
       /*  Make sure we have a full line of text  */
 
       lineLen = strlen(currLine);
-      done = 0;
-      while( lineLen==allocLen-1 && currLine[lineLen-1]!='\n' && !done ) {
+      while( lineLen==allocLen-1 && currLine[lineLen-1]!='\n' ) {
          currLoc = (char *)realloc( currLine, 2 * allocLen * sizeof(char) );
          if( !currLoc ) {
             ffpmsg("Couldn't allocate memory to hold Region file contents.");
@@ -117,16 +116,9 @@ int fits_read_ascii_region( const char *filename,
          } else {
             currLine = currLoc;
          }
-         if (fgets( currLine+lineLen, allocLen+1, rgnFile ) == NULL) {
-            done = 1;
-         }
+         fgets( currLine+lineLen, allocLen+1, rgnFile );
          allocLen += allocLen;
          lineLen  += strlen(currLine+lineLen);
-      }
-      if (done && currLine[lineLen-1] != '\n') {
-         ffpmsg("Finished reading file but no line ending found");
-         *status = FILE_NOT_OPENED;
-         goto error;
       }
 
       currLoc = currLine;

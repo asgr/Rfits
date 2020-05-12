@@ -1091,7 +1091,7 @@ int https_open(char *filename, int rwmode, int *handle)
   
   if (inmem.size % 2880)
   {
-     snprintf(errStr,MAXLEN,"Content-Length not a multiple of 2880 (https_open) %zu",
+     snprintf(errStr,MAXLEN,"Content-Length not a multiple of 2880 (https_open) %u",
          inmem.size);
      ffpmsg(errStr);
   }
@@ -1178,7 +1178,7 @@ int https_file_open(char *filename, int rwmode, int *handle)
   if (inmem.size % 2880)
   {
     snprintf(errStr, MAXLEN,
-	    "Content-Length not a multiple of 2880 (https_file_open) %zu",
+	    "Content-Length not a multiple of 2880 (https_file_open) %d",
 	    inmem.size);
     ffpmsg(errStr);
   }
@@ -1415,7 +1415,7 @@ int ftps_open(char *filename, int rwmode, int *handle)
   {
      if (inmem.size % 2880)
      {
-        snprintf(errStr,MAXLEN,"Content-Length not a multiple of 2880 (ftps_open) %zu",
+        snprintf(errStr,MAXLEN,"Content-Length not a multiple of 2880 (ftps_open) %u",
             inmem.size);
         ffpmsg(errStr);
      }
@@ -1567,7 +1567,7 @@ int ftps_file_open(char *filename, int rwmode, int *handle)
      if (inmem.size % 2880)
      {
        snprintf(errStr, MAXLEN,
-	       "Content-Length not a multiple of 2880 (ftps_file_open) %zu",
+	       "Content-Length not a multiple of 2880 (ftps_file_open) %d",
 	       inmem.size);
        ffpmsg(errStr);
      }
@@ -4210,10 +4210,7 @@ int root_openfile(char *url, char *rwmode, int *sock)
     strcpy(recbuf,getenv("ROOTUSERNAME"));
   } else {
     printf("Username: ");
-    if (fgets(recbuf,MAXLEN,stdin) == 0) {
-      ffpmsg("problem reading root user");
-      return (FILE_NOT_OPENED);
-    }
+    fgets(recbuf,MAXLEN,stdin);
     recbuf[strlen(recbuf)-1] = '\0';
   }
   
@@ -4246,10 +4243,7 @@ int root_openfile(char *url, char *rwmode, int *sock)
     strcpy(recbuf,getenv("ROOTPASSWORD"));
   } else {
     printf("Password: ");
-    if (fgets(recbuf,MAXLEN,stdin) == 0) {
-      ffpmsg("problem reading password");
-      return (FILE_NOT_OPENED);
-    }
+    fgets(recbuf,MAXLEN,stdin);
     recbuf[strlen(recbuf)-1] = '\0';
   }
   /* ones complement the password */

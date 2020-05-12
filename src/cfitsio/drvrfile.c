@@ -462,9 +462,7 @@ int file_truncate(int handle, LONGLONG filesize)
     int fdesc;
 
     fdesc = fileno(handleTable[handle].fileptr);
-    if (ftruncate(fdesc, (OFF_T) filesize) == -1) {
-        return 1;
-    }
+    ftruncate(fdesc, (OFF_T) filesize);
     file_seek(handle, filesize);
 
     handleTable[handle].currentpos = filesize;
