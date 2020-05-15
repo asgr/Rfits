@@ -81,6 +81,9 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
 \details{
 R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
 }
+\note{
+Currently the \code{Rfits_read_table} will apply TSCALn and TZEROn scaling, since this is applied at the CFITSIO level, so the column values will be VALn = (RAWn x TSCALn) + TZEROn, where VALn is what is seen in the R \code{data.frame} or \code{data.table} and RAWn is what you would find if inspecting the binary values stored on disk. The \code{Rfits_write_table} however does not currently rescale when writing the table back out if you pass the full table header (with explicit TSCALn and TZEROn values listed in the header). If you pass just the \code{data.frame} or \code{data.table} then there is no issue since the default is to not scale the values (so assume TSCALn=1 and TZEROn=0). If you need lower level writing capability (so you do want to pass your own header information) then you should remove all TSCALn and TZEROn from the header information (\option{keyvalues} etc) before writing out.
+}
 \value{
 \code{Rfits_read_table} reads in tabular data from a FITS file, either as a data.frame or data.table. Also gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_info}} (see examples). It is done this way so carrying the header info does not affect the data.frame or data.table class of the table (which is still just a normal table in every other respect). This meets the principle of least surprise since people nearly always just want to work with the table and rarely care about table header info (which is really there to help read in the table in CFITSIO).
 
