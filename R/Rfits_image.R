@@ -225,6 +225,11 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
     }
   }
   
+  if(!missing(keyvalues)){
+    if(!is.null(keyvalues$BZERO)){data = data - keyvalues$BZERO}
+    if(!is.null(keyvalues$BSCALE)){data = data / keyvalues$BSCALE}
+  }
+  
   Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
                     naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
                     create_file=create_file, bitpix=bitpix)

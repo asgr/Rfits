@@ -175,11 +175,26 @@ expect_identical(as.character(temp_check['DATASUM']), "correct")
 #ex 28
 expect_identical(as.character(temp_check['CHECKSUM']), "correct")
 
-#ex 29
+#ex 29 check [] methods work for images
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5])
 
-#ex 30
-temp_cube = Rfits_read_image(system.file('extdata', 'cube.fits', package = "Rfits"))
+#ex 30 check [] methods work for arrays
+temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2])
+
+#ex 31 check consistent BZERO and BSCALE reading and writing
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+temp_image$keyvalues$BZERO = 100
+temp_image$keyvalues$BSCALE = 10
+temp_image$keycomments$BZERO = ""
+temp_image$keycomments$BSCALE = ""
+temp_image$keynames = c(temp_image$keynames, "BZERO", "BSCALE")
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+temp_image = Rfits_read_image(file_image_temp)
+Rfits_write_image(temp_image, file_image_temp)
+temp_image2 = Rfits_read_image(file_image_temp)
+expect_equal(temp_image$imDat, temp_image2$imDat, tolerance=1e-6) 

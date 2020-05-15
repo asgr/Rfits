@@ -1,7 +1,7 @@
 Package: Rfits
 Type: Package
 Title: FITS Readers and Writers
-Version: 0.3.13
+Version: 0.3.14
 Date: 2020-05-12
 Authors@R: c(
     person(given='Aaron', family='Robotham', email='aaron.robotham@uwa.edu.au',
