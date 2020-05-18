@@ -109,7 +109,7 @@ Rfits_read_colnames=function(filename, ext=2){
 }
 
 Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\01', dim(table)[2]), 
-                           tforms='auto', create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
+                           tforms='auto', tadd=NULL, create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
                            NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999, verbose = FALSE){
   assertDataFrame(table, min.rows = 1, min.cols = 1)
   
@@ -203,6 +203,12 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
                         tunits=tunits, extname=extname, ext=ext, create_ext=create_ext,
                         create_file=create_file, table_type=table_type)
   ext = Cfits_read_nhdu(filename)
+  if(!is.null(tadd)){
+    keynames=names(tadd)
+    for(i in 1:length(tadd)){
+      Rfits_write_key(filename=filename, keyname=keynames[i], keyvalue=tadd[[i]], keycomment='', ext=ext)
+    }
+  }
   for(i in 1:ncol){
     if(verbose){
       message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
