@@ -198,3 +198,11 @@ temp_image = Rfits_read_image(file_image_temp)
 Rfits_write_image(temp_image, file_image_temp)
 temp_image2 = Rfits_read_image(file_image_temp)
 expect_equal(temp_image$imDat, temp_image2$imDat, tolerance=1e-6) 
+
+#ex 32
+file_table = system.file('extdata', 'table.fits', package = "Rfits")
+temp_table = Rfits_read_table(file_table)
+file_table_temp = tempfile()
+Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10))
+temp_table2 = Rfits_read_table(file_table_temp)
+expect_identical(temp_table, temp_table2)
