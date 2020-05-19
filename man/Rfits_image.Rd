@@ -22,11 +22,11 @@ Rfits_read_cube(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = 
 
 Rfits_write_image(data, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
-    create_file = TRUE, overwrite_file = TRUE) 
+    create_file = TRUE, overwrite_file = TRUE, bzero = 0, bscale = 1) 
     
 Rfits_write_cube(data, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
-    create_file = TRUE, overwrite_file = TRUE) 
+    create_file = TRUE, overwrite_file = TRUE, bzero = 0, bscale = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -81,11 +81,17 @@ Logical; should a new extension be created (TRUE) or not (FALSE). This will alwa
   \item{create_file}{
 Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
 }
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
   \item{overwrite_file}{
 Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
 }
-  \item{remove_HIERARCH}{
-Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+  \item{bzero}{
+Numeric scalar; convenience BZERO zero level to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BZERO value takes priority.
+}
+  \item{bscale}{
+Numeric scalar; convenience BSCALE scaling factor to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BSCALE value takes priority.
 }
 }
 \details{
@@ -102,6 +108,9 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components: \option{imDat}; the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level); the \option{filename} and \option{ext}. The object returned is of class \option{Rfits_image}, and has class dependent \code{print} and \code{dim} functions.
 
 When reading, if \option{header}=FALSE then then the output is just the raw image matrix or cube array. You can either overwrite a current file or create a new extension to an already present FITS file. 
+}
+\note{
+You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent.
 }
 \value{
 \code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}.
