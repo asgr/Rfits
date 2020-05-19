@@ -157,7 +157,7 @@ Rfits_read_cube = Rfits_read_image
 Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
-                           overwrite_file=TRUE){
+                           overwrite_file=TRUE, bzero=0, bscale=1){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -226,13 +226,15 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   }
   
   if(!missing(keyvalues)){
-    if(!is.null(keyvalues$BZERO)){data = data - keyvalues$BZERO}
-    if(!is.null(keyvalues$BSCALE)){data = data / keyvalues$BSCALE}
+    #if(!is.null(keyvalues$BZERO)){data = data - keyvalues$BZERO}
+    #if(!is.null(keyvalues$BSCALE)){data = data / keyvalues$BSCALE}
+    if(!is.null(keyvalues$BZERO)){bzero = keyvalues$BZERO}
+    if(!is.null(keyvalues$BSCALE)){bscale = keyvalues$BSCALE}
   }
   
   Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
                     naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
-                    create_file=create_file, bitpix=bitpix)
+                    create_file=create_file, bitpix=bitpix, bzero=bzero, bscale=bscale)
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix

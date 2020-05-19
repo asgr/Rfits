@@ -378,7 +378,7 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
-  if ( typecode == TSTRING ) {
+  if(typecode==TSTRING){
     char *s_keyvalue;
     s_keyvalue = (char*)CHAR(STRING_ELT(keyvalue, 0));
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), s_keyvalue, keycomment.get_cstring());
@@ -495,7 +495,7 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
 // [[Rcpp::export]]
 void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis, long naxis1,
                        long naxis2, long naxis3=1, int ext=1, int create_ext=1, int create_file=1,
-                       int bitpix=32)
+                       int bitpix=32, double bzero=0.0, double bscale=1.0)
 {
   int hdutype, ii;
   fits_file fptr;
@@ -527,7 +527,14 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
   }
 
   fits_invoke(create_img, fptr, bitpix, naxis, axes);
-
+  
+  if(bzero != 0.0){
+    fits_invoke(update_key, fptr, TDOUBLE, "BZERO", &bzero, "");
+  }
+  if(bscale != 1.0){
+    fits_invoke(update_key, fptr, TDOUBLE, "BSCALE", &bscale, "");
+  }
+  
   //below need to work for integers and doubles:
   if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
