@@ -26,7 +26,7 @@ Rfits_write_image(data, filename, ext = 1, keyvalues, keycomments, keynames,
     
 Rfits_write_cube(data, filename, ext = 1, keyvalues, keycomments, keynames, 
     comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
-    create_file = TRUE, overwrite_file = TRUE) 
+    create_file = TRUE, overwrite_file = TRUE, bzero = 0, bscale = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
