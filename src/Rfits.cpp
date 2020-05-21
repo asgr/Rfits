@@ -529,10 +529,10 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
   fits_invoke(create_img, fptr, bitpix, naxis, axes);
   
   if(bzero != 0.0){
-    fits_invoke(update_key, fptr, TDOUBLE, "BZERO", &bzero, "");
+    fits_invoke(update_key, fptr, TDOUBLE, "BZERO", &bzero, nullptr);
   }
   if(bscale != 1.0){
-    fits_invoke(update_key, fptr, TDOUBLE, "BSCALE", &bscale, "");
+    fits_invoke(update_key, fptr, TDOUBLE, "BSCALE", &bscale, nullptr);
   }
   
   //below need to work for integers and doubles:
