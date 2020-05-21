@@ -226,8 +226,6 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   }
   
   if(!missing(keyvalues)){
-    #if(!is.null(keyvalues$BZERO)){data = data - keyvalues$BZERO}
-    #if(!is.null(keyvalues$BSCALE)){data = data / keyvalues$BSCALE}
     if(!is.null(keyvalues$BZERO)){bzero = keyvalues$BZERO}
     if(!is.null(keyvalues$BSCALE)){bscale = keyvalues$BSCALE}
   }
