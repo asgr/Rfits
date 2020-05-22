@@ -165,6 +165,21 @@ temp_cube[26:30,26:30,1:2] #convenient
 #And we can print and check dim easily
 print(temp_cube)
 dim(temp_cube)
+
+#Use BSCALE and BZERO
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+temp_image$keyvalues$BZERO = 100
+temp_image$keyvalues$BSCALE = 10
+temp_image$keycomments$BZERO = ""
+temp_image$keycomments$BSCALE = ""
+temp_image$keynames = c(temp_image$keynames, "BZERO", "BSCALE")
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+temp_image = Rfits_read_image(file_image_temp)
+Rfits_write_image(temp_image, file_image_temp)
+temp_image2 = Rfits_read_image(file_image_temp)
+sum(temp_image$imDat - temp_image2$imDat) 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

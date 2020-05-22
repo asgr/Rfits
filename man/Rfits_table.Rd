@@ -127,6 +127,12 @@ library(bit64)
 is.integer64(temp_table$OBJID)
 #This cannot even be stored accurately in a numeric double:
 suppressWarnings(print(as.numeric(temp_table$OBJID[1:5]), digits = 20))
+
+#Use TSCALn and TZEROn
+file_table_temp = tempfile()
+Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10))
+temp_table2 = Rfits_read_table(file_table_temp)
+sum(temp_table[,..cols_check] - temp_table2[,..cols_check])
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

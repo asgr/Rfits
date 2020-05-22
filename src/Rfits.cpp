@@ -432,13 +432,73 @@ void Cfits_write_date(Rcpp::String filename, int ext=1){
 //fits_write_pix(fitsfile *fptr, int datatype, long *fpixel,
 //               long nelements, void *array, int *status);
 // [[Rcpp::export]]
-void Cfits_create_image(Rcpp::String filename, int bitpix=32, long naxis1=100 , long naxis2=100)
+void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long naxis2=100, long naxis3=1,
+                        int ext=1, int create_ext=1, int create_file=1, int bitpix=32)
 {
-  long naxes[] = {naxis1, naxis2};
+  int hdutype;
   fits_file fptr;
-  fits_invoke(create_file, fptr, filename.get_cstring());
-  fits_invoke(create_hdu, fptr);
-  fits_invoke(create_img, fptr, bitpix, 2, naxes);
+  long naxes_image[] = {naxis1, naxis2};
+  long naxes_cube[] = {naxis1, naxis2, naxis3};
+  long *axes = (naxis == 2) ? naxes_image : naxes_cube;
+
+  if(create_file == 1){
+    fits_invoke(create_file, fptr, filename.get_cstring());
+    fits_invoke(create_hdu, fptr);
+  }else{
+    fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+    if(create_ext == 1){
+      int nhdu;
+      fits_invoke(get_num_hdus, fptr, &nhdu);
+      fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
+      fits_invoke(create_hdu, fptr);
+    }else{
+      fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+      fits_invoke(delete_hdu, fptr, &hdutype);
+    }
+  }
+  
+  fits_invoke(create_img, fptr, bitpix, naxis, axes);
+}
+
+// [[Rcpp::export]]
+void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
+                     int naxis, long naxis1=100 , long naxis2=100, long naxis3=1,
+                     int ext=1)
+{
+  int hdutype, ii;
+  fits_file fptr;
+  long nelements = naxis1 * naxis2 * naxis3;
+  long fpixel_image[] = {1, 1};
+  long fpixel_cube[] = {1, 1, 1};
+  long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
+  
+  fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  //below need to work for integers and doubles:
+  if(datatype == TINT){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+  }else if(datatype == TSHORT){
+    short *data_s = (short *)malloc(nelements * sizeof(short));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_s[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
+  }else if(datatype == TLONG){
+    long *data_l = (long *)malloc(nelements * sizeof(long));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_l[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+  }else if(datatype == TDOUBLE){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+  }else if(datatype == TFLOAT){
+    float *data_f = (float *)malloc(nelements * sizeof(float));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_f[ii] = REAL(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
+  }
 }
 
 // [[Rcpp::export]]
@@ -497,18 +557,18 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
                        long naxis2, long naxis3=1, int ext=1, int create_ext=1, int create_file=1,
                        int bitpix=32, double bzero=0.0, double bscale=1.0)
 {
+  // this combines creation and writing out the image pixels, but to be more FITS compliant it is
+  // better to create the file (Cfits_create_image), write the header, then write the pixels (Cfits_write_pix)
+  // So this function is probably deprecated within Rfits now, but will keep here for future reference
   int hdutype, ii;
   fits_file fptr;
   long nelements = naxis1 * naxis2 * naxis3;
-  
   long naxes_image[] = {naxis1, naxis2};
   long fpixel_image[] = {1, 1};
-  
   long naxes_cube[] = {naxis1, naxis2, naxis3};
   long fpixel_cube[] = {1, 1, 1};
-
-  long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
   long *axes = (naxis == 2) ? naxes_image : naxes_cube;
+  long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
 
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
@@ -559,7 +619,6 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
   }
-
 }
 
 // [[Rcpp::export]]
