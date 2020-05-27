@@ -225,16 +225,26 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
     }
   }
   
+  # Below is old deprecated code for reference, safer to create image (Cfits_create_image),
+  # write header (Rfits_write_header), then write pixels (Cfits_write_pix)
+  
+  # if(!missing(keyvalues)){
+  #   if(!is.null(keyvalues$BZERO)){bzero = keyvalues$BZERO}
+  #   if(!is.null(keyvalues$BSCALE)){bscale = keyvalues$BSCALE}
+  # }
+  
+  #Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+  #                  naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
+  #                  create_file=create_file, bitpix=bitpix, bzero=bzero, bscale=bscale)
+  
   if(!missing(keyvalues)){
-    #if(!is.null(keyvalues$BZERO)){data = data - keyvalues$BZERO}
-    #if(!is.null(keyvalues$BSCALE)){data = data / keyvalues$BSCALE}
-    if(!is.null(keyvalues$BZERO)){bzero = keyvalues$BZERO}
-    if(!is.null(keyvalues$BSCALE)){bscale = keyvalues$BSCALE}
+    keyvalues$BZERO = bzero
+    keyvalues$BSCALE = bscale
   }
   
-  Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-                    naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
-                    create_file=create_file, bitpix=bitpix, bzero=bzero, bscale=bscale)
+  Cfits_create_image(filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
+                     ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+  
   ext = Cfits_read_nhdu(filename)
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
@@ -250,6 +260,8 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
                        keycomments = keycomments, keynames = keynames,
                        comment=comment, history=history, ext=ext)
   }
+  Cfits_write_pix(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+                  naxis2=naxes[2], naxis3=naxes[3], ext=ext)
 }
 
 Rfits_write_cube = Rfits_write_image

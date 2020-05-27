@@ -110,7 +110,7 @@ When reading, if \option{header}=TRUE (default) then the output of \option{Rfits
 When reading, if \option{header}=FALSE then then the output is just the raw image matrix or cube array. You can either overwrite a current file or create a new extension to an already present FITS file. 
 }
 \note{
-You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent.
+You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent (see Examples).
 }
 \value{
 \code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}.
@@ -165,6 +165,21 @@ temp_cube[26:30,26:30,1:2] #convenient
 #And we can print and check dim easily
 print(temp_cube)
 dim(temp_cube)
+
+#Use BSCALE and BZERO
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+temp_image$keyvalues$BZERO = 100
+temp_image$keyvalues$BSCALE = 10
+temp_image$keycomments$BZERO = ""
+temp_image$keycomments$BSCALE = ""
+temp_image$keynames = c(temp_image$keynames, "BZERO", "BSCALE")
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+temp_image = Rfits_read_image(file_image_temp)
+Rfits_write_image(temp_image, file_image_temp)
+temp_image2 = Rfits_read_image(file_image_temp)
+sum(temp_image$imDat - temp_image2$imDat) 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
