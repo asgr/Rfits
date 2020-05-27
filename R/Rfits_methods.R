@@ -2,10 +2,10 @@ Rfits_point=function(filename, ext=1, header=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
-  assertLogical(header)
+  assertIntegerish(ext, len=1)
+  assertFlag(header)
   
-  keyvalues = Rfits_read_header(filename = filename, ext = ext)$keyvalues
+  keyvalues = Rfits_read_header(filename=filename, ext=ext)$keyvalues
   
   output = list(filename=filename, ext=ext, keyvalues=keyvalues, header=header)
   class(output) = 'Rfits_image_pointer'

@@ -55,7 +55,7 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
+  assertIntegerish(ext, len=1)
   assertFlag(data.table)
   
   ncol = Cfits_read_ncol(filename, ext=ext)
@@ -71,6 +71,10 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   }else{
     cols = 1:ncol
   }
+  
+  assertFlag(verbose)
+  assertFlag(header)
+  assertFlag(remove_HIERARCH)
 
   output=list()
   count=1
@@ -103,7 +107,8 @@ Rfits_read_colnames=function(filename, ext=2){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
+  assertIntegerish(ext, len=1)
+  
   colnames=Cfits_read_colname(filename, ext=ext)
   return(colnames)
 }
@@ -119,7 +124,7 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
-  assertCharacter(filename, max.len = 1)
+  assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
@@ -129,15 +134,16 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
-  assertCharacter(extname, max.len = 1)
-  assertCharacter(tunits, len = ncol)
-  assert(testCharacter(tforms, len = 1) | testCharacter(tforms, len = ncol))
-  assertCharacter(table_type, len = 1)
+  assertCharacter(extname, max.len=1)
+  assertCharacter(tunits, len=ncol)
+  assert(testCharacter(tforms, len=1) | testCharacter(tforms, len=ncol))
+  assertCharacter(table_type, len=1)
   table_type = tolower(table_type)
   assertSubset(table_type, c('binary','ascii'))
-  assertNumeric(NA_replace, len = 1)
-  assertNumeric(NaN_replace, len = 1)
-  assertNumeric(Inf_replace, len = 1)
+  assertNumeric(NA_replace, len=1)
+  assertNumeric(NaN_replace, len=1)
+  assertNumeric(Inf_replace, len=1)
+  assertFlag(verbose)
   
   NA_replace = as.integer(NA_replace)
   NaN_replace = as.integer(NaN_replace)
@@ -195,9 +201,9 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
   typecode[check.double]=82
   typecode[check.char]=16
     
-  assertCharacter(ttypes, len = ncol)
-  assertCharacter(tforms, len = ncol)
-  assertCharacter(tunits, len = ncol)
+  assertCharacter(ttypes, len=ncol)
+  assertCharacter(tforms, len=ncol)
+  assertCharacter(tunits, len=ncol)
   
   Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms,
                         tunits=tunits, extname=extname, ext=ext, create_ext=create_ext,

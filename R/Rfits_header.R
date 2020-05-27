@@ -54,9 +54,10 @@ Rfits_read_key=function(filename, keyname, keytype='numeric', ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertCharacter(keyname, len = 1)
+  assertCharacter(keyname, len=1)
   assertCharacter(keytype, max.len=1)
-  assertIntegerish(ext, len = 1)
+  assertIntegerish(ext, len=1)
+  
   if(keytype=='numeric'){
     typecode=82
   }else if(keytype=='string'){
@@ -71,10 +72,10 @@ Rfits_write_key=function(filename, keyname, keyvalue, keycomment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-  assertCharacter(keyname, len = 1)
+  assertCharacter(keyname, len=1)
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
-  assertCharacter(keycomment, len = 1)
-  assertIntegerish(ext, len = 1)
+  assertCharacter(keycomment, len=1)
+  assertIntegerish(ext, len=1)
   
   typecode=0
   if(is.integer(keyvalue)){typecode=31}
@@ -107,7 +108,8 @@ Rfits_write_comment=function(filename, comment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-  assertCharacter(comment, len = 1)
+  assertCharacter(comment, len=1)
+  assertIntegerish(ext, len=1)
   
   Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext)
 }
@@ -116,7 +118,8 @@ Rfits_write_history=function(filename, history="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-  assertCharacter(history, len = 1)
+  assertCharacter(history, len=1)
+  assertIntegerish(ext, len=1)
   
   Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
 }
@@ -125,7 +128,8 @@ Rfits_write_date=function(filename, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-
+  assertIntegerish(ext, len=1)
+  
   Cfits_write_date(filename=filename, ext=ext)
 }
 
@@ -133,8 +137,9 @@ Rfits_delete_key=function(filename, keyname, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-  assertCharacter(keyname, len = 1)
-  assertIntegerish(ext, len = 1)
+  assertCharacter(keyname, len=1)
+  assertIntegerish(ext, len=1)
+  
   Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
@@ -142,7 +147,8 @@ Rfits_read_header=function(filename, ext=1, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
+  assertIntegerish(ext, len=1)
+  assertFlag(remove_HIERARCH)
   
   #raw header
   header=Cfits_read_header(filename=filename, ext=ext)
@@ -189,14 +195,14 @@ Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment,
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
-  assertIntegerish(ext, len = 1)
-  assertList(keyvalues, min.len = 1)
+  assertIntegerish(ext, len=1)
+  assertList(keyvalues, min.len=1)
   if(! missing(keycomments)){
     if(is.list(keycomments)){
-      assertList(keycomments, len = length(keyvalues))
+      assertList(keycomments, len=length(keyvalues))
       keycomments=unlist(keycomments)
     }
-    assertCharacter(keycomments, len = length(keyvalues))
+    assertCharacter(keycomments, len=length(keyvalues))
   }
   if(missing(keynames)){
     keynames=names(keyvalues)
@@ -238,6 +244,8 @@ Rfits_info=function(filename, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
+  assertFlag(remove_HIERARCH)
+  
   ext = Cfits_read_nhdu(filename)
   headers=list()
   info={}
@@ -250,6 +258,9 @@ Rfits_info=function(filename, remove_HIERARCH=FALSE){
 }
 
 Rfits_header_to_hdr=function(header, remove_HIERARCH=FALSE){
+  assertCharacter(header)
+  assertFlag(remove_HIERARCH)
+  
   #Based on parseHdr in FITSio
   sel_HIERARCH = grep('HIERARCH', header)
   good = sort(unique(c(which(substr(header, 9, 10) == "= "),sel_HIERARCH)))
@@ -280,6 +291,8 @@ Rfits_header_to_hdr=function(header, remove_HIERARCH=FALSE){
 }
 
 Rfits_hdr_to_keyvalues=function(hdr){
+  assertCharacter(hdr)
+  
   keynames = hdr[c(T,F)]
   suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
   goodkey = !is.na(keyvalues)
@@ -296,6 +309,7 @@ Rfits_write_chksum=function(filename){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
+  
   Cfits_write_chksum(filename)
 }
 
@@ -303,7 +317,8 @@ Rfits_verify_chksum=function(filename, verbose=TRUE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertLogical(verbose)
+  assertFlag(verbose)
+  
   out=Cfits_verify_chksum(filename, verbose)
   out=as.character(out)
   names(out) = c('DATASUM', 'CHECKSUM')
@@ -314,6 +329,10 @@ Rfits_verify_chksum=function(filename, verbose=TRUE){
 }
 
 Rfits_get_chksum=function(filename){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  
   out = Cfits_get_chksum(filename)
   names(out) = c('DATASUM', 'CHECKSUM')
   return(out)
@@ -321,12 +340,14 @@ Rfits_get_chksum=function(filename){
 
 Rfits_encode_chksum=function(checksum, complement=FALSE){
   assertNumeric(checksum, max.len=1)
-  assertLogical(complement)
+  assertFlag(complement)
+  
   return(Cfits_encode_chksum(checksum, complement=complement))
 }
 
 Rfits_decode_chksum=function(checksum, complement=FALSE){
   assertCharacter(checksum, max.len=1)
-  assertLogical(complement)
+  assertFlag(complement)
+  
   return(Cfits_decode_chksum(checksum, complement=complement))
 }

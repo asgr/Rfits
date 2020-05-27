@@ -55,13 +55,19 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
-  assertIntegerish(ext, len = 1)
+  assertIntegerish(ext, len=1)
+  assertFlag(header)
+  assertIntegerish(xlo, null.ok=TRUE)
+  assertIntegerish(xhi, null.ok=TRUE)
+  assertIntegerish(ylo, null.ok=TRUE)
+  assertIntegerish(yhi, null.ok=TRUE)
+  assertFlag(remove_HIERARCH)
   
   subset=FALSE
   
   if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | header){
     
-    hdr=Rfits_read_header(filename = filename, ext = ext, remove_HIERARCH = remove_HIERARCH)
+    hdr=Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
     
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
       naxis1=hdr$keyvalues$ZNAXIS1
@@ -86,10 +92,10 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     if(xhi>naxis1){xhi=naxis1}
     if(ylo<1){ylo=1}
     if(yhi>naxis2){yhi=naxis2}
-    assertIntegerish(xlo, lower = 1, upper = naxis1, len = 1)
-    assertIntegerish(xhi, lower = 1, upper = naxis1, len = 1)
-    assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
-    assertIntegerish(ylo, lower = 1, upper = naxis2, len = 1)
+    assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
+    assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
+    assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
+    assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
     
     if(xhi<xlo){stop('xhi must be larger than xlo')}
     if(yhi<ylo){stop('yhi must be larger than ylo')}
@@ -99,15 +105,15 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo,
                                 lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
   }else{
-    naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent = TRUE)
+    naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
       naxis2 = Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext)
-      naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent = TRUE)
+      naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
     }else{
       naxis1 = Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
       naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
-      naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent = TRUE)
+      naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
     if(!is.numeric(naxis3)){
@@ -161,7 +167,7 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
-  assertCharacter(filename, max.len = 1)
+  assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
@@ -187,8 +193,10 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   if(!missing(history)){history=as.character(history)}
   if(is.numeric(numeric)){numeric=as.character(numeric)}
   if(is.numeric(integer)){integer=as.character(integer)}
-  assertCharacter(numeric, len = 1)
-  assertCharacter(integer, len = 1)
+  assertCharacter(numeric, len=1)
+  assertCharacter(integer, len=1)
+  assertNumeric(bzero)
+  assertNumeric(bscale)
   
   naxes = dim(data)
   naxis = length(naxes)
@@ -237,10 +245,8 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   #                  naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
   #                  create_file=create_file, bitpix=bitpix, bzero=bzero, bscale=bscale)
   
-  if(!missing(keyvalues)){
-    keyvalues$BZERO = bzero
-    keyvalues$BSCALE = bscale
-  }
+  if(!missing(keyvalues) & !missing(bzero)){keyvalues$BZERO = bzero}
+  if(!missing(keyvalues) & !missing(bscale)){keyvalues$BSCALE = bscale}
   
   Cfits_create_image(filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
                      ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
@@ -256,8 +262,8 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
       if(length(checkAA)>0){comment = comment[-checkAA]}
     }
     filename=strsplit(filename,split = "[",fixed=TRUE)[[1]][1]
-    Rfits_write_header(filename = filename, keyvalues = keyvalues,
-                       keycomments = keycomments, keynames = keynames,
+    Rfits_write_header(filename=filename, keyvalues=keyvalues,
+                       keycomments=keycomments, keynames=keynames,
                        comment=comment, history=history, ext=ext)
   }
   Cfits_write_pix(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
@@ -270,7 +276,7 @@ plot.Rfits_image=function(x, ...){
   if(class(x)!='Rfits_image'){
     stop('Object class is not of type Rfits_image!')
   }
-  if(requireNamespace("Rwcs", quietly = TRUE)){
+  if(requireNamespace("Rwcs", quietly=TRUE)){
     Rwcs::Rwcs_image(x, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
@@ -281,7 +287,7 @@ plot.Rfits_cube=function(x, slice=1, ...){
   if(class(x)!='Rfits_cube'){
     stop('Object class is not of type Rfits_image!')
   }
-  if(requireNamespace("Rwcs", quietly = TRUE)){
+  if(requireNamespace("Rwcs", quietly=TRUE)){
     Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
@@ -289,7 +295,7 @@ plot.Rfits_cube=function(x, slice=1, ...){
 }
 
 Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
-  if(requireNamespace("tdigest", quietly = TRUE)){
+  if(requireNamespace("tdigest", quietly=TRUE)){
     fd = tdigest::tdigest({}, compression=compression)
     image_ydim = dim(image)[2]
     if(chunk > image_ydim){chunk = image_ydim}
@@ -313,6 +319,6 @@ Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TR
     }
     return(fd)
   }else{
-    stop('The tdigest package is needed for Rfits_tdigest to work. Please install from CRAN.', call. = FALSE)
+    stop('The tdigest package is needed for Rfits_tdigest to work. Please install from CRAN.', call.=FALSE)
   }
 }
