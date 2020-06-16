@@ -177,7 +177,7 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
-  if(class(data)=='Rfits_image' | class(data)=='Rfits_cube'){
+  if(inherits(data, what=c('Rfits_image', 'Rfits_cube'))){
     if(missing(keyvalues)){keyvalues=data$keyvalues}
     if(missing(keycomments)){keycomments=data$keycomments}
     if(missing(keynames)){keynames=data$keynames}
@@ -252,6 +252,7 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
                      ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   
   ext = Cfits_read_nhdu(filename)
+  
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
     
@@ -273,7 +274,7 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
 Rfits_write_cube = Rfits_write_image
 
 plot.Rfits_image=function(x, ...){
-  if(class(x)!='Rfits_image'){
+  if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -284,7 +285,7 @@ plot.Rfits_image=function(x, ...){
 }
 
 plot.Rfits_cube=function(x, slice=1, ...){
-  if(class(x)!='Rfits_cube'){
+  if(!inherits(x, 'Rfits_cube')){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){

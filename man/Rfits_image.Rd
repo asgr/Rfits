@@ -31,7 +31,7 @@ Rfits_write_cube(data, filename, ext = 1, keyvalues, keycomments, keynames,
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix or 3D array; data to be written out as a FITS image or cube.
+Numeric or integer matrix or 3D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.

@@ -1,4 +1,7 @@
 #Rfits things
+export(Rfits_read_all)
+export(Rfits_write_all)
+
 export(Rfits_read_table)
 export(Rfits_read_colnames)
 export(Rfits_write_table)
@@ -26,6 +29,7 @@ export(Rfits_verify_chksum)
 export(Rfits_get_chksum)
 export(Rfits_encode_chksum)
 export(Rfits_decode_chksum)
+export(Rfits_nhdu)
 
 export(`[.Rfits_image`)
 export(`[.Rfits_cube`)

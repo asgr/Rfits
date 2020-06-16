@@ -15,6 +15,7 @@
 \alias{Rfits_get_chksum}
 \alias{Rfits_encode_chksum}
 \alias{Rfits_decode_chksum}
+\alias{Rfits_nhdu}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Header Readers and Writers
@@ -50,6 +51,8 @@ Rfits_get_chksum(filename)
 Rfits_encode_chksum(checksum, complement = FALSE)
 
 Rfits_decode_chksum(checksum, complement = FALSE)
+
+Rfits_nhdu(filename)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -138,6 +141,8 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{Rfits_encode_chksum} converts a numeric checksum to an ascii one (advanced users only).
 
 \code{Rfits_decode_chksum} converts an ascii checksum to a numeric one (advanced users only).
+
+\code{Rfits_nhdu} returns the total number of extensions in the target file.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

@@ -154,8 +154,8 @@ Rfits_read_header=function(filename, ext=1, remove_HIERARCH=FALSE){
   header=Cfits_read_header(filename=filename, ext=ext)
   
   #remove comments for parsing
-  loc_comment = grep(pattern = 'COMMENT', header)
-  loc_history = grep(pattern = 'HISTORY', header)
+  loc_comment = grep('COMMENT', header)
+  loc_history = grep('HISTORY', header)
   
   if(length(loc_comment)>0){
     comment = gsub('COMMENT ', '', header[loc_comment])
@@ -350,4 +350,12 @@ Rfits_decode_chksum=function(checksum, complement=FALSE){
   assertFlag(complement)
   
   return(Cfits_decode_chksum(checksum, complement=complement))
+}
+
+Rfits_nhdu=function(filename){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  
+  return(Cfits_read_nhdu(filename))
 }
