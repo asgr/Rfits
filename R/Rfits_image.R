@@ -148,9 +148,9 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
                 keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
     if(naxis3==1){
-      class(output)='Rfits_image'
+      class(output) = c('Rfits_image', class(output))
     }else if(naxis3>1){
-      class(output)='Rfits_cube'
+      class(output) = c('Rfits_cube', class(output))
     }
     return(invisible(output))
   }else{

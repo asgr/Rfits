@@ -97,7 +97,8 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   colnames(output) = colnames
   
   if(header){
-    attributes(output)$info = Rfits_info(filename, remove_HIERARCH = remove_HIERARCH)
+    attributes(output) = c(attributes(output), Rfits_read_header(filename, ext=ext, remove_HIERARCH = remove_HIERARCH))
+    class(output) = c('Rfits_table', class(output))
   }
   
   return(invisible(output))
@@ -163,6 +164,20 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
     }
   }
   
+  if(inherits(table, 'Rfits_table') & tforms[1]=='get'){
+    TFORMsel = grep('TFORM', attributes(table)$keynames)
+    if(length(TFORMsel)>0){
+      tforms = attributes(table)$keyvalues[TFORMsel]
+    }
+  }
+  
+  if(inherits(table, 'Rfits_table') & tunits[1]=='get'){
+    TUNITsel = grep('TUNIT', attributes(table)$keynames)
+    if(length(TUNITsel)>0){
+      tunits = attributes(table)$keyvalues[TUNITsel]
+    }
+  }
+  
   if(table_type == 'ascii'){
     table_type = 1
     
@@ -194,7 +209,7 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
     }
   }
   
-  typecode=rep(0, ncol)
+  typecode = rep(0, ncol)
   typecode[check.logical]=31
   typecode[check.int]=31
   typecode[check.integer64]=81
@@ -213,6 +228,21 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tunits=rep('\
     keynames=names(tadd)
     for(i in 1:length(tadd)){
       Rfits_write_key(filename=filename, keyname=keynames[i], keyvalue=tadd[[i]], keycomment='', ext=ext)
+    }
+  }else{
+    if(inherits(table, 'Rfits_table')){
+      TSCALsel = grep('TSCAL', attributes(table)$keynames)
+      TZEROsel = grep('TZERO', attributes(table)$keynames)
+      if(length(TSCALsel)>0){
+        for(i in TSCALsel){
+          Rfits_write_key(filename=filename, keyname=attributes(table)$keynames[i], keyvalue=attributes(table)$keyvalues[i], keycomment='', ext=ext)
+        }
+      }
+      if(length(TZEROsel)>0){
+        for(i in TZEROsel){
+          Rfits_write_key(filename=filename, keyname=attributes(table)$keynames[i], keyvalue=attributes(table)$keyvalues[i], keycomment='', ext=ext)
+        }
+      }
     }
   }
   for(i in 1:ncol){

@@ -13,7 +13,7 @@ Rfits_read_all=function(filename){
   sel_images = sel_images[sel_images>1]
   if(length(sel_images)>0){
     for(i in sel_images){
-      data[[i]] = Rfits_read_image(filename, ext=i)
+      data[[i]] = Rfits_read_image(filename, ext=i, header=TRUE)
     }
   }
   
@@ -22,7 +22,7 @@ Rfits_read_all=function(filename){
   sel_tables = grep('TABLE',info$summary)
   if(length(sel_tables)>0){
     for(i in sel_tables){
-      data[[i]] = Rfits_read_table(filename, ext=i)
+      data[[i]] = Rfits_read_table(filename, ext=i, header=TRUE)
     }
   }
   
@@ -33,14 +33,11 @@ Rfits_read_all=function(filename){
 Rfits_write_all=function(data, filename){
   assertList(data)
   
+  create_file = TRUE
+  overwrite_file = TRUE
+  
   for(i in 1:length(data)){
-    if(i==1){
-      create_file = TRUE
-      overwrite_file = TRUE
-    }else{
-      create_file = FALSE
-      overwrite_file = FALSE
-    }
+
     if(!is.null(data[[i]])){
       if(is.array(data[[i]]$imDat)){
         Rfits_write_image(data=data[[i]], filename=filename, ext=i,
@@ -51,6 +48,10 @@ Rfits_write_all=function(data, filename){
       }else{
         stop("Data type in extension ",i," is not supported!")
       }
+      create_file = FALSE
+      overwrite_file = FALSE
+    }else{
+      message('Extension ',i,' is NULL and will not be written to FITS!')
     }
   }
 }
