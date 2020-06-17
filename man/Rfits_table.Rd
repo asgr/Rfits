@@ -17,7 +17,7 @@ Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL,
 Rfits_read_colnames(filename, ext = 2)
 
 Rfits_write_table(table, filename, ext = 2, extname = 'Main',
-  tunits = rep('\01', dim(table)[2]), tforms = 'auto', tadd = NULL, create_ext = TRUE,
+  tforms = 'auto', tunits = rep('\01', dim(table)[2]), tadd = NULL, create_ext = TRUE,
   create_file = TRUE, overwrite_file = TRUE, table_type = 'binary',
   NA_replace = -999, NaN_replace = -9999, Inf_replace = -99999, verbose = FALSE)
 }
@@ -39,16 +39,16 @@ Vector; either a vector of integer column numbers to be extracted from the targe
 Logical; should the progress of table reading and writing be displayed? This is probably only useful for very large (many GB) that might take a long time to read or write.
 }
   \item{header}{
-Logical; if TRUE then \code{Rfits_table} gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_info}} (see examples). Default is FALSE, so no table header information is explictly copied over.
+Logical; if TRUE then \code{Rfits_table} gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_read_header}} (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
 }
   \item{extname}{
 Character scalar; name of the table extension. 
 }
-  \item{tunits}{
-Character vector; data units to be written out. Default is NULL. 
-}
   \item{tforms}{
-Character vector; this should usually be left at the default of 'auto', where the table writer will choose sensible values for the table formatting. If you are an advanced user who needs more control, then this must be the same length as the number of columns being written, and specify FITS standard formatting types (do some Googling to find those, but they look like I9, I20, D18.10 for ASCII \option{table_type}, and 1J, 1K and 1D for binary \option{table_type}).
+Character vector; this should usually be left at the default of 'auto', where the table writer will choose sensible values for the table formatting. If you are an advanced user who needs more control, then this must be the same length as the number of columns being written, and specify FITS standard formatting types (do some Googling to find those, but they look like I9, I20, D18.10 for ASCII \option{table_type}, and 1J, 1K and 1D for binary \option{table_type}). If set to 'get' and the table is of class 'Rfits_table' (so has header information) then the TFORM header information stored in the attributes will be used instead.
+}
+  \item{tunits}{
+Character vector; data units to be written out. Default is NULL. If set to 'get' and the table is of class 'Rfits_table' (so has header information) then the TUNIT header information stored in the attributes will be used instead.
 }
   \item{tadd}{
 List; additional column specific key values that you want to add before writing out the FITS table. This is particularly designed for \option{TSCALn} and \option{TZEROn} (where n is the column number) key values that scale the column values on writing (see Examples).
@@ -82,7 +82,7 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
 }
 }
 \details{
-R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work.
+R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
 }
 \note{
 \code{Rfits_read_table} will apply TSCALn and TZEROn scaling, since this is applied at the CFITSIO level, so the column values will be VALn = (RAWn x TSCALn) + TZEROn, where VALn is what is seen in the R \code{data.frame} or \code{data.table} and RAWn is what you would find if inspecting the binary values stored on disk. The \code{Rfits_write_table} will only scale if you pass the TSCALn and TZEROn key values into the \option{tadd} argument (see Examples).
@@ -110,9 +110,7 @@ temp_table = Rfits_read_table(file_table, header=TRUE)
 temp_table[1:5,]
 
 #Extra header attributes (does not affect the data.frame or data.table class)
-attributes(temp_table)$info$summary
-attributes(temp_table)$info$headers[[1]]$header
-attributes(temp_table)$info$headers[[2]]$header[1:5]
+attributes(temp_table)$header[1:5]
 
 #Check write and read consistency
 file_table_temp = tempfile()
