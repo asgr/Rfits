@@ -35,7 +35,11 @@ The interface here is very simple. Partly this is to discourage people using thi
 \value{
 \code{Rfits_read_all} a list containing the full outputs of \code{\link{Rfits_read_image}}, \code{\link{Rfits_read_table}} as relevant. Uses \option{header}=TRUE for images and \option{header}=FALSE for tables. The output is of class 'Rfits_all', where each list element will have its own respective class ('Rfits_image' or 'Rfit_table').
 
+\code{Rfits_read} is simply a convenience pointer to \code{Rfits_read_all}.
+
 \code{Rfits_write_all} write the contents of \option{data} to target FITS file \option{filename}.
+
+\code{Rfits_write} is simply a convenience pointer to \code{Rfits_write_all}.
 }
 \author{
 Aaron Robotham
