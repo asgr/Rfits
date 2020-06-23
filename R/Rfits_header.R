@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_key=function(filename, keyname, keytype='numeric', ext=1){
+Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -68,7 +68,7 @@ Rfits_read_key=function(filename, keyname, keytype='numeric', ext=1){
   return(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
 }
 
-Rfits_write_key=function(filename, keyname, keyvalue, keycomment="", ext=1){
+Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -104,7 +104,7 @@ Rfits_write_key=function(filename, keyname, keyvalue, keycomment="", ext=1){
   Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode)
 }
 
-Rfits_write_comment=function(filename, comment="", ext=1){
+Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -114,7 +114,7 @@ Rfits_write_comment=function(filename, comment="", ext=1){
   Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext)
 }
 
-Rfits_write_history=function(filename, history="", ext=1){
+Rfits_write_history=function(filename='temp.fits', history="", ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -124,7 +124,7 @@ Rfits_write_history=function(filename, history="", ext=1){
   Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
 }
 
-Rfits_write_date=function(filename, ext=1){
+Rfits_write_date=function(filename='temp.fits', ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -133,7 +133,7 @@ Rfits_write_date=function(filename, ext=1){
   Cfits_write_date(filename=filename, ext=ext)
 }
 
-Rfits_delete_key=function(filename, keyname, ext=1){
+Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -143,7 +143,7 @@ Rfits_delete_key=function(filename, keyname, ext=1){
   Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
-Rfits_read_header=function(filename, ext=1, remove_HIERARCH=FALSE){
+Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -191,7 +191,7 @@ Rfits_read_header=function(filename, ext=1, remove_HIERARCH=FALSE){
   return(list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments, keynames=keynames, comment=comment, history=history))
 }
 
-Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment, history, ext=1){
+Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynames, comment, history, ext=1){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='w')
@@ -240,13 +240,13 @@ Rfits_write_header=function(filename, keyvalues, keycomments, keynames, comment,
   }
 }
 
-Rfits_info=function(filename, remove_HIERARCH=FALSE){
+Rfits_info=function(filename='temp.fits', remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
   assertFlag(remove_HIERARCH)
   
-  ext = Cfits_read_nhdu(filename)
+  ext = Cfits_read_nhdu(filename=filename)
   headers=list()
   info={}
   for(i in 1:ext){
@@ -255,6 +255,47 @@ Rfits_info=function(filename, remove_HIERARCH=FALSE){
     headers = c(headers, list(temp))
   }
   return(invisible(list(summary = info, headers=headers)))
+}
+
+Rfits_write_chksum=function(filename='temp.fits'){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='w')
+  
+  Cfits_write_chksum(filename=filename)
+}
+
+Rfits_verify_chksum=function(filename='temp.fits', verbose=TRUE){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  assertFlag(verbose)
+  
+  out=Cfits_verify_chksum(filename=filename, verbose=verbose)
+  out=as.character(out)
+  names(out) = c('DATASUM', 'CHECKSUM')
+  out[out=='1'] = 'correct'
+  out[out=='0'] = 'missing'
+  out[out=='-1'] = 'incorrect'
+  return(invisible(out))
+}
+
+Rfits_get_chksum=function(filename='temp.fits'){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  
+  out = Cfits_get_chksum(filename=filename)
+  names(out) = c('DATASUM', 'CHECKSUM')
+  return(out)
+}
+
+Rfits_nhdu=function(filename='temp.fits'){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  
+  return(Cfits_read_nhdu(filename=filename))
 }
 
 Rfits_header_to_hdr=function(header, remove_HIERARCH=FALSE){
@@ -305,57 +346,16 @@ Rfits_hdr_to_keyvalues=function(hdr){
   return(keyvalues)
 }
 
-Rfits_write_chksum=function(filename){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='w')
-  
-  Cfits_write_chksum(filename)
-}
-
-Rfits_verify_chksum=function(filename, verbose=TRUE){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='r')
-  assertFlag(verbose)
-  
-  out=Cfits_verify_chksum(filename, verbose)
-  out=as.character(out)
-  names(out) = c('DATASUM', 'CHECKSUM')
-  out[out=='1'] = 'correct'
-  out[out=='0'] = 'missing'
-  out[out=='-1'] = 'incorrect'
-  return(invisible(out))
-}
-
-Rfits_get_chksum=function(filename){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='r')
-  
-  out = Cfits_get_chksum(filename)
-  names(out) = c('DATASUM', 'CHECKSUM')
-  return(out)
-}
-
 Rfits_encode_chksum=function(checksum, complement=FALSE){
   assertNumeric(checksum, max.len=1)
   assertFlag(complement)
   
-  return(Cfits_encode_chksum(checksum, complement=complement))
+  return(Cfits_encode_chksum(sum=checksum, complement=complement))
 }
 
 Rfits_decode_chksum=function(checksum, complement=FALSE){
   assertCharacter(checksum, max.len=1)
   assertFlag(complement)
   
-  return(Cfits_decode_chksum(checksum, complement=complement))
-}
-
-Rfits_nhdu=function(filename){
-  assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
-  assertAccess(filename, access='r')
-  
-  return(Cfits_read_nhdu(filename))
+  return(Cfits_decode_chksum(ascii=checksum, complement=complement))
 }

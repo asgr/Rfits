@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
+Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
                           header=FALSE, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
@@ -104,17 +104,17 @@ Rfits_read_table=function(filename, ext=2, data.table=TRUE, cols=NULL, verbose=F
   return(invisible(output))
 }
 
-Rfits_read_colnames=function(filename, ext=2){
+Rfits_read_colnames=function(filename='temp.fits', ext=2){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   
-  colnames=Cfits_read_colname(filename, ext=ext)
+  colnames=Cfits_read_colname(filename=filename, ext=ext)
   return(colnames)
 }
 
-Rfits_write_table=function(table, filename, ext=2, extname='Main', tforms='auto', tunits=rep('\01', dim(table)[2]), 
+Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', tforms='auto', tunits=rep('\01', dim(table)[2]), 
                            tadd=NULL, create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE, table_type='binary', 
                            NA_replace=-999, NaN_replace=-9999, Inf_replace=-99999, verbose = FALSE){
   assertDataFrame(table, min.rows = 1, min.cols = 1)
@@ -220,10 +220,10 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tforms='auto'
   assertCharacter(tforms, len=ncol)
   assertCharacter(tunits, len=ncol)
   
-  Cfits_create_bintable(filename, tfields=ncol, ttypes=ttypes, tforms=tforms,
+  Cfits_create_bintable(filename=filename, tfields=ncol, ttypes=ttypes, tforms=tforms,
                         tunits=tunits, extname=extname, ext=ext, create_ext=create_ext,
                         create_file=create_file, table_type=table_type)
-  ext = Cfits_read_nhdu(filename)
+  ext = Cfits_read_nhdu(filename=filename)
   if(!is.null(tadd)){
     keynames=names(tadd)
     for(i in 1:length(tadd)){
@@ -252,6 +252,6 @@ Rfits_write_table=function(table, filename, ext=2, extname='Main', tforms='auto'
     table[[i]][is.na(table[[i]])] = NA_replace
     table[[i]][is.nan(table[[i]])] = NaN_replace
     table[[i]][is.infinite(table[[i]])] = Inf_replace
-    Cfits_write_col(filename = filename, data = table[[i]], nrow = nrow, colref = i, ext = ext, typecode = typecode[i])
+    Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
 }

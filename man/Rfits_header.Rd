@@ -24,29 +24,31 @@ FITS Header Readers and Writers
 Generic header key readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_header(filename, ext = 1, remove_HIERARCH = FALSE)
+Rfits_read_header(filename = 'temp.fits', ext = 1, remove_HIERARCH = FALSE)
 
-Rfits_write_header(filename, keyvalues, keycomments, keynames, comment, history, ext = 1) 
+Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
+    comment, history, ext = 1) 
 
-Rfits_info(filename, remove_HIERARCH = FALSE)
+Rfits_info(filename = 'temp.fits', remove_HIERARCH = FALSE)
 
-Rfits_read_key(filename, keyname, keytype = 'numeric', ext = 1)
+Rfits_read_key(filename = 'temp.fits', keyname, keytype = 'numeric', ext = 1)
 
-Rfits_write_key(filename, keyname, keyvalue, keycomment = "", ext = 1)
+Rfits_write_key(filename = 'temp.fits', keyname, keyvalue, keycomment = "",
+    ext = 1)
 
-Rfits_delete_key(filename, keyname, ext = 1)
+Rfits_delete_key(filename = 'temp.fits', keyname, ext = 1)
 
-Rfits_write_comment(filename, comment = "", ext = 1)
+Rfits_write_comment(filename = 'temp.fits', comment = "", ext = 1)
 
-Rfits_write_history(filename, history = "", ext = 1) 
+Rfits_write_history(filename = 'temp.fits', history = "", ext = 1) 
 
-Rfits_write_date(filename, ext = 1)
+Rfits_write_date(filename = 'temp.fits', ext = 1)
 
-Rfits_write_chksum(filename)
+Rfits_write_chksum(filename = 'temp.fits')
 
-Rfits_verify_chksum(filename, verbose = TRUE)
+Rfits_verify_chksum(filename = 'temp.fits', verbose = TRUE)
 
-Rfits_get_chksum(filename)
+Rfits_get_chksum(filename = 'temp.fits')
 
 Rfits_encode_chksum(checksum, complement = FALSE)
 

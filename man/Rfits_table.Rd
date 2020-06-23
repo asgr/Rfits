@@ -11,15 +11,16 @@ FITS Table Readers and Writers
 Generic table readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_table(filename, ext = 2, data.table = TRUE, cols = NULL,
-  verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE)
+Rfits_read_table(filename = 'temp.fits', ext = 2, data.table = TRUE,
+    cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE)
 
-Rfits_read_colnames(filename, ext = 2)
+Rfits_read_colnames(filename = 'temp.fits', ext = 2)
 
-Rfits_write_table(table, filename, ext = 2, extname = 'Main',
-  tforms = 'auto', tunits = rep('\01', dim(table)[2]), tadd = NULL, create_ext = TRUE,
-  create_file = TRUE, overwrite_file = TRUE, table_type = 'binary',
-  NA_replace = -999, NaN_replace = -9999, Inf_replace = -99999, verbose = FALSE)
+Rfits_write_table(table, filename = 'temp.fits', ext = 2, extname = 'Main',
+    tforms = 'auto', tunits = rep('\01', dim(table)[2]), tadd = NULL,
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE,
+    table_type = 'binary', NA_replace = -999, NaN_replace = -9999,
+    Inf_replace = -99999, verbose = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

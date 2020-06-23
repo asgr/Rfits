@@ -1,5 +1,4 @@
 \name{Rfits_image}
-\alias{Rfits}
 \alias{Rfits_image}
 \alias{Rfits_cube}
 \alias{Rfits_read_image}
@@ -14,19 +13,21 @@ FITS Image and Cube Readers and Writers
 Generic image and cube readers and writers.
 }
 \usage{
-Rfits_read_image(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
-  yhi = NULL, remove_HIERARCH = FALSE)
+Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
+    xhi = NULL, ylo = NULL, yhi = NULL, remove_HIERARCH = FALSE)
   
-Rfits_read_cube(filename, ext = 1, header = TRUE, xlo = NULL, xhi = NULL, ylo = NULL,
-  yhi = NULL, remove_HIERARCH = FALSE)
+Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
+    xhi = NULL, ylo = NULL, yhi = NULL, remove_HIERARCH = FALSE)
 
-Rfits_write_image(data, filename, ext = 1, keyvalues, keycomments, keynames, 
-    comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
-    create_file = TRUE, overwrite_file = TRUE, bzero = 0, bscale = 1) 
+Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
+    keynames, comment, history, numeric = "single", integer = "long",
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+    bscale = 1) 
     
-Rfits_write_cube(data, filename, ext = 1, keyvalues, keycomments, keynames, 
-    comment, history, numeric = "single", integer = "long", create_ext = TRUE, 
-    create_file = TRUE, overwrite_file = TRUE, bzero = 0, bscale = 1) 
+Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
+    keynames, comment, history, numeric = "single", integer = "long",
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+    bscale = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

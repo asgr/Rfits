@@ -1,7 +1,10 @@
 \name{Rfits_all}
+\alias{Rfits}
 \alias{Rfits_all}
 \alias{Rfits_read_all}
 \alias{Rfits_write_all}
+\alias{Rfits_read}
+\alias{Rfits_write}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Read and Write all FITS Extensions
@@ -10,8 +13,10 @@ Read and Write all FITS Extensions
 Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need.
 }
 \usage{
-Rfits_read_all(filename)
-Rfits_write_all(data, filename)
+Rfits_read_all(filename = 'temp.fits')
+Rfits_write_all(data, filename = 'temp.fits')
+Rfits_read(filename = 'temp.fits')
+Rfits_write(data, filename = 'temp.fits')
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

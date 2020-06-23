@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
+Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
@@ -160,7 +160,7 @@ Rfits_read_image=function(filename, ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=
 
 Rfits_read_cube = Rfits_read_image
 
-Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
+Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
                            overwrite_file=TRUE, bzero=0, bscale=1){
@@ -248,10 +248,10 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
   if(!missing(keyvalues) & !missing(bzero)){keyvalues$BZERO = bzero}
   if(!missing(keyvalues) & !missing(bscale)){keyvalues$BSCALE = bscale}
   
-  Cfits_create_image(filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
+  Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
                      ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   
-  ext = Cfits_read_nhdu(filename)
+  ext = Cfits_read_nhdu(filename=filename)
   
   if(!missing(keyvalues)){
     keyvalues$BITPIX = bitpix
@@ -267,7 +267,7 @@ Rfits_write_image=function(data, filename, ext=1, keyvalues, keycomments,
                        keycomments=keycomments, keynames=keynames,
                        comment=comment, history=history, ext=ext)
   }
-  Cfits_write_pix(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+  Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
                   naxis2=naxes[2], naxis3=naxes[3], ext=ext)
 }
 

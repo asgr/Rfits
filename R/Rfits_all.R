@@ -1,4 +1,4 @@
-Rfits_read_all=function(filename){
+Rfits_read_all=function(filename='temp.fits'){
   info = Rfits_info(filename)
   
   data = rep(list(), length(info$summary))
@@ -30,7 +30,9 @@ Rfits_read_all=function(filename){
   return(invisible(data))
 }
 
-Rfits_write_all=function(data, filename){
+Rfits_read = Rfits_read_all
+
+Rfits_write_all=function(data, filename='temp.fits'){
   assertList(data)
   
   create_file = TRUE
@@ -55,3 +57,5 @@ Rfits_write_all=function(data, filename){
     }
   }
 }
+
+Rfits_write = Rfits_write_all
