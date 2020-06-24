@@ -1,5 +1,6 @@
 \name{plot.Rfits}
 \alias{plot.Rfits_image}
+\alias{plot.Rfits_image_pointer}
 \alias{plot.Rfits_cube}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
@@ -10,6 +11,7 @@ Makes a nice WCS image of a sensibly described image read in with \code{\link{Rf
 }
 \usage{
 \method{plot}{Rfits_image}(x, ...)
+\method{plot}{Rfits_image_pointer}(x, ...)
 \method{plot}{Rfits_cube}(x, slice = 1, ...)
 }
 %- maybe also 'usage' for other objects documented here.

@@ -58,8 +58,8 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   assertIntegerish(ext, len=1)
   assertFlag(data.table)
   
-  ncol = Cfits_read_ncol(filename, ext=ext)
-  colnames = Cfits_read_colname(filename, ext=ext)
+  ncol = Cfits_read_ncol(filename=filename, ext=ext)
+  colnames = Cfits_read_colname(filename=filename, ext=ext)
   
   if(! is.null(cols)){
     if(is.character(cols)){
@@ -83,7 +83,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]]=Cfits_read_col(filename,colref=i,ext=ext)
+    output[[count]]=Cfits_read_col(filename=filename,colref=i,ext=ext)
     count = count + 1
   }
   
@@ -97,7 +97,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   colnames(output) = colnames
   
   if(header){
-    attributes(output) = c(attributes(output), Rfits_read_header(filename, ext=ext, remove_HIERARCH = remove_HIERARCH))
+    attributes(output) = c(attributes(output), Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH = remove_HIERARCH))
     class(output) = c('Rfits_table', class(output))
   }
   

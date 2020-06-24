@@ -1,4 +1,4 @@
-Rfits_read_all=function(filename='temp.fits'){
+Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   info = Rfits_info(filename)
   
   data = rep(list(), length(info$summary))
@@ -6,14 +6,22 @@ Rfits_read_all=function(filename='temp.fits'){
   #images
   
   if(!is.null(info$headers[[1]]$keyvalues$NAXIS1) & !is.null(info$headers[[1]]$keyvalues$NAXIS2)){
-    data[[1]] = Rfits_read_image(filename, ext=1)
+    if(pointer){
+      data[[1]] = Rfits_point(filename, ext=1)
+    }else{
+      data[[1]] = Rfits_read_image(filename, ext=1)
+    }
   }
   
   sel_images = grep('IMAGE',info$summary)
   sel_images = sel_images[sel_images>1]
   if(length(sel_images)>0){
     for(i in sel_images){
-      data[[i]] = Rfits_read_image(filename, ext=i, header=TRUE)
+      if(pointer){
+        data[[i]] = Rfits_point(filename, ext=i, header=TRUE)
+      }else{
+        data[[i]] = Rfits_read_image(filename, ext=i, header=TRUE)
+      }
     }
   }
   

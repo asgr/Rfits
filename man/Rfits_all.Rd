@@ -13,15 +13,18 @@ Read and Write all FITS Extensions
 Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need.
 }
 \usage{
-Rfits_read_all(filename = 'temp.fits')
+Rfits_read_all(filename = 'temp.fits', pointer = FALSE)
 Rfits_write_all(data, filename = 'temp.fits')
-Rfits_read(filename = 'temp.fits')
+Rfits_read(filename = 'temp.fits', pointer = FALSE)
 Rfits_write(data, filename = 'temp.fits')
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.
+}
+  \item{pointer}{
+Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory. See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be left as FALSE, but for very large multi-extension FITS image files setting to TRUE will hugely reduce memory consumption.
 }
   \item{data}{
 List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).

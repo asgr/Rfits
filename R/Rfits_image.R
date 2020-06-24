@@ -295,6 +295,17 @@ plot.Rfits_cube=function(x, slice=1, ...){
   }
 }
 
+plot.Rfits_image_pointer=function(x, ...){
+  if(!inherits(x, 'Rfits_image_pointer')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    Rwcs::Rwcs_image(x[,], keyvalues=x$keyvalues, ...)
+  }else{
+    message('The Rwcs package is needed to plot a Rfits_image object.')
+  }
+}
+
 Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
   if(requireNamespace("tdigest", quietly=TRUE)){
     fd = tdigest::tdigest({}, compression=compression)
