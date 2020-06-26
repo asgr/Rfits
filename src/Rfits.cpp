@@ -506,8 +506,7 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
 {
   int anynull, nullvals = 0, hdutype;
 
-  fitsfile *fptr;
-  fits_invoke(open_image, &fptr, filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
   long npixels = naxis1 * naxis2 * naxis3;
@@ -515,35 +514,30 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(npixels);
     fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     std::vector<double> pixels(npixels);
     fits_invoke(read_img, fptr, TDOUBLE, 1, npixels, &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
     std::vector<int> pixels(npixels);
     fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
     std::vector<short> pixels(npixels);
     fits_invoke(read_img, fptr, TSHORT, 1, npixels, &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(npixels);
     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
-    fits_invoke(close_file, fptr);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
@@ -683,8 +677,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
 {
   int anynull, nullvals = 0, hdutype;
   
-  fits_file fptr;
-  fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   long fpixel[] = {fpixel0, fpixel1};
