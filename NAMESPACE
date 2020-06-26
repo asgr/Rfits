@@ -1,6 +1,8 @@
 #Rfits things
 export(Rfits_read_all)
 export(Rfits_write_all)
+export(Rfits_read)
+export(Rfits_write)
 
 export(Rfits_read_table)
 export(Rfits_read_colnames)
