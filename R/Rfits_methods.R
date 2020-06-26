@@ -14,7 +14,8 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
 
 print.Rfits_image=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'Mb\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
@@ -24,7 +25,8 @@ print.Rfits_image=function(x , ...){
 
 print.Rfits_cube=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'Mb\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
@@ -35,7 +37,8 @@ print.Rfits_cube=function(x , ...){
 
 print.Rfits_image_pointer=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image_pointer\n')
   cat('Disk size:',round(file.size(x$filename)/(2^20),4),'Mb\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')

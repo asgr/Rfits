@@ -220,6 +220,9 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
     }
+  }else if(is.integer64(data[1])){
+    bitpix=64
+    datatype=81
   }
   if(bitpix==0){
     if(numeric=='single' | numeric=='float' | numeric=='32'){

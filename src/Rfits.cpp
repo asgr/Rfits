@@ -489,6 +489,8 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
       data_l[ii] = INTEGER(data)[ii];
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+  }else if(datatype == TLONGLONG){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){

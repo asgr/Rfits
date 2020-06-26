@@ -34,6 +34,20 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
     }
   }
   
+  #NULL
+  
+ for(i in 1:length(data)){
+    if(is.null(data[[i]])){
+      data[[i]] = c(list(data='header'), Rfits_read_header(filename, ext=i))
+    }
+  }
+  
+  #names
+  
+  for(i in 1:length(data)){
+    names(data)[i] = data[[i]]$keyvalues$EXTNAME
+  }
+  
   class(data) = 'Rfits_list'
   return(invisible(data))
 }
@@ -47,8 +61,7 @@ Rfits_write_all=function(data, filename='temp.fits'){
   overwrite_file = TRUE
   
   for(i in 1:length(data)){
-
-    if(!is.null(data[[i]])){
+    if(is.null(data[[i]]$data)){
       if(is.array(data[[i]]$imDat)){
         Rfits_write_image(data=data[[i]], filename=filename, ext=i,
                             create_file=create_file, overwrite_file=overwrite_file)
