@@ -78,6 +78,12 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       naxis2=hdr$keyvalues$NAXIS2
       datatype=hdr$keyvalues$BITPIX
     }
+    if(is.null(naxis1)){
+      naxis1=1
+    }
+    if(is.null(naxis2)){
+      naxis2=1
+    }
     naxis3 = 1
     
     if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
@@ -88,10 +94,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(ylo)){ylo=1}else{subset=TRUE}
     if(is.null(xhi)){xhi=naxis1}else{subset=TRUE}
     if(is.null(yhi)){yhi=naxis2}else{subset=TRUE}
-    if(xlo<1){xlo=1}
-    if(xhi>naxis1){xhi=naxis1}
-    if(ylo<1){ylo=1}
-    if(yhi>naxis2){yhi=naxis2}
+    if(xlo < 1){xlo=1}
+    if(xhi > naxis1){xhi=naxis1}
+    if(ylo < 1){ylo=1}
+    if(yhi > naxis2){yhi=naxis2}
     assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
     assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
     assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
@@ -107,14 +113,20 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   }else{
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
-      naxis2 = Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext)
+      naxis2 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext), silent=TRUE)
       naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
     }else{
-      naxis1 = Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext)
-      naxis2 = Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext)
+      naxis1 = try(Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext), silent=TRUE)
+      naxis2 = try(Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext), silent=TRUE)
       naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
+    }
+    if(!is.numeric(naxis1)){
+      stop('NAXIS1 is missing- at least this NAXIS required!')
+    }
+    if(!is.numeric(naxis2)){
+      naxis2 = 1
     }
     if(!is.numeric(naxis3)){
       naxis3 = 1
@@ -173,6 +185,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     assertPathForOutput(filename, overwrite=overwrite_file)
   }else{
     assertFileExists(filename)
+    assertAccess(filename, access='w')
   }
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)

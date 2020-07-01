@@ -131,6 +131,7 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     assertPathForOutput(filename, overwrite=overwrite_file)
   }else{
     assertFileExists(filename)
+    assertAccess(filename, access='w')
   }
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)

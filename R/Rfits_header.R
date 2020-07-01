@@ -93,6 +93,10 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
       typecode=82
     }
   }
+  if(is.logical(keyvalue)){
+    typecode=14
+    keyvalue=as.integer(keyvalue)
+  }
   
   if(nchar(keyname) > 8){
     if(substr(keyname, 1, 8) != 'HIERARCH'){
@@ -184,18 +188,43 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   keyvalues = Rfits_hdr_to_keyvalues(hdr)
   keynames = names(keyvalues)
   
+  loc_HIERARCH = grep('HIERARCH', keynames)
+  if(length(loc_HIERARCH)>0){
+    keynames_goodhead = keynames[-loc_HIERARCH] 
+    pattern_goodhead = paste(c(paste0(format(keynames_goodhead, width=8), '='), 'HIERARCH'), collapse = '|')
+  }else{
+    pattern_goodhead = paste(paste0(format(keynames, width=8), '='), collapse = '|')
+  }
+  loc_goodhead = grep(pattern_goodhead, headertemp)
+  
+  headertemp = headertemp[loc_goodhead]
   #comments list
   keycomments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
   names(keycomments) = keynames
   
-  return(list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments, keynames=keynames, comment=comment, history=history))
+  output = list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments,
+                keynames=keynames, comment=comment, history=history)
+  class(output) = c('Rfits_header', class(output))
+  return(output)
 }
 
-Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynames, comment, history, ext=1){
+Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynames,
+                            comment, history, ext=1, create_ext=FALSE, create_file=FALSE,
+                            overwrite_file=FALSE){
+  assertFlag(create_ext)
+  assertFlag(create_file)
+  assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
-  assertAccess(filename, access='w')
-  assertIntegerish(ext, len=1)
+  if(create_file){
+    assertPathForOutput(filename, overwrite=overwrite_file)
+  }else{
+    assertFileExists(filename)
+    assertAccess(filename, access='w')
+  }
+  if(testFileExists(filename) & overwrite_file & create_file){
+    file.remove(filename)
+  }
   assertList(keyvalues, min.len=1)
   if(! missing(keycomments)){
     if(is.list(keycomments)){
@@ -213,6 +242,20 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   }
   if(! missing(history)){
     assertCharacter(history, null.ok = TRUE)
+  }
+  assertIntegerish(ext, len=1)
+  if(create_file){
+    assertPathForOutput(filename, overwrite=overwrite_file)
+  }else{
+    assertFileExists(filename)
+  }
+  if(testFileExists(filename) & overwrite_file & create_file){
+    file.remove(filename)
+  }
+  
+  if(create_ext | create_file){
+    Cfits_create_header(filename, create_ext=create_ext, create_file=create_file)
+    ext = Cfits_read_nhdu(filename=filename)
   }
   
   for(i in 1:length(keyvalues)){

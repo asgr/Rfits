@@ -46,6 +46,31 @@ print.Rfits_image_pointer=function(x , ...){
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
 }
 
+print.Rfits_header=function(x, ...){
+  cat(x$header[1:8], sep='\n')
+}
+
+print.Rfits_list=function(x , ...){
+  cat('Total extensions:',length(x),'\n\n')
+  
+  for(i in 1:length(x)){
+    cat('Ext',i,'class:',class(x[[i]])[1],'\n')
+    if(inherits(x[[i]], c('Rfits_image', 'Rfits_image_pointer'))){
+      print(x[[i]])
+    }else if(inherits(x[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
+      cat('Dimensions:',dim(x[[i]])[1],'(rows) x',dim(x[[i]])[2],'(cols)')
+    }else if(inherits(x[[i]], 'Rfits_header')){
+      cat('Header cards:',length(x[[i]]$keyvalues),'\n')
+      print(x[[i]])
+    }
+    cat('\n')
+  }
+}
+
+print.Rfits_header=function(x, ...){
+  cat(x$header[1:min(8,length(x$header))], sep='\n')
+}
+
 dim.Rfits_image=function(x){
   return(dim(x$imDat))
 }

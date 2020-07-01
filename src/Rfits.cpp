@@ -97,6 +97,29 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 }
 
 // [[Rcpp::export]]
+void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_file=1)
+{
+  // make empty FITS, useful for just the first header componenet of multi-extension file.
+  int nhdu,hdutype;
+  fits_file fptr;
+  int naxis=0;
+  long *axes = {0};
+  
+  if(create_file == 1){
+    fits_invoke(create_file, fptr, filename.get_cstring());
+    fits_invoke(create_hdu, fptr);
+    fits_invoke(create_img, fptr, 16, naxis, axes);
+  }else{
+    if(create_ext == 1){
+      fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+      fits_invoke(get_num_hdus, fptr, &nhdu);
+      fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
+      fits_invoke(create_hdu, fptr);
+    }
+  }
+}
+  
+// [[Rcpp::export]]
 SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 
   int hdutype,anynull,typecode,ii;
@@ -387,6 +410,8 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }else if(typecode == TDOUBLE){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
+  }else if(typecode == TLOGICAL){
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), keycomment.get_cstring());
   }
 }
 
