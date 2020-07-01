@@ -226,6 +226,13 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
     file.remove(filename)
   }
   assertList(keyvalues, min.len=1)
+  if(inherits(keyvalues, what='Rfits_header')){
+    if(missing(keycomments)){keycomments=keyvalues$keycomments}
+    if(missing(keynames)){keynames=keyvalues$keynames}
+    if(missing(comment)){comment=keyvalues$comment}
+    if(missing(history)){history=keyvalues$history}
+    keyvalues=keyvalues$keyvalues
+  }
   if(! missing(keycomments)){
     if(is.list(keycomments)){
       assertList(keycomments, len=length(keyvalues))
