@@ -1,4 +1,8 @@
 Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertFlag(pointer)
+  
   info = Rfits_info(filename)
   
   data = vector(mode='list', length=length(info$summary))
@@ -56,6 +60,7 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   }
   
   class(data) = 'Rfits_list'
+  attributes(data)$filename = filename
   return(invisible(data))
 }
 
@@ -63,6 +68,7 @@ Rfits_read = Rfits_read_all
 
 Rfits_write_all=function(data, filename='temp.fits'){
   assertList(data)
+  assertCharacter(filename, max.len=1)
   
   create_file = TRUE
   overwrite_file = TRUE
