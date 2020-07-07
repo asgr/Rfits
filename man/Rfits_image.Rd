@@ -122,7 +122,7 @@ You can either specifify BZERO and BSCALE through the input \option{bzero} and \
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
 \author{
-Aaron Robotham
+Aaron Robotham,
 Rodrigo Tobar
 }
 

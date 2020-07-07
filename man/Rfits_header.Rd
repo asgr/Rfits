@@ -160,7 +160,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
 \author{
-Aaron Robotham
+Aaron Robotham,
 Rodrigo Tobar
 }
 
