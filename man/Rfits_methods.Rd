@@ -6,6 +6,8 @@
 \alias{dim.Rfits_cube}
 \alias{print.Rfits_image_pointer}
 \alias{dim.Rfits_image_pointer}
+\alias{print.Rfits_header}
+\alias{print.Rfits_list}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
 \alias{[.Rfits_image_pointer}
@@ -40,6 +42,8 @@
 \method{dim}{Rfits_cube}(x)
 \method{print}{Rfits_image_pointer}(x,  ...)
 \method{dim}{Rfits_image_pointer}(x)
+\method{print}{Rfits_header}(x, ...)
+\method{print}{Rfits_list}(x, ...)
 \method{[}{Rfits_image}(x,i,j)
 \method{[}{Rfits_cube}(x,i,j,k)
 \method{[}{Rfits_image_pointer}(x,i,j)

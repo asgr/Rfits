@@ -97,6 +97,29 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 }
 
 // [[Rcpp::export]]
+void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_file=1)
+{
+  // make empty FITS, useful for just the first header componenet of multi-extension file.
+  int nhdu,hdutype;
+  fits_file fptr;
+  int naxis=0;
+  long *axes = {0};
+  
+  if(create_file == 1){
+    fits_invoke(create_file, fptr, filename.get_cstring());
+    fits_invoke(create_hdu, fptr);
+    fits_invoke(create_img, fptr, 16, naxis, axes);
+  }else{
+    if(create_ext == 1){
+      fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+      fits_invoke(get_num_hdus, fptr, &nhdu);
+      fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
+      fits_invoke(create_hdu, fptr);
+    }
+  }
+}
+  
+// [[Rcpp::export]]
 SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
 
   int hdutype,anynull,typecode,ii;
@@ -222,7 +245,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
     std::copy(col.begin(), col.end(), out.begin());
     return out;
   }
-
   throw std::runtime_error("unsupported type");
 }
 
@@ -388,6 +410,8 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }else if(typecode == TDOUBLE){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
+  }else if(typecode == TLOGICAL){
+    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), keycomment.get_cstring());
   }
 }
 
@@ -490,6 +514,8 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
       data_l[ii] = INTEGER(data)[ii];
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+  }else if(datatype == TLONGLONG){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
@@ -541,6 +567,13 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==LONGLONG_IMG){
+    std::vector<int64_t> pixels(npixels);
+    fits_invoke(read_img, fptr, TLONGLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), npixels * sizeof(double));
+    pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
   }
   throw std::runtime_error("unsupported type");
@@ -604,6 +637,8 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
       data_l[ii] = INTEGER(data)[ii];
     }
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+  }else if(datatype == TLONGLONG){
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
@@ -714,6 +749,14 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
                   &nullvals, pixels.data(), &anynull);
     IntegerMatrix pixel_matrix(naxis1, naxis2);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return(pixel_matrix);
+  }else if (datatype==LONGLONG_IMG){
+    std::vector<int64_t> pixels(npixels);
+    fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
+                &nullvals, pixels.data(), &anynull);
+    NumericMatrix pixel_matrix(naxis1, naxis2);
+    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), npixels * sizeof(double));
+    pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
   }
   throw std::runtime_error("unsupported type");

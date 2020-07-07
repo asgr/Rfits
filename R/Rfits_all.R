@@ -1,11 +1,15 @@
 Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertFlag(pointer)
+  
   info = Rfits_info(filename)
   
-  data = rep(list(), length(info$summary))
+  data = vector(mode='list', length=length(info$summary))
   
   #images
   
-  if(!is.null(info$headers[[1]]$keyvalues$NAXIS1) & !is.null(info$headers[[1]]$keyvalues$NAXIS2)){
+  if(!is.null(info$headers[[1]]$keyvalues$NAXIS1)){
     if(pointer){
       data[[1]] = Rfits_point(filename, ext=1)
     }else{
@@ -13,7 +17,7 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
     }
   }
   
-  sel_images = grep('IMAGE',info$summary)
+  sel_images = which(grepl('IMAGE',info$summary) | grepl('HDRLET',info$summary))
   sel_images = sel_images[sel_images>1]
   if(length(sel_images)>0){
     for(i in sel_images){
@@ -34,7 +38,29 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
     }
   }
   
+  #NULL
+  
+  if(length(data) == 0){
+    data = list(Rfits_read_header(filename, ext=1))
+  }else{
+    for(i in 1:length(data)){
+      if(is.null(data[[i]])){
+        data[[i]] = Rfits_read_header(filename, ext=i)
+      }
+    }
+  }
+  
+  #names
+  
+  names(data) = rep(NA, length(data))
+  for(i in 1:length(data)){
+    if(!is.null(data[[i]]$keyvalues$EXTNAME)){
+      names(data)[i] = data[[i]]$keyvalues$EXTNAME
+    }
+  }
+  
   class(data) = 'Rfits_list'
+  attributes(data)$filename = filename
   return(invisible(data))
 }
 
@@ -42,26 +68,30 @@ Rfits_read = Rfits_read_all
 
 Rfits_write_all=function(data, filename='temp.fits'){
   assertList(data)
+  assertCharacter(filename, max.len=1)
   
   create_file = TRUE
   overwrite_file = TRUE
   
   for(i in 1:length(data)){
-
-    if(!is.null(data[[i]])){
-      if(is.array(data[[i]]$imDat)){
-        Rfits_write_image(data=data[[i]], filename=filename, ext=i,
-                            create_file=create_file, overwrite_file=overwrite_file)
-      }else if(is.data.frame(data[[i]])){
-        Rfits_write_table(table=data[[i]], filename=filename, ext=i,
-                          create_file=create_file, overwrite_file=overwrite_file)
-      }else{
-        stop("Data type in extension ",i," is not supported!")
-      }
+    if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix'))){
+      Rfits_write_image(data=data[[i]], filename=filename, ext=i,
+                        create_file=create_file, overwrite_file=overwrite_file)
+      create_file = FALSE
+      overwrite_file = FALSE
+    }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
+      Rfits_write_table(table=data[[i]], filename=filename, ext=i,
+                        create_file=create_file, overwrite_file=overwrite_file)
+      create_file = FALSE
+      overwrite_file = FALSE
+    }else if(inherits(data[[i]], 'Rfits_header')){
+      Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
+                         comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
+                         create_file=create_file, overwrite_file=overwrite_file)
       create_file = FALSE
       overwrite_file = FALSE
     }else{
-      message('Extension ',i,' is NULL and will not be written to FITS!')
+      message('Extension ',i,' is not recognised and will not be written to FITS!')
     }
   }
 }

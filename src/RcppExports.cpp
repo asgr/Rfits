@@ -5,6 +5,18 @@
 
 using namespace Rcpp;
 
+// Cfits_create_header
+void Cfits_create_header(Rcpp::String filename, int create_ext, int create_file);
+RcppExport SEXP _Rfits_Cfits_create_header(SEXP filenameSEXP, SEXP create_extSEXP, SEXP create_fileSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type create_ext(create_extSEXP);
+    Rcpp::traits::input_parameter< int >::type create_file(create_fileSEXP);
+    Cfits_create_header(filename, create_ext, create_file);
+    return R_NilValue;
+END_RCPP
+}
 // Cfits_read_col
 SEXP Cfits_read_col(Rcpp::String filename, int colref, int ext);
 RcppExport SEXP _Rfits_Cfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
@@ -359,6 +371,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_Rfits_Cfits_create_header", (DL_FUNC) &_Rfits_Cfits_create_header, 3},
     {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
     {"_Rfits_Cfits_read_nrow", (DL_FUNC) &_Rfits_Cfits_read_nrow, 2},
     {"_Rfits_Cfits_read_nhdu", (DL_FUNC) &_Rfits_Cfits_read_nhdu, 1},

@@ -76,14 +76,14 @@ Integer scalar; low y limit to cut out from \option{image} (1 or larger and less
   \item{yhi}{
 Integer scalar; high y limit to cut out from \option{image} (NAXIS2 or smaller and greater than \option{yhi}).
 }
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
   \item{create_ext}{
 Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
   \item{create_file}{
 Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
-}
-  \item{remove_HIERARCH}{
-Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
   \item{overwrite_file}{
 Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
@@ -122,7 +122,7 @@ You can either specifify BZERO and BSCALE through the input \option{bzero} and \
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
 \author{
-Aaron Robotham
+Aaron Robotham,
 Rodrigo Tobar
 }
 

@@ -203,3 +203,25 @@ file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
 td=tdigest(temp_image$imDat, compression=1e3) 
 expect_equal(median(temp_image$imDat), td[0.5], tolerance=2e-3)
+
+#ex 33 pure header
+temp_head=list(
+  SIMPLE=TRUE,
+  BITPIX=16L,
+  NAXIS=0L,
+  EXTEND=TRUE,
+  RANDOM='Hello'
+)
+file_head_temp = tempfile()
+Rfits_write_header(file_head_temp, keyvalues=temp_head, create_file=T, create_ext=T)
+temp_head2 = Rfits_read_header(file_head_temp)
+expect_identical(temp_head, temp_head2$keyvalues)
+
+#ex 34 int64 image
+
+image_int64 = as.integer64(1:1e4)
+attributes(image_int64)$dim=c(100,100)
+file_image_int64 = tempfile()
+Rfits_write_image(image_int64, file=file_image_int64)
+image_int642 = Rfits_read_image(file_image_int64)
+expect_identical(image_int64, image_int64)

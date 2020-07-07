@@ -14,9 +14,10 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
 
 print.Rfits_image=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image\n')
-  cat('RAM size:',round(object.size(x)/(2^20),4),'Mb\n')
+  cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
@@ -24,9 +25,10 @@ print.Rfits_image=function(x , ...){
 
 print.Rfits_cube=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image\n')
-  cat('RAM size:',round(object.size(x)/(2^20),4),'Mb\n')
+  cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
@@ -35,12 +37,81 @@ print.Rfits_cube=function(x , ...){
 
 print.Rfits_image_pointer=function(x , ...){
   cat('File path:',x$filename,'\n')
-  cat('Extension:',x$ext,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('Class: Rfits_image_pointer\n')
-  cat('Disk size:',round(file.size(x$filename)/(2^20),4),'Mb\n')
+  cat('Disk size:',round(file.size(x$filename)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
+}
+
+print.Rfits_header=function(x, ...){
+  cat(x$header[1:8], sep='\n')
+}
+
+print.Rfits_list=function(x , ...){
+  
+  ext_name={}
+  for(i in 1:length(x)){
+    if(is.null(x[[i]]$keyvalues$EXTNAME)){
+      ext_name = c(ext_name, 'NA')
+    }else{
+      ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
+    }
+  }
+  
+  ext_class={}
+  for(i in 1:length(x)){
+    ext_class = c(ext_class, class(x[[i]])[1])
+  }
+  
+  ext_dim={}
+  for(i in 1:length(x)){
+    if(is.null(dim(x[[i]]))){
+      ext_dim = c(ext_dim, 'NA')
+    }else{
+      ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
+    }
+  }
+  
+  ext_size={}
+  for(i in 1:length(x)){
+    ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
+  }
+  
+  summarytable = data.frame(
+    'Ext'= 1:length(x),
+    'Name' = ext_name,
+    'Class' = ext_class,
+    'Dim' = ext_dim,
+    'Size/MB' = ext_size
+  )
+  
+  cat('Multi-extension FITS loaded with Rfits_read of class Rfits_list\n\n')
+  cat('File location:',attributes(x)$filename,'\n\n')
+  cat('Summary of extension contents:\n\n')
+  print(summarytable)
+  
+  # cat('\n')
+  # cat('Total extensions:',length(x),'\n\n')
+  # 
+  # for(i in 1:length(x)){
+  #   cat('Ext',i,'class:',class(x[[i]])[1],'\n')
+  #   if(inherits(x[[i]], c('Rfits_image', 'Rfits_image_pointer'))){
+  #     print(x[[i]])
+  #   }else if(inherits(x[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
+  #     cat('Dimensions:',dim(x[[i]])[1],'(rows) x',dim(x[[i]])[2],'(cols)')
+  #   }else if(inherits(x[[i]], 'Rfits_header')){
+  #     cat('Header cards:',length(x[[i]]$keyvalues),'\n')
+  #     print(x[[i]])
+  #   }
+  #   cat('\n')
+  # }
+}
+
+print.Rfits_header=function(x, ...){
+  cat(x$header[1:min(8,length(x$header))], sep='\n')
 }
 
 dim.Rfits_image=function(x){

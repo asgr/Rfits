@@ -27,7 +27,8 @@ Generic header key readers and writers. Works with a wide range of data types in
 Rfits_read_header(filename = 'temp.fits', ext = 1, remove_HIERARCH = FALSE)
 
 Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
-    comment, history, ext = 1) 
+    comment, history, ext = 1, create_ext = FALSE, create_file = FALSE,
+    overwrite_file = FALSE) 
 
 Rfits_info(filename = 'temp.fits', remove_HIERARCH = FALSE)
 
@@ -64,6 +65,9 @@ Character scalar; path to FITS file, either to be written to or read.
   \item{ext}{
 Integer scalar; the extension to read or write (usually starts at 1 for images and 2 for tables). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
   \item{keyname}{
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  
 }
@@ -91,8 +95,14 @@ Character scalar/vector; (not required) comments associated with FITS extension.
   \item{history}{
 Character scalar/vector; (not required) history information associated with with FITS extension. 
 }
-  \item{remove_HIERARCH}{
-Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+  \item{create_ext}{
+Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
+}
+  \item{create_file}{
+Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
+}
+  \item{overwrite_file}{
+Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
 }
   \item{verbose}{
 Logical; should DATASUM and CHECKSUM results be directly printed to screen?  
@@ -150,7 +160,7 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
 \author{
-Aaron Robotham
+Aaron Robotham,
 Rodrigo Tobar
 }
 
