@@ -8,5 +8,4 @@ config.status
 .Rproj.user
 libcfitsio.so.*
 .DS_Store
-.Rbuildignore
 .Rhistory
