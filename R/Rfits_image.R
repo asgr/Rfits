@@ -123,7 +123,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(subset){
     image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo,
-                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, ext=ext, datatype=datatype) 
+                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, ext=ext, datatype=datatype)
+    if(naxis3 > 1){
+      image = array(image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+    }
   }else{
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
@@ -145,11 +148,11 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis3)){
       naxis3 = 1
     }
-    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                         ext=ext, datatype=datatype)
     if(naxis3 > 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3))
     }
+    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                         ext=ext, datatype=datatype)
   }
   
   if(header){

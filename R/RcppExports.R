@@ -85,8 +85,8 @@ Cfits_delete_header <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_delete_header`, filename, ext))
 }
 
-Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, lpixel0 = 100L, lpixel1 = 100L, ext = 1L, datatype = -32L) {
-    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, lpixel0, lpixel1, ext, datatype)
+Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 100L, ext = 1L, datatype = -32L) {
+    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, fpixel2, lpixel0, lpixel1, lpixel2, ext, datatype)
 }
 
 Cfits_write_chksum <- function(filename) {
