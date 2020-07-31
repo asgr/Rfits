@@ -14,10 +14,10 @@ Generic image and cube readers and writers.
 }
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, remove_HIERARCH = FALSE)
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, remove_HIERARCH = FALSE)
   
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, remove_HIERARCH = FALSE)
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, remove_HIERARCH = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
@@ -65,16 +65,22 @@ Character scalar; the numeric data type to be written out for images. Can be '32
 Character scalar; the integer data type to be written out for images. Can be '16' (16 bit), 'short' (16 bit), 'int' (16 bit), '32' (32 bit), 'long' (32 bit). 
 }
   \item{xlo}{
-Integer scalar; low x limit to cut out from \option{image} (1 or larger and less than \option{xhi}).
+Integer scalar; low x limit (usually Right Ascension axis) to cut out from \option{image} (1 or larger and less than \option{xhi}).
 }
   \item{xhi}{
-Integer scalar; high x limit to cut out from \option{image} (NAXIS1 or smaller and greater than \option{xhi}).
+Integer scalar; high x limit (usually Right Ascension axis) to cut out from \option{image} (NAXIS1 or smaller and greater than \option{xhi}).
 }
   \item{ylo}{
-Integer scalar; low y limit to cut out from \option{image} (1 or larger and less than \option{yhi}).
+Integer scalar; low y limit (usually Declination axis) to cut out from \option{image} (1 or larger and less than \option{yhi}).
 }
   \item{yhi}{
-Integer scalar; high y limit to cut out from \option{image} (NAXIS2 or smaller and greater than \option{yhi}).
+Integer scalar; high y limit (usually Declination axis) to cut out from \option{image} (NAXIS2 or smaller and greater than \option{yhi}).
+}
+  \item{zlo}{
+Integer scalar; low z limit (usually Spectral axis) to cut out from \option{image} (1 or larger and less than \option{zhi}).
+}
+  \item{zhi}{
+Integer scalar; high z limit (usually Spectral axis) to cut out from \option{image} (NAXIS3 or smaller and greater than \option{zhi}).
 }
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  

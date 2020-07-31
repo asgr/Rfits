@@ -219,10 +219,15 @@ temp_head2 = Rfits_read_header(file_head_temp)
 expect_identical(temp_head, temp_head2$keyvalues)
 
 #ex 34 int64 image
-
 image_int64 = as.integer64(1:1e4)
 attributes(image_int64)$dim=c(100,100)
 file_image_int64 = tempfile()
 Rfits_write_image(image_int64, file=file_image_int64)
 image_int642 = Rfits_read_image(file_image_int64)
 expect_identical(image_int64, image_int64)
+
+#ex 235 check cube subsets work
+temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
+temp_cube_subset = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"), 
+                    xlo=26, xhi=30, ylo=26, yhi=30, zlo=2, zhi=3)
+expect_identical(temp_cube$imDat[26:30,26:30,2:3], temp_cube_subset$imDat)
