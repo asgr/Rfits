@@ -1,8 +1,8 @@
 Package: Rfits
 Type: Package
 Title: FITS Readers and Writers
-Version: 0.5.2
-Date: 2020-07-02
+Version: 0.5.3
+Date: 2020-07-31
 Authors@R: c(
     person(given='Aaron', family='Robotham', email='aaron.robotham@uwa.edu.au',
         role=c('aut', 'cre'), comment=c(ORCID='0000-0003-0429-3579')),
@@ -18,5 +18,3 @@ LazyData: true
 SystemRequirements: C++11
 LinkingTo: Rcpp
 NeedsCompilation: yes
-OS_type: unix
-Additional_repositories: https://github.com/asgr
