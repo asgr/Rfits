@@ -148,11 +148,11 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis3)){
       naxis3 = 1
     }
+    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                         ext=ext, datatype=datatype)
     if(naxis3 > 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3))
     }
-    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                         ext=ext, datatype=datatype)
   }
   
   if(header){
