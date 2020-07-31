@@ -1,4 +1,17 @@
 #!/bin/sh
 
+
+CC=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config CC`
+CFLAGS=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config CFLAGS`
+AR=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config AR`
+
+echo "- Building in `uname -s`"
+echo "- R_HOME: $R_HOME"
+echo "- R_ARCH: $R_ARCH"
+echo "- R_ARCH_BIN: $R_ARCH_BIN"
+echo "- CC: $CC"
+echo "- CFLAGS: $CFLAGS"
+echo "- AR: $AR"
+
 cd src/cfitsio
-./configure --disable-curl
+./configure --disable-curl CC="$CC" CFLAGS="$CFLAGS" AR="$AR"
