@@ -51,7 +51,7 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
-                          yhi=NULL, remove_HIERARCH=FALSE){
+                          yhi=NULL, zlo=NULL, zhi=NULL, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -61,55 +61,69 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   assertIntegerish(xhi, null.ok=TRUE)
   assertIntegerish(ylo, null.ok=TRUE)
   assertIntegerish(yhi, null.ok=TRUE)
+  assertIntegerish(zlo, null.ok=TRUE)
+  assertIntegerish(zhi, null.ok=TRUE)
   assertFlag(remove_HIERARCH)
   
   subset=FALSE
   
-  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | header){
+  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | header){
     
     hdr=Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
     
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
       naxis1=hdr$keyvalues$ZNAXIS1
       naxis2=hdr$keyvalues$ZNAXIS2
+      naxis3=hdr$keyvalues$ZNAXIS3
       datatype=hdr$keyvalues$ZBITPIX
     }else{
       naxis1=hdr$keyvalues$NAXIS1
       naxis2=hdr$keyvalues$NAXIS2
+      naxis3=hdr$keyvalues$NAXIS3
       datatype=hdr$keyvalues$BITPIX
     }
-    if(is.null(naxis1)){
-      naxis1=1
-    }
-    if(is.null(naxis2)){
-      naxis2=1
-    }
-    naxis3 = 1
     
     if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
       stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
     }
     
+    if(is.null(naxis1)){
+      naxis1 = 1
+    }
+    if(is.null(naxis2)){
+      naxis2 = 1
+    }
+    if(is.null(naxis3)){
+      naxis3 = 1
+    }
+    
     if(is.null(xlo)){xlo=1}else{subset=TRUE}
     if(is.null(ylo)){ylo=1}else{subset=TRUE}
+    if(is.null(zlo)){zlo=1}else{subset=TRUE}
     if(is.null(xhi)){xhi=naxis1}else{subset=TRUE}
     if(is.null(yhi)){yhi=naxis2}else{subset=TRUE}
-    if(xlo < 1){xlo=1}
-    if(xhi > naxis1){xhi=naxis1}
-    if(ylo < 1){ylo=1}
-    if(yhi > naxis2){yhi=naxis2}
+    if(is.null(zhi)){zhi=naxis3}else{subset=TRUE}
+    if(xlo < 1){message('xlo out of data range, truncating!'); xlo=1}
+    if(xhi > naxis1){message('xhi out of data range, truncating!'); xhi=naxis1}
+    if(ylo < 1){message('ylo out of data range, truncating!'); ylo=1}
+    if(yhi > naxis2){message('yhi out of data range, truncating!'); yhi=naxis2}
+    if(zlo < 1){message('zlo out of data range, truncating!'); zlo=1}
+    if(zhi > naxis3){message('zhi out of data range, truncating!'); zhi=naxis3}
     assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
     assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
     assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
-    assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
+    assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
+    assertIntegerish(zlo, lower=1, upper=naxis3, len=1)
+    assertIntegerish(zhi, lower=1, upper=naxis3, len=1)
     
     if(xhi<xlo){stop('xhi must be larger than xlo')}
     if(yhi<ylo){stop('yhi must be larger than ylo')}
+    if(zhi<zlo){stop('zhi must be larger than zlo')}
   }
   
   if(subset){
-    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo,
-                                lpixel0=xhi, lpixel1=yhi, ext=ext, datatype=datatype) 
+    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo,
+                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, ext=ext, datatype=datatype) 
   }else{
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
