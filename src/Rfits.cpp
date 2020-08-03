@@ -457,14 +457,16 @@ void Cfits_write_date(Rcpp::String filename, int ext=1){
 //               long nelements, void *array, int *status);
 // [[Rcpp::export]]
 void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long naxis2=100, long naxis3=1,
-                        int ext=1, int create_ext=1, int create_file=1, int bitpix=32)
+                        long naxis4=1, int ext=1, int create_ext=1, int create_file=1, int bitpix=32)
 {
   int hdutype;
   fits_file fptr;
+  
   long naxes_image[] = {naxis1, naxis2};
   long naxes_cube[] = {naxis1, naxis2, naxis3};
-  long *axes = (naxis == 2) ? naxes_image : naxes_cube;
-
+  long naxes_array[] = {naxis1, naxis2, naxis3, naxis4};
+  long *axes = (naxis == 2) ? naxes_image : (naxis == 3 ? naxes_cube : naxes_array);
+  
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
     fits_invoke(create_hdu, fptr);
@@ -487,14 +489,16 @@ void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long
 // [[Rcpp::export]]
 void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
                      int naxis, long naxis1=100 , long naxis2=100, long naxis3=1,
-                     int ext=1)
+                     long naxis4=1, int ext=1)
 {
   int hdutype, ii;
   fits_file fptr;
-  long nelements = naxis1 * naxis2 * naxis3;
+  long nelements = naxis1 * naxis2 * naxis3 * naxis4;
+  
   long fpixel_image[] = {1, 1};
   long fpixel_cube[] = {1, 1, 1};
-  long *fpixel = (naxis == 2) ? fpixel_image : fpixel_cube;
+  long fpixel_array[] = {1, 1, 1, 1};
+  long *fpixel = (naxis == 2) ? fpixel_image : (naxis == 3 ? fpixel_cube : fpixel_array);
   
   fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
@@ -536,7 +540,7 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  long npixels = naxis1 * naxis2 * naxis3;
+  long npixels = naxis1 * naxis2 * naxis3 * naxis4;
 
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(npixels);
@@ -590,15 +594,16 @@ void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis
   int hdutype, ii;
   fits_file fptr;
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
-  long naxes_image[] = {naxis1, naxis2};
-  long fpixel_image[] = {1, 1};
-  long naxes_cube[] = {naxis1, naxis2, naxis3};
-  long fpixel_cube[] = {1, 1, 1};
-  long naxes_4D[] = {naxis1, naxis2, naxis3, naxis4};
-  long fpixel_4D[] = {1, 1, 1, 1};
   
-  long *axes = (naxis == 2) ? naxes_image : (naxis == 3 ? naxes_cube : naxes_4D);
-  long *fpixel = (naxis == 2) ? fpixel_image : (naxis == 3 ? fpixel_cube : fpixel_4D);
+  long naxes_image[] = {naxis1, naxis2};
+  long naxes_cube[] = {naxis1, naxis2, naxis3};
+  long naxes_array[] = {naxis1, naxis2, naxis3, naxis4};
+  long *axes = (naxis == 2) ? naxes_image : (naxis == 3 ? naxes_cube : naxes_array);
+  
+  long fpixel_image[] = {1, 1};
+  long fpixel_cube[] = {1, 1, 1};
+  long fpixel_array[] = {1, 1, 1, 1};
+  long *fpixel = (naxis == 2) ? fpixel_image : (naxis == 3 ? fpixel_cube : fpixel_array);
 
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());

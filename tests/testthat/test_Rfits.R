@@ -127,7 +127,7 @@ temp_profound2 = Rfits_read_table(file_profound_bin)
 temp_profound3 = Rfits_read_table(file_profound_ascii)
 expect_equal(temp_profound2, temp_profound3)
 
-#ex 22 check compressions works within tolerance
+#ex 22 check compression works within tolerance
 file_image_temp = tempfile()
 Rfits_write_image(temp_image$imDat, filename = paste(file_image_temp,'[compress]',sep=''))
 temp_compress=Rfits_read_image(file_image_temp,ext=2)
@@ -138,10 +138,10 @@ temp_point = Rfits_point(file_image)
 expect_equal(temp_image$imDat[1:5,1:5], temp_point[1:5,1:5])
 
 #ex 24 read and write cubes
-temp_cube = Rfits_read_image(system.file('extdata', 'cube.fits', package = "Rfits"))
+temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 file_cube_temp = tempfile()
-Rfits_write_image(temp_cube, file_cube_temp)
-temp_cube2 = Rfits_read_image(file_cube_temp)
+Rfits_write_cube(temp_cube, file_cube_temp)
+temp_cube2 = Rfits_read_cube(file_cube_temp)
 expect_identical(temp_cube$imDat, temp_cube2$imDat)
 
 #ex 25 check we treat HIERARCH keywords correctly
@@ -172,7 +172,7 @@ file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5])
 
-#ex 29 check [] methods work for arrays
+#ex 29 check [] methods work for cubes
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2])
 
@@ -231,3 +231,10 @@ temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits
 temp_cube_subset = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"), 
                     xlo=26, xhi=30, ylo=26, yhi=30, zlo=2, zhi=3)
 expect_identical(temp_cube$imDat[26:30,26:30,2:3], temp_cube_subset$imDat)
+
+#ex 36 4D array
+temp_array = array(runif(1e4), dim=c(10,10,10,10))
+file_array = tempfile()
+Rfits_write_array(temp_array, file=file_array)
+temp_array2 = Rfits_read_array(file_array)
+expect_equal(temp_array, temp_array2$imDat, tolerance=3e-8)

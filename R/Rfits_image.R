@@ -201,10 +201,12 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
                 keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
-    if(naxis3 == 1){
+    if(naxis3 == 1 & naxis4 == 1){
       class(output) = c('Rfits_image', class(output))
-    }else if(naxis3 > 1 | naxis4 > 1){
+    }else if(naxis3 > 1 & naxis4 == 1){
       class(output) = c('Rfits_cube', class(output))
+    }else if(naxis4 > 1){
+      class(output) = c('Rfits_array', class(output))
     }
     return(invisible(output))
   }else{
@@ -213,6 +215,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
 }
 
 Rfits_read_cube = Rfits_read_image
+
+Rfits_read_array = Rfits_read_image
 
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
@@ -256,6 +260,9 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   naxes = dim(data)
   naxis = length(naxes)
   if(naxis == 2){
+    naxes = c(naxes,1,1)
+  }
+  if(naxis == 3){
     naxes = c(naxes,1)
   }
   
@@ -307,7 +314,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   if(!missing(keyvalues) & !missing(bscale)){keyvalues$BSCALE = bscale}
   
   Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
-                     ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+                    naxis4=naxes[4], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   
   ext = Cfits_read_nhdu(filename=filename)
   
@@ -326,10 +333,12 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
                        comment=comment, history=history, ext=ext)
   }
   Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-                  naxis2=naxes[2], naxis3=naxes[3], ext=ext)
+                  naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=ext)
 }
 
 Rfits_write_cube = Rfits_write_image
+
+Rfits_write_array = Rfits_write_image
 
 plot.Rfits_image=function(x, ...){
   if(!inherits(x, 'Rfits_image')){

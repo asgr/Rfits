@@ -10,7 +10,10 @@ export(Rfits_write_table)
 
 export(Rfits_read_image)
 export(Rfits_read_cube)
+export(Rfits_read_array)
 export(Rfits_write_image)
+export(Rfits_write_cube)
+export(Rfits_write_array)
 export(Rfits_tdigest)
 
 export(Rfits_info)

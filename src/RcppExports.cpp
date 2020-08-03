@@ -177,8 +177,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_create_image
-void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1, long naxis2, long naxis3, int ext, int create_ext, int create_file, int bitpix);
-RcppExport SEXP _Rfits_Cfits_create_image(SEXP filenameSEXP, SEXP naxisSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP extSEXP, SEXP create_extSEXP, SEXP create_fileSEXP, SEXP bitpixSEXP) {
+void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1, long naxis2, long naxis3, long naxis4, int ext, int create_ext, int create_file, int bitpix);
+RcppExport SEXP _Rfits_Cfits_create_image(SEXP filenameSEXP, SEXP naxisSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP naxis4SEXP, SEXP extSEXP, SEXP create_extSEXP, SEXP create_fileSEXP, SEXP bitpixSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
@@ -186,17 +186,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< long >::type naxis1(naxis1SEXP);
     Rcpp::traits::input_parameter< long >::type naxis2(naxis2SEXP);
     Rcpp::traits::input_parameter< long >::type naxis3(naxis3SEXP);
+    Rcpp::traits::input_parameter< long >::type naxis4(naxis4SEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
     Rcpp::traits::input_parameter< int >::type create_ext(create_extSEXP);
     Rcpp::traits::input_parameter< int >::type create_file(create_fileSEXP);
     Rcpp::traits::input_parameter< int >::type bitpix(bitpixSEXP);
-    Cfits_create_image(filename, naxis, naxis1, naxis2, naxis3, ext, create_ext, create_file, bitpix);
+    Cfits_create_image(filename, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix);
     return R_NilValue;
 END_RCPP
 }
 // Cfits_write_pix
-void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype, int naxis, long naxis1, long naxis2, long naxis3, int ext);
-RcppExport SEXP _Rfits_Cfits_write_pix(SEXP filenameSEXP, SEXP dataSEXP, SEXP datatypeSEXP, SEXP naxisSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP extSEXP) {
+void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype, int naxis, long naxis1, long naxis2, long naxis3, long naxis4, int ext);
+RcppExport SEXP _Rfits_Cfits_write_pix(SEXP filenameSEXP, SEXP dataSEXP, SEXP datatypeSEXP, SEXP naxisSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP naxis4SEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
@@ -206,8 +207,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< long >::type naxis1(naxis1SEXP);
     Rcpp::traits::input_parameter< long >::type naxis2(naxis2SEXP);
     Rcpp::traits::input_parameter< long >::type naxis3(naxis3SEXP);
+    Rcpp::traits::input_parameter< long >::type naxis4(naxis4SEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    Cfits_write_pix(filename, data, datatype, naxis, naxis1, naxis2, naxis3, ext);
+    Cfits_write_pix(filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext);
     return R_NilValue;
 END_RCPP
 }
@@ -390,8 +392,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_write_history", (DL_FUNC) &_Rfits_Cfits_write_history, 3},
     {"_Rfits_Cfits_write_comment", (DL_FUNC) &_Rfits_Cfits_write_comment, 3},
     {"_Rfits_Cfits_write_date", (DL_FUNC) &_Rfits_Cfits_write_date, 2},
-    {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 9},
-    {"_Rfits_Cfits_write_pix", (DL_FUNC) &_Rfits_Cfits_write_pix, 8},
+    {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 10},
+    {"_Rfits_Cfits_write_pix", (DL_FUNC) &_Rfits_Cfits_write_pix, 9},
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 7},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 14},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},

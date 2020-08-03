@@ -53,12 +53,12 @@ Cfits_write_date <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_write_date`, filename, ext))
 }
 
-Cfits_create_image <- function(filename, naxis, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L) {
-    invisible(.Call(`_Rfits_Cfits_create_image`, filename, naxis, naxis1, naxis2, naxis3, ext, create_ext, create_file, bitpix))
+Cfits_create_image <- function(filename, naxis, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L) {
+    invisible(.Call(`_Rfits_Cfits_create_image`, filename, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix))
 }
 
-Cfits_write_pix <- function(filename, data, datatype, naxis, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, ext = 1L) {
-    invisible(.Call(`_Rfits_Cfits_write_pix`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, ext))
+Cfits_write_pix <- function(filename, data, datatype, naxis, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_pix`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext))
 }
 
 Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L, datatype = -32L) {

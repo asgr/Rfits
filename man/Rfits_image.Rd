@@ -10,7 +10,7 @@
 FITS Image and Cube Readers and Writers
 }
 \description{
-Generic image and cube readers and writers. Currently reading and writing functions will work up to 4D.
+Generic image, cube and array (4D) readers and writers. Currently reading and writing functions will work up to 4D.
 }
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
@@ -18,6 +18,10 @@ Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE)
   
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE)
+    
+Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE)
 
@@ -30,11 +34,16 @@ Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
     bscale = 1) 
+    
+Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
+    keynames, comment, history, numeric = "single", integer = "long",
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+    bscale = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix or 3D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+Numeric or integer matrix, cube or 4D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.
@@ -116,9 +125,13 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 
 \code{Rfits_read_cube} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
 
+\code{Rfits_read_array} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
+
 \code{Rfits_write_image} writes image or cube data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 
 \code{Rfits_write_cube} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
+
+\code{Rfits_write_array} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
 
 When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components: \option{imDat}; the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level); the \option{filename} and \option{ext}. The object returned is of class \option{Rfits_image}, and has class dependent \code{print} and \code{dim} functions.
 
