@@ -226,7 +226,7 @@ Rfits_write_image(image_int64, file=file_image_int64)
 image_int642 = Rfits_read_image(file_image_int64)
 expect_identical(image_int64, image_int64)
 
-#ex 235 check cube subsets work
+#ex 35 check cube subsets work
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 temp_cube_subset = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"), 
                     xlo=26, xhi=30, ylo=26, yhi=30, zlo=2, zhi=3)

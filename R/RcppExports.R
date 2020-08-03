@@ -61,12 +61,12 @@ Cfits_write_pix <- function(filename, data, datatype, naxis, naxis1 = 100L, naxi
     invisible(.Call(`_Rfits_Cfits_write_pix`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, ext))
 }
 
-Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, ext = 1L, datatype = -32L) {
-    .Call(`_Rfits_Cfits_read_img`, filename, naxis1, naxis2, naxis3, ext, datatype)
+Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L, datatype = -32L) {
+    .Call(`_Rfits_Cfits_read_img`, filename, naxis1, naxis2, naxis3, naxis4, ext, datatype)
 }
 
-Cfits_write_image <- function(filename, data, datatype, naxis, naxis1, naxis2, naxis3 = 1L, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L, bzero = 0.0, bscale = 1.0) {
-    invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, ext, create_ext, create_file, bitpix, bzero, bscale))
+Cfits_write_image <- function(filename, data, datatype, naxis, naxis1, naxis2, naxis3 = 1L, naxis4 = 1L, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L, bzero = 0.0, bscale = 1.0) {
+    invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix, bzero, bscale))
 }
 
 Cfits_read_header <- function(filename, ext = 1L) {
@@ -85,8 +85,8 @@ Cfits_delete_header <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_delete_header`, filename, ext))
 }
 
-Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 100L, ext = 1L, datatype = -32L) {
-    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, fpixel2, lpixel0, lpixel1, lpixel2, ext, datatype)
+Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L, ext = 1L, datatype = -32L) {
+    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, ext, datatype)
 }
 
 Cfits_write_chksum <- function(filename) {

@@ -10,14 +10,16 @@
 FITS Image and Cube Readers and Writers
 }
 \description{
-Generic image and cube readers and writers.
+Generic image and cube readers and writers. Currently reading and writing functions will work up to 4D.
 }
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, remove_HIERARCH = FALSE)
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE)
   
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, remove_HIERARCH = FALSE)
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
@@ -81,6 +83,12 @@ Integer scalar; low z limit (usually Spectral axis) to cut out from \option{imag
 }
   \item{zhi}{
 Integer scalar; high z limit (usually Spectral axis) to cut out from \option{image} (NAXIS3 or smaller and greater than \option{zhi}).
+}
+  \item{tlo}{
+Integer scalar; low t limit (usually Temporal axis) to cut out from \option{image} (1 or larger and less than \option{thi}).
+}
+  \item{thi}{
+Integer scalar; high z limit (usually Temporal axis) to cut out from \option{image} (NAXIS4 or smaller and greater than \option{thi}).
 }
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  

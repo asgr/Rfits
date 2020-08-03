@@ -51,7 +51,7 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
-                          yhi=NULL, zlo=NULL, zhi=NULL, remove_HIERARCH=FALSE){
+                          yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -63,11 +63,13 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   assertIntegerish(yhi, null.ok=TRUE)
   assertIntegerish(zlo, null.ok=TRUE)
   assertIntegerish(zhi, null.ok=TRUE)
+  assertIntegerish(tlo, null.ok=TRUE)
+  assertIntegerish(thi, null.ok=TRUE)
   assertFlag(remove_HIERARCH)
   
   subset=FALSE
   
-  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | header){
+  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | header){
     
     hdr=Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
     
@@ -75,11 +77,13 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       naxis1=hdr$keyvalues$ZNAXIS1
       naxis2=hdr$keyvalues$ZNAXIS2
       naxis3=hdr$keyvalues$ZNAXIS3
+      naxis4=hdr$keyvalues$ZNAXIS4
       datatype=hdr$keyvalues$ZBITPIX
     }else{
       naxis1=hdr$keyvalues$NAXIS1
       naxis2=hdr$keyvalues$NAXIS2
       naxis3=hdr$keyvalues$NAXIS3
+      naxis4=hdr$keyvalues$NAXIS4
       datatype=hdr$keyvalues$BITPIX
     }
     
@@ -96,47 +100,62 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(naxis3)){
       naxis3 = 1
     }
+    if(is.null(naxis4)){
+      naxis4 = 1
+    }
     
     if(is.null(xlo)){xlo=1}else{subset=TRUE}
-    if(is.null(ylo)){ylo=1}else{subset=TRUE}
-    if(is.null(zlo)){zlo=1}else{subset=TRUE}
     if(is.null(xhi)){xhi=naxis1}else{subset=TRUE}
+    if(is.null(ylo)){ylo=1}else{subset=TRUE}
     if(is.null(yhi)){yhi=naxis2}else{subset=TRUE}
+    if(is.null(zlo)){zlo=1}else{subset=TRUE}
     if(is.null(zhi)){zhi=naxis3}else{subset=TRUE}
-    if(xlo < 1){message('xlo out of data range, truncating!'); xlo=1}
-    if(xhi > naxis1){message('xhi out of data range, truncating!'); xhi=naxis1}
-    if(ylo < 1){message('ylo out of data range, truncating!'); ylo=1}
-    if(yhi > naxis2){message('yhi out of data range, truncating!'); yhi=naxis2}
-    if(zlo < 1){message('zlo out of data range, truncating!'); zlo=1}
-    if(zhi > naxis3){message('zhi out of data range, truncating!'); zhi=naxis3}
+    if(is.null(tlo)){tlo=1}else{subset=TRUE}
+    if(is.null(thi)){thi=naxis4}else{subset=TRUE}
+    if(xlo < 1){message('xlo out of data range, truncating to start at xlo=1!'); xlo=1}
+    if(xhi > naxis1){message('xhi out of data range, truncating to end at xhi=NASIX1!'); xhi=naxis1}
+    if(ylo < 1){message('ylo out of data range, truncating to start at ylo=1!'); ylo=1}
+    if(yhi > naxis2){message('yhi out of data range, truncating to end at yhi=NASIX2!'); yhi=naxis2}
+    if(zlo < 1){message('zlo out of data range, truncating to start at zlo=1!'); zlo=1}
+    if(zhi > naxis3){message('zhi out of data range, truncating to end at zhi=NASIX3!'); zhi=naxis3}
+    if(tlo < 1){message('tlo out of data range, truncating to start at tlo=1!'); tlo=1}
+    if(thi > naxis4){message('thi out of data range, truncating to end at thi=NASIX4!'); zhi=naxis3}
     assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
     assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
     assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
     assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
     assertIntegerish(zlo, lower=1, upper=naxis3, len=1)
     assertIntegerish(zhi, lower=1, upper=naxis3, len=1)
+    assertIntegerish(tlo, lower=1, upper=naxis4, len=1)
+    assertIntegerish(thi, lower=1, upper=naxis4, len=1)
     
     if(xhi<xlo){stop('xhi must be larger than xlo')}
     if(yhi<ylo){stop('yhi must be larger than ylo')}
     if(zhi<zlo){stop('zhi must be larger than zlo')}
+    if(thi<tlo){stop('thi must be larger than tlo')}
   }
   
   if(subset){
-    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo,
-                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, ext=ext, datatype=datatype)
-    if(naxis3 > 1){
+    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
+    if(naxis3 > 1 & naxis4 == 1){
       image = array(image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+    }
+    if(naxis4 > 1){
+      image = array(image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
     }
   }else{
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
       naxis2 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext), silent=TRUE)
       naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent=TRUE)
+      naxis4 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS4', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
     }else{
       naxis1 = try(Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext), silent=TRUE)
       naxis2 = try(Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext), silent=TRUE)
       naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent=TRUE)
+      naxis4 = try(Cfits_read_key(filename=filename, keyname='NAXIS4', typecode=82, ext=ext), silent=TRUE)
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
     if(!is.numeric(naxis1)){
@@ -148,10 +167,16 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis3)){
       naxis3 = 1
     }
+    if(!is.numeric(naxis4)){
+      naxis4 = 1
+    }
     image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                         ext=ext, datatype=datatype)
-    if(naxis3 > 1){
+                         naxis4=naxis4, ext=ext, datatype=datatype)
+    if(naxis3 > 1 & naxis4 == 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3))
+    }
+    if(naxis4 > 1){
+      image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
     }
   }
   
@@ -176,9 +201,9 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
                 keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
-    if(naxis3==1){
+    if(naxis3 == 1){
       class(output) = c('Rfits_image', class(output))
-    }else if(naxis3>1){
+    }else if(naxis3 > 1 | naxis4 > 1){
       class(output) = c('Rfits_cube', class(output))
     }
     return(invisible(output))
