@@ -1,15 +1,18 @@
 \name{Rfits_methods}
 \alias{Rfits_methods}
 \alias{print.Rfits_image}
-\alias{dim.Rfits_image}
 \alias{print.Rfits_cube}
-\alias{dim.Rfits_cube}
+\alias{print.Rfits_array}
 \alias{print.Rfits_image_pointer}
-\alias{dim.Rfits_image_pointer}
 \alias{print.Rfits_header}
 \alias{print.Rfits_list}
+\alias{dim.Rfits_image}
+\alias{dim.Rfits_cube}
+\alias{dim.Rfits_array}
+\alias{dim.Rfits_image_pointer}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
+\alias{[.Rfits_array}
 \alias{[.Rfits_image_pointer}
 \alias{&.Rfits_image_pointer}
 \alias{|.Rfits_image_pointer}
@@ -37,16 +40,19 @@
 }
 \usage{
 \method{print}{Rfits_image}(x,  ...)
-\method{dim}{Rfits_image}(x)
 \method{print}{Rfits_cube}(x,  ...)
-\method{dim}{Rfits_cube}(x)
+\method{print}{Rfits_array}(x,  ...)
 \method{print}{Rfits_image_pointer}(x,  ...)
-\method{dim}{Rfits_image_pointer}(x)
 \method{print}{Rfits_header}(x, ...)
 \method{print}{Rfits_list}(x, ...)
+\method{dim}{Rfits_image}(x)
+\method{dim}{Rfits_cube}(x)
+\method{dim}{Rfits_array}(x)
+\method{dim}{Rfits_image_pointer}(x)
 \method{[}{Rfits_image}(x,i,j)
 \method{[}{Rfits_cube}(x,i,j,k)
-\method{[}{Rfits_image_pointer}(x,i,j)
+\method{[}{Rfits_array}(x,i,j,k,m)
+\method{[}{Rfits_image_pointer}(x,i,j,k,m)
 \method{&}{Rfits_image_pointer}(e1,e2)
 \method{|}{Rfits_image_pointer}(e1,e2)
 \method{!=}{Rfits_image_pointer}(e1,e2)
@@ -68,6 +74,7 @@
   \item{i}{Integer vector, a contiguous vector os desired i indices to extract}
   \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
   \item{k}{Integer vector, a contiguous vector os desired k indices to extract}
+  \item{m}{Integer vector, a contiguous vector os desired m indices to extract}
   \item{x}{ an object of class 'Rfits_image_pointer'}
   \item{e1}{ an object of class 'Rfits_image_pointer'}
   \item{e2}{ anything else}

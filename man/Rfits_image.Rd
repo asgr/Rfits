@@ -3,8 +3,10 @@
 \alias{Rfits_cube}
 \alias{Rfits_read_image}
 \alias{Rfits_read_cube}
+\alias{Rfits_read_array}
 \alias{Rfits_write_image}
 \alias{Rfits_write_cube}
+\alias{Rfits_write_array}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Image and Cube Readers and Writers

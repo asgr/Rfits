@@ -362,6 +362,17 @@ plot.Rfits_cube=function(x, slice=1, ...){
   }
 }
 
+plot.Rfits_array=function(x, slice=c(1,1), ...){
+  if(!inherits(x, 'Rfits_cube')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], keyvalues=x$keyvalues, ...)
+  }else{
+    message('The Rwcs package is needed to plot a Rfits_cube object.')
+  }
+}
+
 plot.Rfits_image_pointer=function(x, ...){
   if(!inherits(x, 'Rfits_image_pointer')){
     stop('Object class is not of type Rfits_image!')
