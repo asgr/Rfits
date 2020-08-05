@@ -1,7 +1,8 @@
 \name{plot.Rfits}
 \alias{plot.Rfits_image}
-\alias{plot.Rfits_image_pointer}
 \alias{plot.Rfits_cube}
+\alias{plot.Rfits_array}
+\alias{plot.Rfits_image_pointer}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 WCS Plot Methods for Images and Cubes
@@ -11,8 +12,9 @@ Makes a nice WCS image of a sensibly described image read in with \code{\link{Rf
 }
 \usage{
 \method{plot}{Rfits_image}(x, ...)
-\method{plot}{Rfits_image_pointer}(x, ...)
 \method{plot}{Rfits_cube}(x, slice = 1, ...)
+\method{plot}{Rfits_array}(x, slice = c(1,1), ...)
+\method{plot}{Rfits_image_pointer}(x, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -20,7 +22,7 @@ Makes a nice WCS image of a sensibly described image read in with \code{\link{Rf
 An object of class \code{Rfits_image}, e.g. as read in by \code{\link{Rfits_read_image}}.
 }
   \item{slice}{
-Integer scalar; the slice of the FITS cube to display.  
+Integer scalar or vector; the slice/s of the FITS cube/array to display.  
 }
   \item{\dots}{
 Extra options to pass to \code{Rwcs_image}.

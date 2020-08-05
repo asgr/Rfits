@@ -13,10 +13,10 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
 }
 
 print.Rfits_image=function(x , ...){
+  cat('Class: Rfits_image\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
-  cat('Class: Rfits_image\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
@@ -24,15 +24,28 @@ print.Rfits_image=function(x , ...){
 }
 
 print.Rfits_cube=function(x , ...){
+  cat('Class: Rfits_cube\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
-  cat('Class: Rfits_image\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
   cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
+}
+
+print.Rfits_array=function(x , ...){
+  cat('Class: Rfits_array\n')
+  cat('File path:',x$filename,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
+  cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
+  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
+  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
+  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
+  cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
+  cat('NAXIS4:',x$keyvalues[['NAXIS4']],'\n')
 }
 
 print.Rfits_image_pointer=function(x , ...){
@@ -92,22 +105,6 @@ print.Rfits_list=function(x , ...){
   cat('File location:',attributes(x)$filename,'\n\n')
   cat('Summary of extension contents:\n\n')
   print(summarytable)
-  
-  # cat('\n')
-  # cat('Total extensions:',length(x),'\n\n')
-  # 
-  # for(i in 1:length(x)){
-  #   cat('Ext',i,'class:',class(x[[i]])[1],'\n')
-  #   if(inherits(x[[i]], c('Rfits_image', 'Rfits_image_pointer'))){
-  #     print(x[[i]])
-  #   }else if(inherits(x[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
-  #     cat('Dimensions:',dim(x[[i]])[1],'(rows) x',dim(x[[i]])[2],'(cols)')
-  #   }else if(inherits(x[[i]], 'Rfits_header')){
-  #     cat('Header cards:',length(x[[i]]$keyvalues),'\n')
-  #     print(x[[i]])
-  #   }
-  #   cat('\n')
-  # }
 }
 
 print.Rfits_header=function(x, ...){
@@ -122,30 +119,12 @@ dim.Rfits_cube=function(x){
   return(dim(x$imDat))
 }
 
-dim.Rfits_image_pointer=function(x){
-  return(c(x$keyvalues$NAXIS1, x$keyvalues$NAXIS2))
+dim.Rfits_array=function(x){
+  return(dim(x$imDat))
 }
 
-`[.Rfits_image_pointer` = function(x, i, j){
-  if(!missing(i)){
-    xlo=min(i)
-    xhi=max(i)
-    if(xlo < 1 | xhi < 1){stop('All i must be >= 1')}
-    if(xlo > x$keyvalues$NAXIS1 | xhi > x$keyvalues$NAXIS1){stop('All i must be <=', x$keyvalues$NAXIS1)}
-  }else{
-    xlo=NULL
-    xhi=NULL
-  }
-  if(!missing(j)){
-    ylo=min(j)
-    yhi=max(j)
-    if(ylo < 1 | yhi < 1){stop('All i must be >= 1')}
-    if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
-  }else{
-    ylo=NULL
-    yhi=NULL
-  }
-  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=x$header,  xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi))
+dim.Rfits_image_pointer=function(x){
+  return(c(x$keyvalues$NAXIS1, x$keyvalues$NAXIS2))
 }
 
 `[.Rfits_image` = function(x, i, j){
@@ -156,6 +135,55 @@ dim.Rfits_image_pointer=function(x){
   return(x$imDat[i,j,k])
 }
 
+`[.Rfits_array` = function(x, i, j, k, m){
+  return(x$imDat[i,j,k,m])
+}
+
+`[.Rfits_image_pointer` = function(x, i, j, k, m){
+  if(!missing(i)){
+    if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
+    xlo=min(i)
+    xhi=max(i)
+    if(xlo < 1 | xhi < 1){stop('All i must be >= 1')}
+    if(xlo > x$keyvalues$NAXIS1 | xhi > x$keyvalues$NAXIS1){stop('All i must be <=', x$keyvalues$NAXIS1)}
+  }else{
+    xlo=NULL
+    xhi=NULL
+  }
+  if(!missing(j)){
+    if(is.null(x$keyvalues$NAXIS2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
+    ylo=min(j)
+    yhi=max(j)
+    if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
+    if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
+  }else{
+    ylo=NULL
+    yhi=NULL
+  }
+  if(!missing(k)){
+    if(is.null(x$keyvalues$NAXIS3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
+    zlo=min(k)
+    zhi=max(k)
+    if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
+    if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
+  }else{
+    zlo=NULL
+    zhi=NULL
+  }
+  if(!missing(m)){
+    if(is.null(x$keyvalues$NAXIS4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
+    tlo=min(m)
+    thi=max(m)
+    if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
+    if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
+  }else{
+    tlo=NULL
+    thi=NULL
+  }
+  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=x$header,
+                          xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
+                          tlo=tlo, thi=thi))
+}
 
 `&.Rfits_image_pointer`=function(e1, e2){
   if (missing(e2)) 
