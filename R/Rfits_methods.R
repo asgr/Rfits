@@ -12,6 +12,16 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   return(invisible(output))
 }
 
+print.Rfits_vector=function(x , ...){
+  cat('Class: Rfits_image\n')
+  cat('File path:',x$filename,'\n')
+  cat('Ext num:',x$ext,'\n')
+  cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
+  cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
+  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
+  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
+}
+
 print.Rfits_image=function(x , ...){
   cat('Class: Rfits_image\n')
   cat('File path:',x$filename,'\n')
@@ -111,6 +121,10 @@ print.Rfits_header=function(x, ...){
   cat(x$header[1:min(8,length(x$header))], sep='\n')
 }
 
+length.Rfits_vector=function(x){
+  return(length(x$imDat))
+}
+
 dim.Rfits_image=function(x){
   return(dim(x$imDat))
 }
@@ -125,6 +139,10 @@ dim.Rfits_array=function(x){
 
 dim.Rfits_image_pointer=function(x){
   return(c(x$keyvalues$NAXIS1, x$keyvalues$NAXIS2))
+}
+
+`[.Rfits_vector` = function(x, i){
+  return(x$imDat[i])
 }
 
 `[.Rfits_image` = function(x, i, j){

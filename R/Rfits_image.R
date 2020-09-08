@@ -87,8 +87,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       datatype=hdr$keyvalues$BITPIX
     }
     
-    if(ext==1 & (is.null(naxis1) | is.null(naxis2))){
-      stop('Missing naxis1 or naxis2, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+    if(ext==1 & (is.null(naxis1))){
+      stop('Missing naxis1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
     }
     
     if(is.null(naxis1)){
@@ -172,6 +172,9 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
                          naxis4=naxis4, ext=ext, datatype=datatype)
+    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+      image = as.vector(image)
+    }
     if(naxis3 > 1 & naxis4 == 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3))
     }
@@ -182,26 +185,58 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(header){
     if(subset){
-      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = xhi - xlo +1
-      hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = yhi - ylo +1
+      #Dim 1
+      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = xhi - xlo + 1
       hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - xlo + 1)
-      hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - ylo + 1)
       hdr$keyvalues$NAXIS1 = xhi - xlo +1
-      hdr$keyvalues$NAXIS2 = yhi - ylo +1
       hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - xlo + 1
-      hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - ylo +1
       hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
-      hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
       hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
-      hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
       hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
-      hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
       hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
-      hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
+      #Dim 2
+      if(naxis2 > 1 & naxis3 > 1 & naxis4 == 1){
+        hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = yhi - ylo + 1
+        hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - ylo + 1)
+        hdr$keyvalues$NAXIS2 = yhi - ylo + 1
+        hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - ylo + 1
+        hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
+        hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
+        hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
+        hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
+      }
+      #Dim 3
+      if(naxis3 > 1 & naxis4 == 1){
+        hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = zhi - zlo + 1
+        hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - zlo + 1)
+        hdr$keyvalues$NAXIS3 = zhi - zlo + 1
+        hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - zlo + 1
+        hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
+        hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
+        hdr$header[grep('NAXIS3', hdr$header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS3, width=21),' / ',hdr$keycomments$NAXIS3,sep='')
+        hdr$header[grep('CRPIX3', hdr$header)] = paste(formatC('CRPIX3', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX3, width=21),' / ',hdr$keycomments$CRPIX3,sep='')
+      }
+      #Dim 4
+      if(naxis4 > 1){
+        hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = thi - tlo + 1
+        hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - tlo + 1)
+        hdr$keyvalues$NAXIS4 = thi - tlo + 1
+        hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - tlo + 1
+        hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
+        hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
+        hdr$header[grep('NAXIS4', hdr$header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS4, width=21),' / ',hdr$keycomments$NAXIS4,sep='')
+        hdr$header[grep('CRPIX4', hdr$header)] = paste(formatC('CRPIX4', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX4, width=21),' / ',hdr$keycomments$CRPIX4,sep='')
+      }
+      
+      
+      
+      
     }
     output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
                 keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
-    if(naxis3 == 1 & naxis4 == 1){
+    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+      class(output) = c('Rfits_vector', class(output))
+    }else if(naxis3 == 1 & naxis4 == 1){
       class(output) = c('Rfits_image', class(output))
     }else if(naxis3 > 1 & naxis4 == 1){
       class(output) = c('Rfits_cube', class(output))
@@ -213,6 +248,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     return(invisible(image)) 
   }
 }
+
+Rfits_read_vector = Rfits_read_image
 
 Rfits_read_cube = Rfits_read_image
 
@@ -236,7 +273,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
   }
-  if(inherits(data, what=c('Rfits_image', 'Rfits_cube'))){
+  if(inherits(data, what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector'))){
     if(missing(keyvalues)){keyvalues=data$keyvalues}
     if(missing(keycomments)){keycomments=data$keycomments}
     if(missing(keynames)){keynames=data$keynames}
@@ -244,7 +281,11 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     if(missing(history)){history=data$history}
     data=data$imDat
   }
-  assertArray(data)
+  if(is.vector(data)){
+    assertVector(data)
+  }else{
+    assertArray(data)
+  }
   if(!missing(keyvalues)){keyvalues=as.list(keyvalues)}
   if(!missing(keycomments)){keycomments=as.list(keycomments)}
   if(!missing(keynames)){keynames=as.character(keynames)}
@@ -258,7 +299,11 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertNumeric(bscale)
   
   naxes = dim(data)
+  if(is.null(naxes)){naxes = length(data)}
   naxis = length(naxes)
+  if(naxis == 1){
+    naxes = c(naxes,1,1,1)
+  }
   if(naxis == 2){
     naxes = c(naxes,1,1)
   }
@@ -274,25 +319,25 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
 
   if(is.integer(data[1])){
     if(integer=='short' | integer=='int' | integer=='16'){
-      bitpix=16
-      datatype=21
+      bitpix = 16
+      datatype = 21
     }else if(integer=='long' | integer=='32'){
-      bitpix=32
-      datatype=31
+      bitpix = 32
+      datatype = 31
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
     }
   }else if(is.integer64(data[1])){
-    bitpix=64
-    datatype=81
+    bitpix = 64
+    datatype = 81
   }
   if(bitpix==0){
     if(numeric=='single' | numeric=='float' | numeric=='32'){
-      bitpix=-32
-      datatype=42
+      bitpix = -32
+      datatype = 42
     }else if (numeric=='double' | numeric=='64'){
-      bitpix=-64
-      datatype=82
+      bitpix = -64
+      datatype = 82
     }else{
       stop('numeric type must be single/float/32 or double/64')
     }
@@ -336,6 +381,8 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
                   naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=ext)
 }
 
+Rfits_write_vector = Rfits_write_image
+
 Rfits_write_cube = Rfits_write_image
 
 Rfits_write_array = Rfits_write_image
@@ -371,6 +418,44 @@ plot.Rfits_array=function(x, slice=c(1,1), ...){
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
+}
+
+plot.Rfits_vector=function(x, ...){
+  if(!inherits(x, 'Rfits_vector')){
+    stop('Object class is not of type Rfits_vector!')
+  }
+  xref = 1:length(x$imDat)
+  if(!is.null(x$keyvalues$CRPIX1)){
+    xref = xref - x$keyvalues$CRPIX1
+  }
+  if(!is.null(x$keyvalues$CDELT1)){
+    xref = xref * x$keyvalues$CDELT1
+  }
+  if(!is.null(x$keyvalues$CRVAL1)){
+    xref = xref + x$keyvalues$CRVAL1
+  }
+  if(requireNamespace("magicaxis", quietly=TRUE)){
+    magicaxis::magplot(xref, x$imDat, type='l', ...)
+  }else{
+    plot(xref, x$imDat, type='l', ...)
+  }
+}
+
+lines.Rfits_vector=function(x, ...){
+  if(!inherits(x, 'Rfits_vector')){
+    stop('Object class is not of type Rfits_vector!')
+  }
+  xref = 1:length(x$imDat)
+  if(!is.null(x$keyvalues$CRPIX1)){
+    xref = xref - x$keyvalues$CRPIX1
+  }
+  if(!is.null(x$keyvalues$CDELT1)){
+    xref = xref * x$keyvalues$CDELT1
+  }
+  if(!is.null(x$keyvalues$CRVAL1)){
+    xref = xref + x$keyvalues$CRVAL1
+  }
+  lines(xref, x$imDat, ...)
 }
 
 plot.Rfits_image_pointer=function(x, ...){

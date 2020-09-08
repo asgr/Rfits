@@ -2,24 +2,28 @@
 \alias{plot.Rfits_image}
 \alias{plot.Rfits_cube}
 \alias{plot.Rfits_array}
+\alias{plot.Rfits_vector}
+\alias{lines.Rfits_vector}
 \alias{plot.Rfits_image_pointer}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 WCS Plot Methods for Images and Cubes
 }
 \description{
-Makes a nice WCS image of a sensibly described image read in with \code{\link{Rfits_read_image}}.
+Makes a nice WCS image of a sensibly described vector / image / cube / array read in with \code{\link{Rfits_read_image}}.
 }
 \usage{
 \method{plot}{Rfits_image}(x, ...)
 \method{plot}{Rfits_cube}(x, slice = 1, ...)
 \method{plot}{Rfits_array}(x, slice = c(1,1), ...)
+\method{plot}{Rfits_vector}(x, ...)
+\method{lines}{Rfits_vector}(x, ...)
 \method{plot}{Rfits_image_pointer}(x, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{x}{
-An object of class \code{Rfits_image}, e.g. as read in by \code{\link{Rfits_read_image}}.
+An object of class \code{Rfits_image} / \code{Rfits_cube} / \code{Rfits_array} / \code{Rfits_vector}, e.g. as read in by \code{\link{Rfits_read_image}}.
 }
   \item{slice}{
 Integer scalar or vector; the slice/s of the FITS cube/array to display.  

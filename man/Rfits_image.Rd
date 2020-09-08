@@ -4,9 +4,11 @@
 \alias{Rfits_read_image}
 \alias{Rfits_read_cube}
 \alias{Rfits_read_array}
+\alias{Rfits_read_vector}
 \alias{Rfits_write_image}
 \alias{Rfits_write_cube}
 \alias{Rfits_write_array}
+\alias{Rfits_write_vector}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Image and Cube Readers and Writers
@@ -27,6 +29,10 @@ Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE)
 
+Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE)
+
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
@@ -40,12 +46,17 @@ Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
 Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+    bscale = 1)
+
+Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
+    keynames, comment, history, numeric = "single", integer = "long",
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
     bscale = 1) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix, cube or 4D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.

@@ -238,3 +238,10 @@ file_array = tempfile()
 Rfits_write_array(temp_array, file=file_array)
 temp_array2 = Rfits_read_array(file_array)
 expect_equal(temp_array, temp_array2$imDat, tolerance=3e-8)
+
+#ex 37 1D vector
+temp_vector = Rfits_read_vector(system.file('extdata', 'vector.fits', package = "Rfits"), ext=2)
+file_vector = tempfile()
+Rfits_write_vector(temp_vector, file_vector)
+temp_vector2 = Rfits_read_vector(file_vector)
+expect_identical(temp_vector$imDat, temp_vector2$imDat)
