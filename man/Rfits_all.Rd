@@ -16,7 +16,7 @@ Simple functions that either read in or write out all supported FITS extensions.
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE)
 Rfits_write_all(data, filename = 'temp.fits')
 Rfits_read(filename = 'temp.fits', pointer = FALSE)
-Rfits_write(data, filename = 'temp.fits', flatten = TRUE)
+Rfits_write(data, filename = 'temp.fits', flatten = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -30,7 +30,7 @@ Logical scalar; specifies whether the images in each extension should be pointer
 List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
 }
   \item{flatten}{
-Logical; should the input \option{data} list structure be fully flattened before writing out. Tthis means all elements will become their own extensions at all depths of recursion (as long as they are legal data types).
+Logical; should the input \option{data} list structure be fully flattened before writing out. Tthis means all elements will become their own extensions at all depths of recursion (as long as they are legal data types). Default is FALSE, which will keep header structures associated with their data.
 }
 }
 \details{
