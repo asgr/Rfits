@@ -71,55 +71,66 @@ Rfits_read = Rfits_read_all
   else return(unlist(c(lapply(x, .flatten)), recursive = FALSE))
 }
 
-Rfits_write_all=function(data, filename='temp.fits'){
+Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
   assertList(data)
   assertCharacter(filename, max.len=1)
   
   create_file = TRUE
   overwrite_file = TRUE
   
-  data = .flatten(data)
+  if(flatten){
+    data = .flatten(data)
+  }
+  
+  EXTNAMES = NULL
+  ignoreEXT = NULL
   
   for(i in 1:length(data)){
+    if(is.list(data[[i]])){
+      if(is.null(data[[i]]$keyvalues$EXTNAME)){
+        EXTNAMES = c(EXTNAMES, names(data)[i])
+      }else{
+        EXTNAMES = c(EXTNAMES, data[[i]]$keyvalues$EXTNAME)
+      }
+    }else{
+      if(is.null(names(data)[i])){
+        EXTNAMES = c(EXTNAMES, paste0('EXT',i))
+      }else{
+        EXTNAMES = c(EXTNAMES, names(data)[i])
+      }
+    }
+    
     if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix', 'integer', 'numeric'))){
       Rfits_write_image(data=data[[i]], filename=filename, ext=i,
                         create_file=create_file, overwrite_file=overwrite_file)
-      if(is.list(data[[i]])){
-        if(is.null(data[[i]]$keyvalues$EXTNAME)){
-          Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-        }
-      }else{
-        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-      }
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
       Rfits_write_table(table=data[[i]], filename=filename, ext=i,
                         create_file=create_file, overwrite_file=overwrite_file)
-      if(is.list(data[[i]])){
-        if(is.null(data[[i]]$keyvalues$EXTNAME)){
-          Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-        }
-      }else{
-        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-      }
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], 'Rfits_header')){
       Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
                          comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
                          create_file=create_file, overwrite_file=overwrite_file)
-      if(is.list(data[[i]])){
-        if(is.null(data[[i]]$keyvalues$EXTNAME)){
-          Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-        }
-      }else{
-        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], ext=i)
-      }
       create_file = FALSE
       overwrite_file = FALSE
     }else{
+      ignoreEXT = c(ignoreEXT,i)
       message('Extension ',i,' is not recognised and will not be written to FITS!')
+    }
+  }
+  
+  if(length(ignoreEXT) > 0){
+    EXTNAMES = EXTNAMES[-ignoreEXT]
+  }
+  
+  if(length(EXTNAMES) > 0){
+    for(i in 1:length(EXTNAMES)){
+      if(! is.na(EXTNAMES[i])){
+        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=EXTNAMES[i], ext=i)
+      }
     }
   }
 }
