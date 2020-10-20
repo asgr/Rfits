@@ -75,21 +75,26 @@ print.Rfits_header=function(x, ...){
 
 print.Rfits_list=function(x , ...){
   
-  ext_name={}
-  for(i in 1:length(x)){
-    if(is.null(x[[i]]$keyvalues$EXTNAME)){
-      ext_name = c(ext_name, 'NA')
-    }else{
-      ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
-    }
-  }
+  # ext_name = {}
+  # for(i in 1:length(x)){
+  #   if(is.null(x[[i]]$keyvalues$EXTNAME)){
+  #     if(is.null(attributes(x[[i]])$keyvalues$EXTNAME)){
+  #       ext_name = c(ext_name, 'NA')
+  #     }else{
+  #       ext_name = c(ext_name, attributes(x[[i]])$keyvalues$EXTNAME)
+  #     }
+  #   }else{
+  #     ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
+  #   }
+  # }
+  ext_name = names(x)
   
-  ext_class={}
+  ext_class = {}
   for(i in 1:length(x)){
     ext_class = c(ext_class, class(x[[i]])[1])
   }
   
-  ext_dim={}
+  ext_dim = {}
   for(i in 1:length(x)){
     if(is.null(dim(x[[i]]))){
       ext_dim = c(ext_dim, 'NA')
@@ -98,7 +103,7 @@ print.Rfits_list=function(x , ...){
     }
   }
   
-  ext_size={}
+  ext_size = {}
   for(i in 1:length(x)){
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
   }

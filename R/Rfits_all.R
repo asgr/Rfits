@@ -57,6 +57,11 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
     if(!is.null(data[[i]]$keyvalues$EXTNAME)){
       names(data)[i] = data[[i]]$keyvalues$EXTNAME
     }
+    if(is.data.frame(data[[i]])){
+      if(!is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
+        names(data)[i] = attributes(data[[i]])$keyvalues$EXTNAME
+      }
+    }
   }
   
   class(data) = 'Rfits_list'
@@ -83,20 +88,30 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
   }
   
   EXTNAMES = NULL
+  EXTCOMMENTS = NULL
   ignoreEXT = NULL
   
   for(i in 1:length(data)){
     if(is.list(data[[i]])){
       if(is.null(data[[i]]$keyvalues$EXTNAME)){
         EXTNAMES = c(EXTNAMES, names(data)[i])
+        if(!is.null(attributes(data[[i]])$keycomments$EXTNAME)){
+          EXTCOMMENTS = c(EXTCOMMENTS, attributes(data[[i]])$keycomments$EXTNAME)
+        }else{
+          EXTCOMMENTS = c(EXTCOMMENTS, '')
+        }
       }else{
         EXTNAMES = c(EXTNAMES, data[[i]]$keyvalues$EXTNAME)
+        EXTCOMMENTS = c(EXTCOMMENTS, data[[i]]$keycomments$EXTNAME)
       }
     }else{
       if(is.null(names(data)[i])){
-        EXTNAMES = c(EXTNAMES, paste0('EXT',i))
+        #EXTNAMES = c(EXTNAMES, paste0('EXT',i))
+        EXTNAMES = c(EXTNAMES, NA)
+        EXTCOMMENTS = c(EXTCOMMENTS, '')
       }else{
         EXTNAMES = c(EXTNAMES, names(data)[i])
+        EXTCOMMENTS = c(EXTCOMMENTS, '')
       }
     }
     
@@ -106,6 +121,9 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
+      if(is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
+        ignoreEXT = c(ignoreEXT,i)
+      }
       Rfits_write_table(table=data[[i]], filename=filename, ext=i,
                         create_file=create_file, overwrite_file=overwrite_file)
       create_file = FALSE
@@ -124,12 +142,13 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
   
   if(length(ignoreEXT) > 0){
     EXTNAMES = EXTNAMES[-ignoreEXT]
+    EXTCOMMENTS = EXTCOMMENTS[-ignoreEXT]
   }
   
   if(length(EXTNAMES) > 0){
     for(i in 1:length(EXTNAMES)){
       if(! is.na(EXTNAMES[i])){
-        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=EXTNAMES[i], ext=i)
+        Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=EXTNAMES[i], keycomment=EXTCOMMENTS[i], ext=i)
       }
     }
   }

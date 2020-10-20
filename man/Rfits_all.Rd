@@ -14,7 +14,7 @@ Simple functions that either read in or write out all supported FITS extensions.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE)
-Rfits_write_all(data, filename = 'temp.fits')
+Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE)
 Rfits_read(filename = 'temp.fits', pointer = FALSE)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE)
 }
