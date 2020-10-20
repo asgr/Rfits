@@ -3,8 +3,13 @@
 
 CC=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config CC`
 CFLAGS=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config CFLAGS`
-AR=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config AR`
-AR=${AR:-ar}
+
+# R CMD config prints errors on stdout, so we need to check
+# the exit code as the condition to default to "ar"
+R_AR=`"${R_HOME}/bin${R_ARCH_BIN}/R" CMD config AR`
+if [ $? -ne 0 ]; then
+	R_AR=${AR:-ar}
+fi
 
 echo "- Building in `uname -s`"
 echo "- R_HOME: $R_HOME"
@@ -12,7 +17,7 @@ echo "- R_ARCH: $R_ARCH"
 echo "- R_ARCH_BIN: $R_ARCH_BIN"
 echo "- CC: $CC"
 echo "- CFLAGS: $CFLAGS"
-echo "- AR: $AR"
+echo "- AR: $R_AR"
 
 cd src/cfitsio
-./configure --disable-curl CC="$CC" CFLAGS="$CFLAGS" AR="$AR"
+./configure --disable-curl CC="$CC" CFLAGS="$CFLAGS" AR="$R_AR"
