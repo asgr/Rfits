@@ -53,16 +53,9 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE){
   #names
   
   names(data) = rep(NA, length(data))
-  if(header){
-    for(i in 1:length(data)){
-      if(!is.null(data[[i]]$keyvalues$EXTNAME)){
-        names(data)[i] = data[[i]]$keyvalues$EXTNAME
-      }
-      if(is.data.frame(data[[i]])){
-        if(!is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
-          names(data)[i] = attributes(data[[i]])$keyvalues$EXTNAME
-        }
-      }
+  for(i in 1:length(data)){
+    if(!is.null(info$headers[[i]]$keyvalues$EXTNAME)){
+      names(data)[i] = info$headers[[i]]$keyvalues$EXTNAME
     }
   }
   
