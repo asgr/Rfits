@@ -58,7 +58,7 @@
 \method{[}{Rfits_cube}(x,i,j,k)
 \method{[}{Rfits_array}(x,i,j,k,m)
 \method{[}{Rfits_vector}(x,i)
-\method{[}{Rfits_pointer}(x,i,j,k,m)
+\method{[}{Rfits_pointer}(x,i,j,k,m,header=x$header)
 \method{&}{Rfits_pointer}(e1,e2)
 \method{|}{Rfits_pointer}(e1,e2)
 \method{!=}{Rfits_pointer}(e1,e2)
@@ -81,9 +81,10 @@
   \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
   \item{k}{Integer vector, a contiguous vector os desired k indices to extract}
   \item{m}{Integer vector, a contiguous vector os desired m indices to extract}
-  \item{x}{ an object of class 'Rfits_pointer'}
-  \item{e1}{ an object of class 'Rfits_pointer'}
-  \item{e2}{ anything else}
+  \item{x}{An object of class 'Rfits_pointer'}
+  \item{e1}{An object of class 'Rfits_pointer'}
+  \item{e2}{Anything else}
+  \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{\dots}{Unused, but required}
 }
 \value{

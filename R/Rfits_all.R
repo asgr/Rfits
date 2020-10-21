@@ -1,4 +1,4 @@
-Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
+Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertFlag(pointer)
@@ -11,9 +11,9 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   
   if(!is.null(info$headers[[1]]$keyvalues$NAXIS1)){
     if(pointer){
-      data[[1]] = Rfits_point(filename, ext=1)
+      data[[1]] = Rfits_point(filename, ext=1, header=header)
     }else{
-      data[[1]] = Rfits_read_image(filename, ext=1)
+      data[[1]] = Rfits_read_image(filename, ext=1, header=header)
     }
   }
   
@@ -22,9 +22,9 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   if(length(sel_images)>0){
     for(i in sel_images){
       if(pointer){
-        data[[i]] = Rfits_point(filename, ext=i, header=TRUE)
+        data[[i]] = Rfits_point(filename, ext=i, header=header)
       }else{
-        data[[i]] = Rfits_read_image(filename, ext=i, header=TRUE)
+        data[[i]] = Rfits_read_image(filename, ext=i, header=header)
       }
     }
   }
@@ -34,7 +34,7 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   sel_tables = grep('TABLE',info$summary)
   if(length(sel_tables)>0){
     for(i in sel_tables){
-      data[[i]] = Rfits_read_table(filename, ext=i, header=TRUE)
+      data[[i]] = Rfits_read_table(filename, ext=i, header=header)
     }
   }
   
@@ -53,13 +53,15 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE){
   #names
   
   names(data) = rep(NA, length(data))
-  for(i in 1:length(data)){
-    if(!is.null(data[[i]]$keyvalues$EXTNAME)){
-      names(data)[i] = data[[i]]$keyvalues$EXTNAME
-    }
-    if(is.data.frame(data[[i]])){
-      if(!is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
-        names(data)[i] = attributes(data[[i]])$keyvalues$EXTNAME
+  if(header){
+    for(i in 1:length(data)){
+      if(!is.null(data[[i]]$keyvalues$EXTNAME)){
+        names(data)[i] = data[[i]]$keyvalues$EXTNAME
+      }
+      if(is.data.frame(data[[i]])){
+        if(!is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
+          names(data)[i] = attributes(data[[i]])$keyvalues$EXTNAME
+        }
       }
     }
   }

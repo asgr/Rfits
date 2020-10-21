@@ -148,7 +148,7 @@ dim.Rfits_array=function(x){
 }
 
 dim.Rfits_pointer=function(x){
-  return(c(x$keyvalues$NAXIS1, x$keyvalues$NAXIS2))
+  return(x$dim)
 }
 
 `[.Rfits_vector` = function(x, i){
@@ -167,7 +167,7 @@ dim.Rfits_pointer=function(x){
   return(x$imDat[i,j,k,m])
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m){
+`[.Rfits_pointer` = function(x, i, j, k, m, header=x$header){
   if(!missing(i)){
     if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
     xlo=min(i)
@@ -208,7 +208,7 @@ dim.Rfits_pointer=function(x){
     tlo=NULL
     thi=NULL
   }
-  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=x$header,
+  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
                           tlo=tlo, thi=thi))
 }
@@ -217,126 +217,110 @@ dim.Rfits_pointer=function(x){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] & e2
+  e1[,header=FALSE] & e2[,header=FALSE]
 }
 
 `|.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] | e2
+  e1[,header=FALSE] | e2[,header=FALSE]
 }
 
 `!=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] != e2
+  e1[,header=FALSE] != e2[,header=FALSE]
 }
 
 `==.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] == e2
+  e1[,header=FALSE] == e2[,header=FALSE]
 }
 
 `<.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] < e2
+  e1[,header=FALSE] < e2[,header=FALSE]
 }
 
 `<=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] <= e2
+  e1[,header=FALSE] <= e2[,header=FALSE]
 }
 
 `>.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] > e2
+  e1[,header=FALSE] > e2[,header=FALSE]
 }
 
 `>=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] >= e2
+  e1[,header=FALSE] >= e2[,header=FALSE]
 }
 
 `+.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] + e2
+  e1[,header=FALSE] + e2[,header=FALSE]
 }
 
 `-.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] - e2
+  e1[,header=FALSE] - e2[,header=FALSE]
 }
 
 `*.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] * e2
+  e1[,header=FALSE] * e2[,header=FALSE]
 }
 
 `/.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] / e2
+  e1[,header=FALSE] / e2[,header=FALSE]
 }
 
 `^.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] ^ e2
+  e1[,header=FALSE] ^ e2[,header=FALSE]
 }
 
 `%%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] %% e2
+  e1[,header=FALSE] %% e2[,header=FALSE]
 }
 
 `%/%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] %/% e2
+  e1[,header=FALSE] %/% e2[,header=FALSE]
 }
 
 `%*%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
   if (inherits(e2, 'Rfits_pointer'))
-    e2 = e2[,]
-  e1[,] %*% e2
+  e1[,header=FALSE] %*% e2[,header=FALSE]
 }
