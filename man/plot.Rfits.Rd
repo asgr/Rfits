@@ -4,7 +4,7 @@
 \alias{plot.Rfits_array}
 \alias{plot.Rfits_vector}
 \alias{lines.Rfits_vector}
-\alias{plot.Rfits_image_pointer}
+\alias{plot.Rfits_pointer}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 WCS Plot Methods for Images and Cubes
@@ -18,7 +18,7 @@ Makes a nice WCS image of a sensibly described vector / image / cube / array rea
 \method{plot}{Rfits_array}(x, slice = c(1,1), ...)
 \method{plot}{Rfits_vector}(x, ...)
 \method{lines}{Rfits_vector}(x, ...)
-\method{plot}{Rfits_image_pointer}(x, ...)
+\method{plot}{Rfits_pointer}(x, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
