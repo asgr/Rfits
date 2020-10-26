@@ -13,9 +13,11 @@ Read and Write all FITS Extensions
 Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need.
 }
 \usage{
-Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE)
+Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
+  data.table = TRUE)
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE)
-Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE)
+Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
+  data.table = TRUE)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -31,6 +33,9 @@ List; a list of images and tables to be written out to a target FITS file. The f
 }
   \item{header}{
 Logical; should headers by extracted for each FITS extensions (TRUE, default), or just the data (FALSE). 
+}
+  \item{data.table}{
+Logical; should a \code{data.table} be returned?
 }
   \item{flatten}{
 Logical; should the input \option{data} list structure be fully flattened before writing out. Tthis means all elements will become their own extensions at all depths of recursion (as long as they are legal data types). Default is FALSE, which will keep header structures associated with their data.
