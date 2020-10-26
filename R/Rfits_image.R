@@ -458,8 +458,8 @@ lines.Rfits_vector=function(x, ...){
   lines(xref, x$imDat, ...)
 }
 
-plot.Rfits_image_pointer=function(x, ...){
-  if(!inherits(x, 'Rfits_image_pointer')){
+plot.Rfits_pointer=function(x, ...){
+  if(!inherits(x, 'Rfits_pointer')){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){

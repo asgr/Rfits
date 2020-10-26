@@ -7,8 +7,13 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   
   keyvalues = Rfits_read_header(filename=filename, ext=ext)$keyvalues
   
-  output = list(filename=filename, ext=ext, keyvalues=keyvalues, header=header)
-  class(output) = 'Rfits_image_pointer'
+  dim = c(keyvalues$NAXIS1); type='vector'
+  if(!is.null(keyvalues$NAXIS2)){dim = c(dim, keyvalues$NAXIS2); type='image'}
+  if(!is.null(keyvalues$NAXIS3)){dim = c(dim, keyvalues$NAXIS3); type='cube'}
+  if(!is.null(keyvalues$NAXIS4)){dim = c(dim, keyvalues$NAXIS4); type='array'}
+  
+  output = list(filename=filename, ext=ext, keyvalues=keyvalues, header=header, dim=dim, type=type)
+  class(output) = 'Rfits_pointer'
   return(invisible(output))
 }
 
@@ -58,15 +63,15 @@ print.Rfits_array=function(x , ...){
   cat('NAXIS4:',x$keyvalues[['NAXIS4']],'\n')
 }
 
-print.Rfits_image_pointer=function(x , ...){
+print.Rfits_pointer=function(x , ...){
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
-  cat('Class: Rfits_image_pointer\n')
+  cat('Class: Rfits_pointer\n')
+  cat('Type:',x$type,'\n')
+  cat('Dim:',x$dim,'\n')
   cat('Disk size:',round(file.size(x$filename)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
-  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
-  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
 }
 
 print.Rfits_header=function(x, ...){
@@ -75,30 +80,43 @@ print.Rfits_header=function(x, ...){
 
 print.Rfits_list=function(x , ...){
   
-  ext_name={}
-  for(i in 1:length(x)){
-    if(is.null(x[[i]]$keyvalues$EXTNAME)){
-      ext_name = c(ext_name, 'NA')
-    }else{
-      ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
-    }
-  }
+  # ext_name = {}
+  # for(i in 1:length(x)){
+  #   if(is.null(x[[i]]$keyvalues$EXTNAME)){
+  #     if(is.null(attributes(x[[i]])$keyvalues$EXTNAME)){
+  #       ext_name = c(ext_name, 'NA')
+  #     }else{
+  #       ext_name = c(ext_name, attributes(x[[i]])$keyvalues$EXTNAME)
+  #     }
+  #   }else{
+  #     ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
+  #   }
+  # }
+  ext_name = names(x)
   
-  ext_class={}
+  ext_class = {}
   for(i in 1:length(x)){
     ext_class = c(ext_class, class(x[[i]])[1])
   }
   
-  ext_dim={}
+  ext_dim = {}
   for(i in 1:length(x)){
-    if(is.null(dim(x[[i]]))){
-      ext_dim = c(ext_dim, 'NA')
+    if(inherits(x[[i]], 'Rfits_vector')){
+      ext_dim = c(ext_dim, length(x[[i]]))
     }else{
-      ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
+      if(is.null(dim(x[[i]]))){
+        if(is.null(length(x[[i]]))){
+          ext_dim = c(ext_dim, 'NA')
+        }else{
+          ext_dim = c(ext_dim, length(x[[i]]))
+        }
+      }else{
+        ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
+      }
     }
   }
   
-  ext_size={}
+  ext_size = {}
   for(i in 1:length(x)){
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
   }
@@ -137,8 +155,8 @@ dim.Rfits_array=function(x){
   return(dim(x$imDat))
 }
 
-dim.Rfits_image_pointer=function(x){
-  return(c(x$keyvalues$NAXIS1, x$keyvalues$NAXIS2))
+dim.Rfits_pointer=function(x){
+  return(x$dim)
 }
 
 `[.Rfits_vector` = function(x, i){
@@ -157,7 +175,7 @@ dim.Rfits_image_pointer=function(x){
   return(x$imDat[i,j,k,m])
 }
 
-`[.Rfits_image_pointer` = function(x, i, j, k, m){
+`[.Rfits_pointer` = function(x, i, j, k, m, header=x$header){
   if(!missing(i)){
     if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
     xlo=min(i)
@@ -198,135 +216,119 @@ dim.Rfits_image_pointer=function(x){
     tlo=NULL
     thi=NULL
   }
-  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=x$header,
+  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
                           tlo=tlo, thi=thi))
 }
 
-`&.Rfits_image_pointer`=function(e1, e2){
+`&.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] & e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] & e2[,header=FALSE]
 }
 
-`|.Rfits_image_pointer`=function(e1, e2){
+`|.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] | e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] | e2[,header=FALSE]
 }
 
-`!=.Rfits_image_pointer`=function(e1, e2){
+`!=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] != e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] != e2[,header=FALSE]
 }
 
-`==.Rfits_image_pointer`=function(e1, e2){
+`==.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] == e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] == e2[,header=FALSE]
 }
 
-`<.Rfits_image_pointer`=function(e1, e2){
+`<.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] < e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] < e2[,header=FALSE]
 }
 
-`<=.Rfits_image_pointer`=function(e1, e2){
+`<=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] <= e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] <= e2[,header=FALSE]
 }
 
-`>.Rfits_image_pointer`=function(e1, e2){
+`>.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] > e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] > e2[,header=FALSE]
 }
 
-`>=.Rfits_image_pointer`=function(e1, e2){
+`>=.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] >= e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] >= e2[,header=FALSE]
 }
 
-`+.Rfits_image_pointer`=function(e1, e2){
+`+.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] + e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] + e2[,header=FALSE]
 }
 
-`-.Rfits_image_pointer`=function(e1, e2){
+`-.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] - e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] - e2[,header=FALSE]
 }
 
-`*.Rfits_image_pointer`=function(e1, e2){
+`*.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] * e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] * e2[,header=FALSE]
 }
 
-`/.Rfits_image_pointer`=function(e1, e2){
+`/.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] / e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] / e2[,header=FALSE]
 }
 
-`^.Rfits_image_pointer`=function(e1, e2){
+`^.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] ^ e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] ^ e2[,header=FALSE]
 }
 
-`%%.Rfits_image_pointer`=function(e1, e2){
+`%%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] %% e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] %% e2[,header=FALSE]
 }
 
-`%/%.Rfits_image_pointer`=function(e1, e2){
+`%/%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] %/% e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] %/% e2[,header=FALSE]
 }
 
-`%*%.Rfits_image_pointer`=function(e1, e2){
+`%*%.Rfits_pointer`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_image_pointer'))
-    e2 = e2[,]
-  e1[,] %*% e2
+  if (inherits(e2, 'Rfits_pointer'))
+  e1[,header=FALSE] %*% e2[,header=FALSE]
 }
