@@ -105,7 +105,7 @@ expect_identical(temp_table6, temp_table[1:60,])
 Rfits_write_image(temp_image$imDat, file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
 temp_mix = Rfits_read_all(file_mix_temp)
 file_mix_temp2 = tempfile()
-Rfits_write_all(temp_mix, file_mix_temp2)
+Rfits_write_all(temp_mix, file_mix_temp2, overwrite_Main=FALSE)
 temp_mix2 = Rfits_read_all(file_mix_temp2)
 attributes(temp_mix)$filename = attributes(temp_mix2)$filename
 temp_mix2[[1]]$filename = temp_mix[[1]]$filename #should be only changes

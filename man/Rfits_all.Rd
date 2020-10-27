@@ -15,10 +15,10 @@ Simple functions that either read in or write out all supported FITS extensions.
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE)
-Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE)
+Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
 Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE)
-Rfits_write(data, filename = 'temp.fits', flatten = FALSE)
+Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -39,6 +39,9 @@ Logical; should a \code{data.table} be returned?
 }
   \item{flatten}{
 Logical; should the input \option{data} list structure be fully flattened before writing out. Tthis means all elements will become their own extensions at all depths of recursion (as long as they are legal data types). Default is FALSE, which will keep header structures associated with their data.
+}
+  \item{overwrite_Main}{
+Logical; FITS tables are by default written with EXTNAME = 'Main', if the \option{overwrite_Main} flag is set to TRUE then the EXTNAME will be over-written with the name of the list object. If FALSE then the default EXTNAME of 'Main' is left, with the assoicated comments.
 }
 }
 \details{
