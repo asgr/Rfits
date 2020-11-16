@@ -54,7 +54,7 @@
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
-\method{[}{Rfits_vector}(x,i)
+\method{[}{Rfits_vector}(x,i,keepWCS=FALSE)
 \method{[}{Rfits_image}(x,i,j,keepWCS=FALSE)
 \method{[}{Rfits_cube}(x,i,j,k,keepWCS=FALSE)
 \method{[}{Rfits_array}(x,i,j,k,m,keepWCS=FALSE)

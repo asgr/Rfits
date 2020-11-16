@@ -160,7 +160,25 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_vector` = function(x, i){
-  return(x$imDat[i])
+  if(keepWCS){
+    keyvalues = x$keyvalues
+    keyvalues$NAXIS1 = length(i)
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
+    output = list(
+      imDat = x$imDat[i],
+      keyvalues = keyvalues,
+      keycomments = x$keycomments,
+      keynames = x$keynames,
+      comment = x$comment,
+      history = x$history,
+      filename = x$filename,
+      ext = x$ext
+    )
+    class(output) = "Rfits_image"
+    return(output)
+  }else{
+    return(x$imDat[i])
+  }
 }
 
 `[.Rfits_image` = function(x, i, j, keepWCS=FALSE){
@@ -192,8 +210,10 @@ dim.Rfits_pointer=function(x){
     keyvalues = x$keyvalues
     keyvalues$NAXIS1 = length(i)
     keyvalues$NAXIS2 = length(j)
+    keyvalues$NAXIS3 = length(k)
     keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
     keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    keyvalues$CRPIX3 = keyvalues$CRPIX3 - min(k) + 1
     output = list(
       imDat = x$imDat[i,j,k],
       keyvalues = keyvalues,
@@ -216,8 +236,12 @@ dim.Rfits_pointer=function(x){
     keyvalues = x$keyvalues
     keyvalues$NAXIS1 = length(i)
     keyvalues$NAXIS2 = length(j)
+    keyvalues$NAXIS3 = length(k)
+    keyvalues$NAXIS4 = length(m)
     keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
     keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    keyvalues$CRPIX3 = keyvalues$CRPIX3 - min(k) + 1
+    keyvalues$CRPIX4 = keyvalues$CRPIX4 - min(m) + 1
     output = list(
       imDat = x$imDat[i,j,k,m],
       keyvalues = keyvalues,
