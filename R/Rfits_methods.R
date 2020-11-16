@@ -163,16 +163,76 @@ dim.Rfits_pointer=function(x){
   return(x$imDat[i])
 }
 
-`[.Rfits_image` = function(x, i, j){
-  return(x$imDat[i,j])
+`[.Rfits_image` = function(x, i, j, keepWCS=FALSE){
+  if(keepWCS){
+    keyvalues = x$keyvalues
+    keyvalues$NAXIS1 = length(i)
+    keyvalues$NAXIS2 = length(j)
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    output = list(
+      imDat = x$imDat[i,j],
+      keyvalues = keyvalues,
+      keycomments = x$keycomments,
+      keynames = x$keynames,
+      comment = x$comment,
+      history = x$history,
+      filename = x$filename,
+      ext = x$ext
+    )
+    class(output) = "Rfits_image"
+    return(output)
+  }else{
+    return(x$imDat[i,j])
+  }
 }
 
-`[.Rfits_cube` = function(x, i, j, k){
-  return(x$imDat[i,j,k])
+`[.Rfits_cube` = function(x, i, j, k, keepWCS=FALSE){
+  if(keepWCS){
+    keyvalues = x$keyvalues
+    keyvalues$NAXIS1 = length(i)
+    keyvalues$NAXIS2 = length(j)
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    output = list(
+      imDat = x$imDat[i,j,k],
+      keyvalues = keyvalues,
+      keycomments = x$keycomments,
+      keynames = x$keynames,
+      comment = x$comment,
+      history = x$history,
+      filename = x$filename,
+      ext = x$ext
+    )
+    class(output) = "Rfits_cube"
+    return(output)
+  }else{
+    return(x$imDat[i,j,k])
+  }
 }
 
-`[.Rfits_array` = function(x, i, j, k, m){
-  return(x$imDat[i,j,k,m])
+`[.Rfits_array` = function(x, i, j, k, m, keepWCS=FALSE){
+  if(keepWCS){
+    keyvalues = x$keyvalues
+    keyvalues$NAXIS1 = length(i)
+    keyvalues$NAXIS2 = length(j)
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    output = list(
+      imDat = x$imDat[i,j,k,m],
+      keyvalues = keyvalues,
+      keycomments = x$keycomments,
+      keynames = x$keynames,
+      comment = x$comment,
+      history = x$history,
+      filename = x$filename,
+      ext = x$ext
+    )
+    class(output) = "Rfits_array"
+    return(output)
+  }else{
+    return(x$imDat[i,j,k,m])
+  }
 }
 
 `[.Rfits_pointer` = function(x, i, j, k, m, header=x$header){
