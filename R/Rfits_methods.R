@@ -1,3 +1,18 @@
+.safedim = function(lo_orig=1, hi_orig=1, lo_tar=1, hi_tar=1){
+  len_orig = hi_orig - lo_orig + 1
+  len_tar = hi_tar - lo_tar + 1
+  
+  out_lo_orig = max(lo_tar, 1)
+  out_hi_orig = min(hi_tar, len_orig)
+  diff = (1 - lo_tar)
+  tar_lo = out_lo_orig + diff
+  tar_hi = out_hi_orig + diff
+  safe = tar_hi >= tar_lo
+  return(list(orig = out_lo_orig:out_hi_orig, tar = tar_lo:tar_hi, len_orig=len_orig,
+              len_tar=len_tar, safe=safe, lo_orig=lo_orig, hi_orig=hi_orig, lo_tar=lo_tar,
+              hi_tar=hi_tar, diff=diff))
+}
+
 Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
@@ -159,13 +174,20 @@ dim.Rfits_pointer=function(x){
   return(x$dim)
 }
 
-`[.Rfits_vector` = function(x, i){
+`[.Rfits_vector` = function(x, i, keepWCS=FALSE){
+  safedim_i = .safedim(1, length(x$imDat), min(i), max(i))
+  
+  tar = array(NA, dim=safedim_i$len_tar)
+  if(safedim_i$safe){
+    tar[safedim_i$tar] = x$imDat[safedim_i$orig]
+  }
+    
   if(keepWCS){
     keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = length(i)
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
+    keyvalues$NAXIS1 = safedim_i$len_tar
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
     output = list(
-      imDat = x$imDat[i],
+      imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
@@ -177,19 +199,29 @@ dim.Rfits_pointer=function(x){
     class(output) = "Rfits_image"
     return(output)
   }else{
-    return(x$imDat[i])
+    return(tar)
   }
 }
 
 `[.Rfits_image` = function(x, i, j, keepWCS=FALSE){
+  
+  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
+  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
+  
+  tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar))
+  if(safedim_i$safe & safedim_j$safe){
+    tar[safedim_i$tar,safedim_j$tar] = x$imDat[safedim_i$orig,safedim_j$orig]
+  }
+
   if(keepWCS){
     keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = length(i)
-    keyvalues$NAXIS2 = length(j)
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
+    keyvalues$NAXIS1 = safedim_i$len_tar
+    keyvalues$NAXIS2 = safedim_j$len_tar
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
+    
     output = list(
-      imDat = x$imDat[i,j],
+      imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
@@ -201,21 +233,31 @@ dim.Rfits_pointer=function(x){
     class(output) = "Rfits_image"
     return(output)
   }else{
-    return(x$imDat[i,j])
+    return(tar)
   }
 }
 
 `[.Rfits_cube` = function(x, i, j, k, keepWCS=FALSE){
+  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
+  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
+  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
+  
+  tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar))
+  if(safedim_i$safe & safedim_j$safe & safedim_k$safe){
+    tar[safedim_i$tar,safedim_j$tar,safedim_k$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig]
+  }
+  
   if(keepWCS){
     keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = length(i)
-    keyvalues$NAXIS2 = length(j)
-    keyvalues$NAXIS3 = length(k)
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
-    keyvalues$CRPIX3 = keyvalues$CRPIX3 - min(k) + 1
+    keyvalues$NAXIS1 = safedim_i$len_tar
+    keyvalues$NAXIS2 = safedim_j$len_tar
+    keyvalues$NAXIS3 = safedim_k$len_tar
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
+    keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1
+    
     output = list(
-      imDat = x$imDat[i,j,k],
+      imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
@@ -232,18 +274,29 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_array` = function(x, i, j, k, m, keepWCS=FALSE){
+  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
+  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
+  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
+  safedim_m = .safedim(1, dim(x$imDat)[4], min(m), max(m))
+  
+  tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar, safedim_m$len_tar))
+  if(safedim_i$safe & safedim_j$safe & safedim_k$safe & safedim_m$safe){
+    tar[safedim_i$tar,safedim_j$tar,safedim_k$tar,safedim_m$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig,safedim_m$orig]
+  }
+  
   if(keepWCS){
     keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = length(i)
-    keyvalues$NAXIS2 = length(j)
-    keyvalues$NAXIS3 = length(k)
-    keyvalues$NAXIS4 = length(m)
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - min(i) + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - min(j) + 1
-    keyvalues$CRPIX3 = keyvalues$CRPIX3 - min(k) + 1
-    keyvalues$CRPIX4 = keyvalues$CRPIX4 - min(m) + 1
+    keyvalues$NAXIS1 = safedim_i$len_tar
+    keyvalues$NAXIS2 = safedim_j$len_tar
+    keyvalues$NAXIS3 = safedim_k$len_tar
+    keyvalues$NAXIS4 = safedim_m$len_tar
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
+    keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1
+    keyvalues$CRPIX4 = keyvalues$CRPIX4 - safedim_m$lo_tar + 1
+    
     output = list(
-      imDat = x$imDat[i,j,k,m],
+      imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
@@ -255,7 +308,7 @@ dim.Rfits_pointer=function(x){
     class(output) = "Rfits_array"
     return(output)
   }else{
-    return(x$imDat[i,j,k,m])
+    return(tar)
   }
 }
 
@@ -264,8 +317,8 @@ dim.Rfits_pointer=function(x){
     if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
     xlo=min(i)
     xhi=max(i)
-    if(xlo < 1 | xhi < 1){stop('All i must be >= 1')}
-    if(xlo > x$keyvalues$NAXIS1 | xhi > x$keyvalues$NAXIS1){stop('All i must be <=', x$keyvalues$NAXIS1)}
+    #if(xlo < 1 | xhi < 1){stop('All i must be >= 1')}
+    #if(xlo > x$keyvalues$NAXIS1 | xhi > x$keyvalues$NAXIS1){stop('All i must be <=', x$keyvalues$NAXIS1)}
   }else{
     xlo=NULL
     xhi=NULL
@@ -274,8 +327,8 @@ dim.Rfits_pointer=function(x){
     if(is.null(x$keyvalues$NAXIS2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
     ylo=min(j)
     yhi=max(j)
-    if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
-    if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
+    #if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
+    #if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
   }else{
     ylo=NULL
     yhi=NULL
@@ -284,8 +337,8 @@ dim.Rfits_pointer=function(x){
     if(is.null(x$keyvalues$NAXIS3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
     zlo=min(k)
     zhi=max(k)
-    if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
-    if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
+    #if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
+    #if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
   }else{
     zlo=NULL
     zhi=NULL
@@ -294,8 +347,8 @@ dim.Rfits_pointer=function(x){
     if(is.null(x$keyvalues$NAXIS4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
     tlo=min(m)
     thi=max(m)
-    if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
-    if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
+    #if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
+    #if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
   }else{
     tlo=NULL
     thi=NULL

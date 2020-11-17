@@ -91,6 +91,11 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       stop('Missing naxis1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
     }
     
+    Ndim = 1
+    if(!is.null(naxis2)){Ndim = 2}
+    if(!is.null(naxis3)){Ndim = 3}
+    if(!is.null(naxis4)){Ndim = 4}
+    
     if(is.null(naxis1)){
       naxis1 = 1
     }
@@ -112,6 +117,20 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(zhi)){zhi=naxis3}else{subset=TRUE}
     if(is.null(tlo)){tlo=1}else{subset=TRUE}
     if(is.null(thi)){thi=naxis4}else{subset=TRUE}
+    if(subset){
+      safex = .safedim(1,naxis1,xlo,xhi)
+      safey = .safedim(1,naxis2,ylo,yhi)
+      safez = .safedim(1,naxis3,zlo,zhi)
+      safet = .safedim(1,naxis4,tlo,thi)
+      xlo = min(safex$orig)
+      xhi = max(safex$orig)
+      ylo = min(safey$orig)
+      yhi = max(safey$orig)
+      zlo = min(safez$orig)
+      zhi = max(safez$orig)
+      tlo = min(safet$orig)
+      thi = max(safet$orig)
+    }
     if(xlo < 1){message('xlo out of data range, truncating to start at xlo=1!'); xlo=1}
     if(xhi > naxis1){message('xhi out of data range, truncating to end at xhi=NASIX1!'); xhi=naxis1}
     if(ylo < 1){message('ylo out of data range, truncating to start at ylo=1!'); ylo=1}
@@ -120,6 +139,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(zhi > naxis3){message('zhi out of data range, truncating to end at zhi=NASIX3!'); zhi=naxis3}
     if(tlo < 1){message('tlo out of data range, truncating to start at tlo=1!'); tlo=1}
     if(thi > naxis4){message('thi out of data range, truncating to end at thi=NASIX4!'); zhi=naxis3}
+    
     assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
     assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
     assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
@@ -136,14 +156,31 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   }
   
   if(subset){
-    image=Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+    temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                                 lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
     if(naxis3 > 1 & naxis4 == 1){
-      image = array(image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+      temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
     }
     if(naxis4 > 1){
-      image = array(image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+      temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
     }
+    if(Ndim==1){
+      image = rep(NA, safex$len_tar)
+      image[safex$tar] = temp_image
+    }
+    if(Ndim==2){
+      image = array(NA, c(safex$len_tar, safey$len_tar))
+      image[safex$tar,safey$tar] = temp_image
+    }
+    if(Ndim==3){
+      image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
+      image[safex$tar,safey$tar,safez$tar] = temp_image
+    }
+    if(Ndim==4){
+      image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
+      image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+    }
+    
   }else{
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
@@ -186,31 +223,31 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   if(header){
     if(subset){
       #Dim 1
-      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = xhi - xlo + 1
-      hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - xlo + 1)
-      hdr$keyvalues$NAXIS1 = xhi - xlo +1
-      hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - xlo + 1
+      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = safex$len_tar
+      hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - safex$lo_tar + 1)
+      hdr$keyvalues$NAXIS1 = safex$len_tar
+      hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1
       hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
       hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
       hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
       hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
       #Dim 2
-      if(naxis2 > 1 & naxis3 > 1 & naxis4 == 1){
-        hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = yhi - ylo + 1
-        hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - ylo + 1)
-        hdr$keyvalues$NAXIS2 = yhi - ylo + 1
-        hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - ylo + 1
+      if(naxis2 > 1){
+        hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = safey$len_tar
+        hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - safey$lo_tar + 1)
+        hdr$keyvalues$NAXIS2 = safey$len_tar
+        hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1
         hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
         hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
         hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
         hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
       }
       #Dim 3
-      if(naxis3 > 1 & naxis4 == 1){
-        hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = zhi - zlo + 1
-        hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - zlo + 1)
-        hdr$keyvalues$NAXIS3 = zhi - zlo + 1
-        hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - zlo + 1
+      if(naxis3 > 1){
+        hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = safez$len_tar
+        hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - safez$lo_tar + 1)
+        hdr$keyvalues$NAXIS3 = safez$len_tar
+        hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1
         hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
         hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
         hdr$header[grep('NAXIS3', hdr$header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS3, width=21),' / ',hdr$keycomments$NAXIS3,sep='')
@@ -218,10 +255,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
       #Dim 4
       if(naxis4 > 1){
-        hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = thi - tlo + 1
-        hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - tlo + 1)
-        hdr$keyvalues$NAXIS4 = thi - tlo + 1
-        hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - tlo + 1
+        hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = safet$len_tar
+        hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - safet$lo_tar + 1)
+        hdr$keyvalues$NAXIS4 = safet$len_tar
+        hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1
         hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
         hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
         hdr$header[grep('NAXIS4', hdr$header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS4, width=21),' / ',hdr$keycomments$NAXIS4,sep='')
