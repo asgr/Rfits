@@ -130,55 +130,73 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       zhi = max(safez$orig)
       tlo = min(safet$orig)
       thi = max(safet$orig)
+      
+      if(safex$safe){
+        assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
+        assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
+      }
+      if(safey$safe){
+        assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
+        assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
+      }
+      if(safez$safe){
+        assertIntegerish(zlo, lower=1, upper=naxis3, len=1)
+        assertIntegerish(zhi, lower=1, upper=naxis3, len=1)
+      }
+      if(safet$safe){
+        assertIntegerish(tlo, lower=1, upper=naxis4, len=1)
+        assertIntegerish(thi, lower=1, upper=naxis4, len=1)
+      }
+      
+      if(xhi<xlo){stop('xhi must be larger than xlo')}
+      if(yhi<ylo){stop('yhi must be larger than ylo')}
+      if(zhi<zlo){stop('zhi must be larger than zlo')}
+      if(thi<tlo){stop('thi must be larger than tlo')}
     }
-    if(xlo < 1){message('xlo out of data range, truncating to start at xlo=1!'); xlo=1}
-    if(xhi > naxis1){message('xhi out of data range, truncating to end at xhi=NASIX1!'); xhi=naxis1}
-    if(ylo < 1){message('ylo out of data range, truncating to start at ylo=1!'); ylo=1}
-    if(yhi > naxis2){message('yhi out of data range, truncating to end at yhi=NASIX2!'); yhi=naxis2}
-    if(zlo < 1){message('zlo out of data range, truncating to start at zlo=1!'); zlo=1}
-    if(zhi > naxis3){message('zhi out of data range, truncating to end at zhi=NASIX3!'); zhi=naxis3}
-    if(tlo < 1){message('tlo out of data range, truncating to start at tlo=1!'); tlo=1}
-    if(thi > naxis4){message('thi out of data range, truncating to end at thi=NASIX4!'); zhi=naxis3}
-    
-    assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
-    assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
-    assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
-    assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
-    assertIntegerish(zlo, lower=1, upper=naxis3, len=1)
-    assertIntegerish(zhi, lower=1, upper=naxis3, len=1)
-    assertIntegerish(tlo, lower=1, upper=naxis4, len=1)
-    assertIntegerish(thi, lower=1, upper=naxis4, len=1)
-    
-    if(xhi<xlo){stop('xhi must be larger than xlo')}
-    if(yhi<ylo){stop('yhi must be larger than ylo')}
-    if(zhi<zlo){stop('zhi must be larger than zlo')}
-    if(thi<tlo){stop('thi must be larger than tlo')}
+    # if(xlo < 1){message('xlo out of data range, truncating to start at xlo=1!'); xlo=1}
+    # if(xhi > naxis1){message('xhi out of data range, truncating to end at xhi=NASIX1!'); xhi=naxis1}
+    # if(ylo < 1){message('ylo out of data range, truncating to start at ylo=1!'); ylo=1}
+    # if(yhi > naxis2){message('yhi out of data range, truncating to end at yhi=NASIX2!'); yhi=naxis2}
+    # if(zlo < 1){message('zlo out of data range, truncating to start at zlo=1!'); zlo=1}
+    # if(zhi > naxis3){message('zhi out of data range, truncating to end at zhi=NASIX3!'); zhi=naxis3}
+    # if(tlo < 1){message('tlo out of data range, truncating to start at tlo=1!'); tlo=1}
+    # if(thi > naxis4){message('thi out of data range, truncating to end at thi=NASIX4!'); zhi=naxis3}
   }
   
   if(subset){
-    temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+    if(safex$safe & safey$safe & safez$safe & safet$safe){
+      temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                                 lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
-    if(naxis3 > 1 & naxis4 == 1){
-      temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
-    }
-    if(naxis4 > 1){
-      temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+      if(naxis3 > 1 & naxis4 == 1){
+        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+      }
+      if(naxis4 > 1){
+        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+      }
     }
     if(Ndim==1){
       image = rep(NA, safex$len_tar)
-      image[safex$tar] = temp_image
+      if(safex$safe){
+        image[safex$tar] = temp_image
+      }
     }
     if(Ndim==2){
       image = array(NA, c(safex$len_tar, safey$len_tar))
-      image[safex$tar,safey$tar] = temp_image
+      if(safex$safe & safey$safe){
+        image[safex$tar,safey$tar] = temp_image
+      }
     }
     if(Ndim==3){
       image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
-      image[safex$tar,safey$tar,safez$tar] = temp_image
+      if(safex$safe & safey$safe & safez$safe){
+        image[safex$tar,safey$tar,safez$tar] = temp_image
+      }
     }
     if(Ndim==4){
       image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
-      image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+      if(safex$safe & safey$safe & safez$safe & safet$safe){
+        image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+      }
     }
     
   }else{
