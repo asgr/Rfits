@@ -175,6 +175,9 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_vector` = function(x, i, keepWCS=FALSE){
+  
+  if(missing(i)){i = c(1,length(x$imDat))}
+  
   safedim_i = .safedim(1, length(x$imDat), min(i), max(i))
   
   tar = array(NA, dim=safedim_i$len_tar)
@@ -204,6 +207,9 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_image` = function(x, i, j, keepWCS=FALSE){
+  
+  if(missing(i)){i = c(1,dim(x$imDat)[1])}
+  if(missing(j)){j = c(1,dim(x$imDat)[2])}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
@@ -238,6 +244,11 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_cube` = function(x, i, j, k, keepWCS=FALSE){
+  
+  if(missing(i)){i = c(1,dim(x$imDat)[1])}
+  if(missing(j)){j = c(1,dim(x$imDat)[2])}
+  if(missing(k)){k = c(1,dim(x$imDat)[3])}
+  
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
   safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
@@ -274,6 +285,12 @@ dim.Rfits_pointer=function(x){
 }
 
 `[.Rfits_array` = function(x, i, j, k, m, keepWCS=FALSE){
+  
+  if(missing(i)){i = c(1,dim(x$imDat)[1])}
+  if(missing(j)){j = c(1,dim(x$imDat)[2])}
+  if(missing(k)){k = c(1,dim(x$imDat)[3])}
+  if(missing(m)){m = c(1,dim(x$imDat)[4])}
+  
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
   safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
