@@ -170,11 +170,11 @@ expect_identical(as.character(temp_check['CHECKSUM']), "correct")
 #ex 28 check [] methods work for images
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
-expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5])
+expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,keepWCS=FALSE])
 
 #ex 29 check [] methods work for cubes
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
-expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2])
+expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,keepWCS=FALSE])
 
 #ex 30 check consistent BZERO and BSCALE reading and writing
 file_image = system.file('extdata', 'image.fits', package = "Rfits")

@@ -174,7 +174,7 @@ dim.Rfits_pointer=function(x){
   return(x$dim)
 }
 
-`[.Rfits_vector` = function(x, i, keepWCS=FALSE){
+`[.Rfits_vector` = function(x, i, keepWCS=TRUE){
   
   if(missing(i)){i = c(1,length(x$imDat))}
   
@@ -206,10 +206,25 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_image` = function(x, i, j, keepWCS=FALSE){
+`[.Rfits_image` = function(x, i, j, type='pix', box=c(201,201), keepWCS=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
+  
+  if(type=='coord'){
+    if(requireNamespace("Rwcs", quietly=TRUE)){
+      assertNumeric(i,len=1)
+      assertNumeric(j,len=1)
+      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R')[1,]
+      i = ceiling(ij[1])
+      j = ceiling(ij[2])
+    }else{
+      message('The Rwcs package is needed to use type=coord.')
+    }
+  }
+  
+  if(length(i)==1){i = i + (-(box[1]-1)/2):((box[1]-1)/2)}
+  if(length(j)==1){j = j + (-(box[2]-1)/2):((box[2]-1)/2)}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
@@ -243,7 +258,7 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_cube` = function(x, i, j, k, keepWCS=FALSE){
+`[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
@@ -284,7 +299,7 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_array` = function(x, i, j, k, m, keepWCS=FALSE){
+`[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}

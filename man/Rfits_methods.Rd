@@ -54,10 +54,10 @@
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
-\method{[}{Rfits_vector}(x,i,keepWCS=FALSE)
-\method{[}{Rfits_image}(x,i,j,keepWCS=FALSE)
-\method{[}{Rfits_cube}(x,i,j,k,keepWCS=FALSE)
-\method{[}{Rfits_array}(x,i,j,k,m,keepWCS=FALSE)
+\method{[}{Rfits_vector}(x,i,keepWCS=TRUE)
+\method{[}{Rfits_image}(x,i,j,type='pix',box=c(201,201),keepWCS=TRUE)
+\method{[}{Rfits_cube}(x,i,j,k,keepWCS=TRUE)
+\method{[}{Rfits_array}(x,i,j,k,m,keepWCS=TRUE)
 \method{[}{Rfits_pointer}(x,i,j,k,m,header=x$header)
 \method{&}{Rfits_pointer}(e1,e2)
 \method{|}{Rfits_pointer}(e1,e2)
@@ -82,6 +82,8 @@
   \item{k}{Integer vector, a contiguous vector os desired k indices to extract}
   \item{m}{Integer vector, a contiguous vector os desired m indices to extract}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
+  \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
+  \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
   \item{x}{An object of class 'Rfits_pointer'}
   \item{e1}{An object of class 'Rfits_pointer'}
   \item{e2}{Anything else}
@@ -110,7 +112,8 @@ temp_image[1:5,1:5] #convenient
 
 #Cutout with fixed header
 \dontrun{
-plot(temp_image[1:50,1:50,keepWCS=TRUE])
+plot(temp_image[1:50,1:50])
+plot(temp_image[352.2917,-31.82667,'coord'])
 }
 
 #And we can print and check dim easily
