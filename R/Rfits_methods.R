@@ -206,7 +206,7 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_image` = function(x, i, j, type='pix', box=c(201,201), keepWCS=TRUE){
+`[.Rfits_image` = function(x, i, j, type='pix', box=201, keepWCS=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
@@ -223,6 +223,7 @@ dim.Rfits_pointer=function(x){
     }
   }
   
+  if(length(box)==1){box=c(box,box)}
   if(length(i)==1){i = i + (-(box[1]-1)/2):((box[1]-1)/2)}
   if(length(j)==1){j = j + (-(box[2]-1)/2):((box[2]-1)/2)}
   
