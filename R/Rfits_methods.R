@@ -208,6 +208,15 @@ dim.Rfits_pointer=function(x){
 
 `[.Rfits_image` = function(x, i, j, box=201, type='pix', keepWCS=TRUE){
   
+  if(!missing(i)){
+    if(length(i)==2 & missing(j)){
+      if(i[2]-i[1] !=1){
+        j = as.numeric(i[2])
+        i = as.numeric(i[1])
+      }
+    }
+  }
+  
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
   
@@ -224,8 +233,8 @@ dim.Rfits_pointer=function(x){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i)==1){i = i + (-(box[1]-1)/2):((box[1]-1)/2)}
-  if(length(j)==1){j = j + (-(box[2]-1)/2):((box[2]-1)/2)}
+  if(length(i)==1){i = ceiling(i) + (-(box[1]-1)/2):((box[1]-1)/2)}
+  if(length(j)==1){j = ceiling(j) + (-(box[2]-1)/2):((box[2]-1)/2)}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
