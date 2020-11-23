@@ -386,10 +386,16 @@ Rfits_hdr_to_keyvalues=function(hdr){
   
   keynames = hdr[c(T,F)]
   suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
-  goodkey = !is.na(keyvalues)
-  suppressWarnings({isint = unlist(keyvalues[goodkey]) %% 1 == 0 & abs(unlist(keyvalues[goodkey])) <= .Machine$integer.max})
-  keyvalues[goodkey][isint] = as.integer(keyvalues[goodkey][isint])
-  keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
+  numerickey = !is.na(keyvalues)
+  if(any(numerickey)){
+    suppressWarnings({isint = unlist(keyvalues[numerickey]) %% 1 == 0 & abs(unlist(keyvalues[numerickey])) <= .Machine$integer.max})
+    if(any(isint)){
+      keyvalues[numerickey][isint] = as.integer(keyvalues[numerickey][isint])
+    }
+  }
+  if(any(is.na(keyvalues))){
+    keyvalues[is.na(keyvalues)] = hdr[c(F,T)][is.na(keyvalues)]
+  }
   keyvalues[hdr[c(F,T)] == 'T'] = TRUE
   keyvalues[hdr[c(F,T)] == 'F'] = FALSE
   names(keyvalues) = keynames
