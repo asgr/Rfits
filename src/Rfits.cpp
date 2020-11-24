@@ -292,7 +292,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 
   int status = 0;
   int ii = 0;
-  while ( status != COL_NOT_FOUND ) {
+  while ( status != COL_NOT_FOUND & ii < ncol) {
     fits_get_colname(fptr, CASEINSEN, (char *)"*", (char *)colname, &colref, &status);
     if (status != COL_NOT_FOUND) {
       out[ii] = colname;
@@ -450,7 +450,7 @@ void Cfits_write_date(Rcpp::String filename, int ext=1){
 // BYTE_IMG      =   8   ( 8-bit byte pixels, 0 - 255)
 //   SHORT_IMG     =  16   (16 bit integer pixels)
 //   LONG_IMG      =  32   (32-bit integer pixels)
-//   LONGLONG_IMG  =  64   (64-bit inxteger pixels)
+//   LONGLONG_IMG  =  64   (64-bit integer pixels)
 //   FLOAT_IMG     = -32   (32-bit floating point pixels)
 //   DOUBLE_IMG    = -64   (64-bit floating point pixels)
 //fits_write_pix(fitsfile *fptr, int datatype, long *fpixel,
@@ -563,8 +563,9 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
-    std::vector<short> pixels(npixels);
-    fits_invoke(read_img, fptr, TSHORT, 1, npixels, &nullvals, pixels.data(), &anynull);
+// Weirdly we need to use longs here to deal with the scenario of BZERO making the unsigned short too large
+    std::vector<long> pixels(npixels);
+    fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
