@@ -402,6 +402,46 @@ Rfits_hdr_to_keyvalues=function(hdr){
   return(keyvalues)
 }
 
+Rfits_header_to_keyvalues=function(header, remove_HIERARCH=FALSE){
+  return(Rfits_hdr_to_keyvalues(Rfits_header_to_hdr(header=header, remove_HIERARCH=remove_HIERARCH)))
+}
+
+Rfits_keyvalues_to_hdr=function(keyvalues){
+  assertList(keyvalues)
+  temp_out = rep('', 2*length(keyvalues))
+  temp_out[seq(1,2*length(keyvalues)-1,by=2)] = names(keyvalues)
+  temp_keyvalues = as.character(keyvalues)
+  temp_keyvalues[temp_keyvalues=='TRUE'] = 'T'
+  temp_keyvalues[temp_keyvalues=='FALSE'] = 'F'
+  temp_out[seq(2,2*length(keyvalues),by=2)] = temp_keyvalues
+  return(temp_out)
+}
+
+Rfits_keyvalues_to_header=function(keyvalues, keycomments=NULL, comment=NULL, history=NULL){
+  assertList(keyvalues, null.ok=FALSE)
+  assertList(keycomments, null.ok=TRUE)
+  assertCharacter(comment, null.ok=TRUE)
+  assertCharacter(history, null.ok=TRUE)
+  temp_out = {}
+  for(i in 1:length(keyvalues)){
+    temp_keyvalue = as.character(keyvalues[[i]])
+    if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
+    if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}
+    temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '=', formatC(temp_keyvalue,width=21),' / ')
+    if(!is.null(keycomments)){
+      temp_key = paste0(temp_key,keycomments[[i]])
+    }
+    temp_out = c(temp_out, temp_key)
+  }
+  if(!is.null(comment)){
+    temp_out = c(temp_out, paste0('COMMENT ',comment))
+  }
+  if(!is.null(history)){
+    temp_out = c(temp_out, paste0('HISTORY ',history))
+  }
+  return(temp_out)
+}
+
 Rfits_encode_chksum=function(checksum, complement=FALSE){
   assertNumeric(checksum, max.len=1)
   assertFlag(complement)

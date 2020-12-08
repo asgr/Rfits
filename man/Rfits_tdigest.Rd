@@ -5,7 +5,7 @@
 Create a t-Digest of an Image
 }
 \description{
-Creates a \code{tdigest} object of an image, which can be a matrix or a pointer. This \code{tdigest} can then be accessed using the usual methods to obtain rapid quantiles of the original image. THis is useful for very large images (think more than 10k x 10k) where it is quite expensive to load the whole image into memory and compute quantiles.
+Creates a \code{tdigest} object of an image, which can be a matrix or a pointer. This \code{tdigest} can then be accessed using the usual methods to obtain rapid quantiles of the original image. This is useful for very large images (think more than 10k x 10k) where it is quite expensive to load the whole image into memory and compute quantiles.
 }
 \usage{
 Rfits_tdigest(image, mask = NULL, chunk = 100L, compression = 1e3,

@@ -1,6 +1,9 @@
 \name{Rfits_header_convert}
 \alias{Rfits_header_to_hdr}
 \alias{Rfits_hdr_to_keyvalues}
+\alias{Rfits_header_to_keyvalues}
+\alias{Rfits_keyvalues_to_hdr}
+\alias{Rfits_keyvalues_to_header}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Header Converters
@@ -11,6 +14,10 @@ Utility functios to convert between header formats.
 \usage{
 Rfits_header_to_hdr(header, remove_HIERARCH = FALSE)
 Rfits_hdr_to_keyvalues(hdr)
+Rfits_header_to_keyvalues(header, remove_HIERARCH = FALSE)
+Rfits_keyvalues_to_hdr(keyvalues)
+Rfits_keyvalues_to_header(keyvalues, keycomments = NULL, comment = NULL,
+  history = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -33,6 +40,18 @@ Character vector; alternates keyname/kevalue pairs. This is the same format used
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
+  \item{keyvalues}{
+List; standard \code{Rfits} list format key values header.
+}
+  \item{keycomments}{
+List; standard \code{Rfits} list format key comments header.
+}
+  \item{comment}{
+Character vector; additional header comments to write to header.
+}
+  \item{history}{
+Character vector; additional header history to write to header.
+}
 }
 \details{
 Utility converstion functions, should you be stuck with an older format header.
@@ -41,9 +60,15 @@ Utility converstion functions, should you be stuck with an older format header.
 \option{header} also supports the extended name format, where the first 8 letters have to be "HIERARCH", which is common from ESO facilities. When using this format, keynames can be longer than the FITS standard 8 letters.
 }
 \value{
-\code{Rfits_header_to_hdr} return a \option{hdr} format header. See Examples.
+\code{Rfits_header_to_hdr} return a \option{hdr} character format header. See Examples.
 
-\code{Rfits_hdr_to_keyvalues} return a \option{keyvalues} format header that is the standard in \code{Rfits}. See Examples.
+\code{Rfits_hdr_to_keyvalues} return a \option{keyvalues} list format key values header that is the standard in \code{Rfits}. See Examples.
+
+\code{Rfits_header_to_keyvalues} return a \option{keyvalues} list format key values header that is the standard in \code{Rfits}. See Examples.
+
+\code{Rfits_keyvalues_to_hdr} return a \option{hdr} character format header. See Examples.
+
+\code{Rfits_keyvalues_to_header} return a \option{header} character format header. See Examples.
 }
 \author{
 Aaron Robotham
@@ -56,7 +81,6 @@ Aaron Robotham
 #Read full image
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
-
 print(temp_image$header)
 
 temp_hdr=Rfits_header_to_hdr(temp_image$header)
@@ -64,6 +88,16 @@ print(temp_hdr)
 
 temp_keyvalues=Rfits_hdr_to_keyvalues(temp_hdr)
 print(temp_keyvalues)
+
+temp_keyvalues=Rfits_header_to_keyvalues(temp_image$header)
+print(temp_keyvalues)
+
+temp_hdr=Rfits_keyvalues_to_hdr(temp_keyvalues)
+print(temp_hdr)
+
+temp_header=Rfits_keyvalues_to_header(temp_image$keyvalues, temp_image$keycomments,
+  temp_image$comment)
+print(temp_header)
 }
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
