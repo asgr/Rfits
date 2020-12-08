@@ -422,6 +422,12 @@ Rfits_keyvalues_to_header=function(keyvalues, keycomments=NULL, comment=NULL, hi
   assertList(keycomments, null.ok=TRUE)
   assertCharacter(comment, null.ok=TRUE)
   assertCharacter(history, null.ok=TRUE)
+  if(inherits(keyvalues, c('Rfits_header', 'Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+    keycomments = keyvalues$keycomments
+    comment = keyvalues$comment
+    history = keyvalues$history
+    keyvalues = keyvalues$keyvalues
+  }
   temp_out = {}
   for(i in 1:length(keyvalues)){
     temp_keyvalue = as.character(keyvalues[[i]])

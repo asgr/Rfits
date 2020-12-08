@@ -41,7 +41,7 @@ Character vector; alternates keyname/kevalue pairs. This is the same format used
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
   \item{keyvalues}{
-List; standard \code{Rfits} list format key values header.
+List; standard \code{Rfits} list format key values header. As a convenience, for \code{Rfits_keyvalues_to_header} alone if you pass in an oject of class Rfits_header, Rfits_vector, Rfits_image, Rfits_cube, Rfits_array it will strip out the \option{keyvalues}, \option{keycomments}, \option{comment} and \option{history} and use as appropriate.
 }
   \item{keycomments}{
 List; standard \code{Rfits} list format key comments header.
