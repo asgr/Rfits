@@ -62,7 +62,8 @@ jobs:
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
           sudo apt install xvfb
-          echo ::set-env name=XVFB_RUN::xvfb-run
+          echo "{XVFB_RUN}={xvfb-run}" >> $GITHUB_ENV
+          # echo ::set-env name=XVFB_RUN::xvfb-run
 
       - name: Install dependencies
         run: |

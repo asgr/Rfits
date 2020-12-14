@@ -233,8 +233,8 @@ dim.Rfits_pointer=function(x){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i)==1){i = ceiling(i) + (-(box[1]-1)/2):((box[1]-1)/2)}
-  if(length(j)==1){j = ceiling(j) + (-(box[2]-1)/2):((box[2]-1)/2)}
+  if(length(i)==1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
+  if(length(j)==1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
@@ -250,6 +250,15 @@ dim.Rfits_pointer=function(x){
     keyvalues$NAXIS2 = safedim_j$len_tar
     keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
     keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
+    keyvalues$XCUTLO = safedim_i$orig[1]
+    keyvalues$XCUTHI = safedim_i$orig[2]
+    keyvalues$YCUTLO = safedim_j$orig[1]
+    keyvalues$YCUTHI = safedim_j$orig[2]
+    
+    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$orig[1],':',safedim_i$orig[2], ' / y= ', safedim_j$orig[1],':',safedim_j$orig[2]))
+    
+    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    
     
     output = list(
       imDat = tar,

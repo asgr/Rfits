@@ -65,8 +65,8 @@ Aaron Robotham
 \code{\link{Rfits_image}}, \code{\link{Rfits_table}}, \code{\link{Rfits_header}}, \code{\link{Rfits_info}}
 }
 \examples{
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image, header=TRUE)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image, header=TRUE)
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
 temp_table = Rfits_read_table(file_table, header=TRUE)
 
