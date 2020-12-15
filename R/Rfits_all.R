@@ -1,4 +1,4 @@
-Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE){
+Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.table=TRUE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertFlag(pointer)
@@ -34,7 +34,7 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE){
   sel_tables = grep('TABLE',info$summary)
   if(length(sel_tables)>0){
     for(i in sel_tables){
-      data[[i]] = Rfits_read_table(filename, ext=i, header=header)
+      data[[i]] = Rfits_read_table(filename, ext=i, header=header, data.table=data.table)
     }
   }
   
@@ -89,11 +89,12 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
   for(i in 1:length(data)){
     if(is.list(data[[i]])){
       if(is.null(data[[i]]$keyvalues$EXTNAME)){
-        EXTNAMES = c(EXTNAMES, names(data)[i])
-        if(!is.null(attributes(data[[i]])$keycomments$EXTNAME)){
-          EXTCOMMENTS = c(EXTCOMMENTS, attributes(data[[i]])$keycomments$EXTNAME)
-        }else{
+        if(is.null(attributes(data[[i]])$keycomments$EXTNAME)){
+          EXTNAMES = c(EXTNAMES, names(data)[i])
           EXTCOMMENTS = c(EXTCOMMENTS, '')
+        }else{
+          EXTNAMES = c(EXTNAMES, attributes(data[[i]])$keyvalues$EXTNAME)
+          EXTCOMMENTS = c(EXTCOMMENTS, attributes(data[[i]])$keycomments$EXTNAME)
         }
       }else{
         EXTNAMES = c(EXTNAMES, data[[i]]$keyvalues$EXTNAME)

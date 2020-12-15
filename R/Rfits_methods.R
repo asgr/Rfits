@@ -101,10 +101,18 @@ print.Rfits_list=function(x , ...){
   
   ext_dim = {}
   for(i in 1:length(x)){
-    if(is.null(dim(x[[i]]))){
-      ext_dim = c(ext_dim, 'NA')
+    if(inherits(x[[i]], 'Rfits_vector')){
+      ext_dim = c(ext_dim, length(x[[i]]))
     }else{
-      ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
+      if(is.null(dim(x[[i]]))){
+        if(is.null(length(x[[i]]))){
+          ext_dim = c(ext_dim, 'NA')
+        }else{
+          ext_dim = c(ext_dim, length(x[[i]]))
+        }
+      }else{
+        ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
+      }
     }
   }
   
