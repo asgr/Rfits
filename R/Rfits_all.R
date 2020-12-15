@@ -116,9 +116,9 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE){
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
-      if(is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
-        ignoreEXT = c(ignoreEXT,i)
-      }
+      #if(is.null(attributes(data[[i]])$keyvalues$EXTNAME)){
+      #  ignoreEXT = c(ignoreEXT,i)
+      #}
       Rfits_write_table(table=data[[i]], filename=filename, ext=i,
                         create_file=create_file, overwrite_file=overwrite_file)
       create_file = FALSE
