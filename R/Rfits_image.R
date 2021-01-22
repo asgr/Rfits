@@ -318,15 +318,16 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertFlag(create_file)
   assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
   }else{
     assertFileExists(filename)
     assertAccess(filename, access='w')
   }
-  if(testFileExists(filename) & overwrite_file & create_file){
-    file.remove(filename)
+  justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
+  if(testFileExists(justfilename) & overwrite_file & create_file){
+    file.remove(justfilename)
   }
   if(inherits(data, what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector'))){
     if(missing(keyvalues)){keyvalues=data$keyvalues}
@@ -334,7 +335,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     if(missing(keynames)){keynames=data$keynames}
     if(missing(comment)){comment=data$comment}
     if(missing(history)){history=data$history}
-    data=data$imDat
+    data = data$imDat
   }
   if(is.vector(data)){
     assertVector(data)

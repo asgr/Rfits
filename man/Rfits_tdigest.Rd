@@ -58,7 +58,7 @@ temp_point=Rfits_point(file_image)
 td2=Rfits_tdigest(temp_point)
 td2[0.5]
 
-#Now with a mask (blanking out the central part of the \option{image})
+#Now with a mask (blanking out the central part of the image)
 
 mask=matrix(0L,dim(temp_image)[1],dim(temp_image)[2])
 mask[151:250,151:250]=1L

@@ -233,8 +233,8 @@ dim.Rfits_pointer=function(x){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i)==1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
-  if(length(j)==1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
+  if(length(i) == 1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
+  if(length(j) == 1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
@@ -370,7 +370,25 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, header=x$header){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header){
+  
+  if(!missing(i)){
+    if(length(i)==2 & missing(j)){
+      if(i[2]-i[1] !=1){
+        j = as.numeric(i[2])
+        i = as.numeric(i[1])
+      }
+    }
+  }
+  
+  if(length(box) == 1){box = c(box,box)}
+  if(!missing(i)){
+    if(length(i) == 1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
+  }
+  if(!missing(j)){
+    if(length(j) == 1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
+  }
+  
   if(!missing(i)){
     if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
     xlo=min(i)
@@ -411,6 +429,20 @@ dim.Rfits_pointer=function(x){
     tlo=NULL
     thi=NULL
   }
+  
+  if(type=='coord'){
+    if(requireNamespace("Rwcs", quietly=TRUE)){
+      assertNumeric(i,len=1)
+      assertNumeric(j,len=1)
+      keyvalues = Rfits_read_header(filename=x$filename, ext=x$ext)$keyvalues
+      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R')[1,]
+      i = ceiling(ij[1])
+      j = ceiling(ij[2])
+    }else{
+      message('The Rwcs package is needed to use type=coord.')
+    }
+  }
+  
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
                           tlo=tlo, thi=thi))
