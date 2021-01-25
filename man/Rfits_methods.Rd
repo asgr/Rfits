@@ -113,7 +113,13 @@ temp_image[1:5,1:5] #convenient
 #Cutout with fixed header
 \dontrun{
 plot(temp_image[1:50,1:50])
-plot(temp_image[352.2917,-31.82667,'coord'])
+plot(temp_image[352.2917,-31.82667,box=51,type='coord'])
+}
+
+#Same witha  pointer:
+temp_point=Rfits_point(file_image, header=TRUE)
+\dontrun{
+plot(temp_point[352.2917,-31.82667,box=51,type='coord'])
 }
 
 #And we can print and check dim easily

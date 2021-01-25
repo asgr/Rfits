@@ -233,8 +233,8 @@ dim.Rfits_pointer=function(x){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i) == 1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
-  if(length(j) == 1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
+  if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
+  if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
   
   safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
@@ -381,66 +381,63 @@ dim.Rfits_pointer=function(x){
     }
   }
   
-  if(length(box) == 1){box = c(box,box)}
-  if(!missing(i)){
-    if(length(i) == 1){i = ceiling(i) + c(-(box[1]-1)/2, (box[1]-1)/2)}
-  }
-  if(!missing(j)){
-    if(length(j) == 1){j = ceiling(j) + c(-(box[2]-1)/2, (box[2]-1)/2)}
-  }
-  
-  if(!missing(i)){
-    if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
-    xlo=min(i)
-    xhi=max(i)
-    #if(xlo < 1 | xhi < 1){stop('All i must be >= 1')}
-    #if(xlo > x$keyvalues$NAXIS1 | xhi > x$keyvalues$NAXIS1){stop('All i must be <=', x$keyvalues$NAXIS1)}
-  }else{
-    xlo=NULL
-    xhi=NULL
-  }
-  if(!missing(j)){
-    if(is.null(x$keyvalues$NAXIS2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
-    ylo=min(j)
-    yhi=max(j)
-    #if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
-    #if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
-  }else{
-    ylo=NULL
-    yhi=NULL
-  }
-  if(!missing(k)){
-    if(is.null(x$keyvalues$NAXIS3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
-    zlo=min(k)
-    zhi=max(k)
-    #if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
-    #if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
-  }else{
-    zlo=NULL
-    zhi=NULL
-  }
-  if(!missing(m)){
-    if(is.null(x$keyvalues$NAXIS4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
-    tlo=min(m)
-    thi=max(m)
-    #if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
-    #if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
-  }else{
-    tlo=NULL
-    thi=NULL
-  }
-  
   if(type=='coord'){
     if(requireNamespace("Rwcs", quietly=TRUE)){
       assertNumeric(i,len=1)
       assertNumeric(j,len=1)
-      keyvalues = Rfits_read_header(filename=x$filename, ext=x$ext)$keyvalues
       ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R')[1,]
       i = ceiling(ij[1])
       j = ceiling(ij[2])
     }else{
       message('The Rwcs package is needed to use type=coord.')
     }
+  }
+  
+  if(length(box) == 1){box = c(box,box)}
+  if(!missing(i)){
+    if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
+  }
+  if(!missing(j)){
+    if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+  }
+  
+  if(!missing(i)){
+    if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
+    xlo = min(i)
+    xhi = max(i)
+  }else{
+    xlo = NULL
+    xhi = NULL
+  }
+  if(!missing(j)){
+    if(is.null(x$keyvalues$NAXIS2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
+    ylo = min(j)
+    yhi = max(j)
+    #if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
+    #if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
+  }else{
+    ylo = NULL
+    yhi = NULL
+  }
+  if(!missing(k)){
+    if(is.null(x$keyvalues$NAXIS3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
+    zlo = min(k)
+    zhi = max(k)
+    #if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
+    #if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
+  }else{
+    zlo = NULL
+    zhi = NULL
+  }
+  if(!missing(m)){
+    if(is.null(x$keyvalues$NAXIS4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
+    tlo = min(m)
+    thi = max(m)
+    #if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
+    #if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
+  }else{
+    tlo = NULL
+    thi = NULL
   }
   
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
