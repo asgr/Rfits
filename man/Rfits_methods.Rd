@@ -117,9 +117,9 @@ plot(temp_image[352.2917,-31.82667,box=51,type='coord'])
 }
 
 #Same witha  pointer:
-temp_point=Rfits_point(file_image, header=TRUE)
+temp_point=Rfits_point(file_image)
 \dontrun{
-plot(temp_point[352.2917,-31.82667,box=51,type='coord'])
+plot(temp_point[352.2917,-31.82667,box=51,type='coord',header=TRUE])
 }
 
 #And we can print and check dim easily
