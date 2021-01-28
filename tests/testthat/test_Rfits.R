@@ -130,7 +130,7 @@ expect_equal(temp_profound2, temp_profound3)
 #ex 22 check compression works within tolerance
 file_image_temp = tempfile()
 Rfits_write_image(temp_image$imDat, filename = paste(file_image_temp,'[compress]',sep=''))
-temp_compress=Rfits_read_image(file_image_temp,ext=2)
+temp_compress = Rfits_read_image(file_image_temp,ext=2)
 expect(abs(log10(sum(temp_image$imDat)/sum(temp_compress$imDat))) < 1e-4, failure_message = 'Images differ too much!')
 
 #ex 23 subset a pointer
