@@ -256,15 +256,19 @@ dim.Rfits_pointer=function(x){
     keyvalues$XCUTHI = safedim_i$hi_orig
     keyvalues$YCUTLO = safedim_j$lo_orig
     keyvalues$YCUTHI = safedim_j$hi_orig
+    
     #New keycomments being added
     x$keycomments$XCUTLO = 'Low image x range'
     x$keycomments$XCUTHI = 'High image x range'
     x$keycomments$YCUTLO = 'Low image y range'
     x$keycomments$YCUTHI = 'High image y range'
     
+    #New keynames being added
+    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
+    
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_orig,':',safedim_i$hi_orig, ' / y= ', safedim_j$lo_orig,':',safedim_j$hi_orig))
     
-    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    #header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
     
     
     output = list(
