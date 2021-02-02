@@ -73,6 +73,10 @@ Cfits_read_header <- function(filename, ext = 1L) {
     .Call(`_Rfits_Cfits_read_header`, filename, ext)
 }
 
+Cfits_read_header_raw <- function(filename, ext = 1L) {
+    .Call(`_Rfits_Cfits_read_header_raw`, filename, ext)
+}
+
 Cfits_delete_HDU <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_delete_HDU`, filename, ext))
 }

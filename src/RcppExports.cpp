@@ -265,6 +265,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Cfits_read_header_raw
+SEXP Cfits_read_header_raw(Rcpp::String filename, int ext);
+RcppExport SEXP _Rfits_Cfits_read_header_raw(SEXP filenameSEXP, SEXP extSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_header_raw(filename, ext));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Cfits_delete_HDU
 void Cfits_delete_HDU(Rcpp::String filename, int ext);
 RcppExport SEXP _Rfits_Cfits_delete_HDU(SEXP filenameSEXP, SEXP extSEXP) {
@@ -397,6 +409,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 7},
     {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 14},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},
+    {"_Rfits_Cfits_read_header_raw", (DL_FUNC) &_Rfits_Cfits_read_header_raw, 2},
     {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
     {"_Rfits_Cfits_delete_key", (DL_FUNC) &_Rfits_Cfits_delete_key, 3},
     {"_Rfits_Cfits_delete_header", (DL_FUNC) &_Rfits_Cfits_delete_header, 2},

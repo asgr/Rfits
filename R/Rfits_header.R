@@ -208,6 +208,14 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   return(output)
 }
 
+Rfits_read_header_raw=function(filename='temp.fits', ext=1){
+  assertCharacter(filename, max.len=1)
+  filename=path.expand(filename)
+  assertAccess(filename, access='r')
+  assertIntegerish(ext, len=1)
+  return(Cfits_read_header_raw(filename=filename, ext=ext))
+}
+
 Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynames,
                             comment, history, ext=1, create_ext=FALSE, create_file=FALSE,
                             overwrite_file=FALSE){

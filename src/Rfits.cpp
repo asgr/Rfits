@@ -680,6 +680,28 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
 }
 
 // [[Rcpp::export]]
+SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
+  int nkeys, keypos, hdutype, ii;
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  
+  Rcpp::StringVector out(1);
+  
+  char *header = (char *)malloc(FLEN_CARD * nkeys);
+  //for (ii = 0 ; ii < nkeys ; ii++ ) {
+  //  header[ii] = (char*)calloc(FLEN_CARD, 1);
+  //}
+  
+  fits_invoke(hdr2str, fptr, 1, nullptr, 0, &header, &nkeys);
+  
+  out[0] = header;
+  
+  return(out);
+}
+
+// [[Rcpp::export]]
 void Cfits_delete_HDU(Rcpp::String filename, int ext=1){
   int hdutype;
   fits_file fptr;
