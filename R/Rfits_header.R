@@ -149,13 +149,13 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
 
 Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   assertFlag(remove_HIERARCH)
   
   #raw header
-  header=Cfits_read_header(filename=filename, ext=ext)
+  header = Cfits_read_header(filename=filename, ext=ext)
   
   #remove comments for parsing
   loc_comment = grep('COMMENT', header)
@@ -163,14 +163,14 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   
   if(length(loc_comment)>0){
     comment = gsub('COMMENT ', '', header[loc_comment])
-    comment = gsub('  ','',comment)
+    #comment = gsub('  ','',comment) #not sure this works generically, probably better to keep it raw-er.
   }else{
     comment = NULL
   }
   
   if(length(loc_history)>0){
     history = gsub('HISTORY ', '', header[loc_history])
-    history = gsub('  ','',history)
+    #history = gsub('  ','',history) #not sure this works generically, probably better to keep it raw-er.
   }else{
     history = NULL
   }
@@ -454,6 +454,15 @@ Rfits_keyvalues_to_header=function(keyvalues, keycomments=NULL, comment=NULL, hi
     temp_out = c(temp_out, paste0('HISTORY ',history))
   }
   return(temp_out)
+}
+
+Rfits_header_to_raw=function(header){
+  return(paste(formatC(header, width=80, flag='-'),sep='',collapse = ''))
+}
+
+Rfits_raw_to_header=function(header){
+  nkey = nchar(header)/80
+  return(substring(header, 1+(80*((1:nkey)-1)), 80*(1:nkey)))
 }
 
 Rfits_encode_chksum=function(checksum, complement=FALSE){
