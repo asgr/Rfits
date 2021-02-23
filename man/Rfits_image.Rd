@@ -227,7 +227,7 @@ file.size(file_image)
 Rfits_write_image(temp_image$imDat, paste0(file_image_temp,'[compress]'))
 file.size(file_image_temp) #about a factor 5 compressed
 temp_image3 = Rfits_read_image(file_image_temp, ext=2)
-magimage(temp_image3)
+magimage(temp_image3$imDat)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
