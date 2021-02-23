@@ -59,10 +59,10 @@ Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments
 Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
-Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing. For writing just \option{image} data (no WCS is allowed at this time) you can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. These have additional parameters that can be passed in, see \url{heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}. Support for WCS writing of compressed images will come in the future.
+Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing (see Examples). For writing just \option{image} data (no WCS is allowed at this time) you can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. E.g \option{filename} = 'file.fits' for writing a normal uncompressed images, or \option{filename} = 'file.fits[compress]' for writing a compressed image. These have additional parameters that can be passed in, see \url{heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}. Support for WCS writing of compressed images will come in the future, currently you should only write the image matrix to a compressed extenstion (see Examples).
 }
   \item{ext}{
-Integer scalar; the extension to read or write (usually starts at 1 for images). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
+Integer scalar; the extension to read or write. Usually you want to use \option{ext} = 1 for normal images, or \option{ext} = 2 for compressed images (see Examples). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
   \item{header}{
 Logical; should the header be read along with the image matrix. If TRUE (default) then the output of \code{Rfits_write_image} is a list with components \option{imDat}, and the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level), if FALSE then it is just the raw image matrix.
@@ -221,6 +221,13 @@ temp_image = Rfits_read_image(file_image_temp)
 Rfits_write_image(temp_image, file_image_temp)
 temp_image2 = Rfits_read_image(file_image_temp)
 sum(temp_image$imDat - temp_image2$imDat) 
+
+#Use compression
+file.size(file_image)
+Rfits_write_image(temp_image$imDat, paste0(file_image_temp,'[compress]'))
+file.size(file_image_temp) #about a factor 5 compressed
+temp_image3 = Rfits_read_image(file_image_temp, ext=2)
+magimage(temp_image3)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

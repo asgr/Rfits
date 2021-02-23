@@ -40,6 +40,7 @@ print.Rfits_vector=function(x , ...){
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_image=function(x , ...){
@@ -51,6 +52,7 @@ print.Rfits_image=function(x , ...){
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_cube=function(x , ...){
@@ -63,6 +65,7 @@ print.Rfits_cube=function(x , ...){
   cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
   cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_array=function(x , ...){
@@ -76,6 +79,7 @@ print.Rfits_array=function(x , ...){
   cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
   cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
   cat('NAXIS4:',x$keyvalues[['NAXIS4']],'\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_pointer=function(x , ...){
@@ -87,10 +91,13 @@ print.Rfits_pointer=function(x , ...){
   cat('Dim:',x$dim,'\n')
   cat('Disk size:',round(file.size(x$filename)/(2^20),4),'MB\n')
   cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_header=function(x, ...){
   cat(x$header[1:8], sep='\n')
+  cat("...", sep='\n')
+  cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_list=function(x , ...){
@@ -108,13 +115,11 @@ print.Rfits_list=function(x , ...){
   #   }
   # }
   ext_name = names(x)
-  
-  ext_class = {}
-  for(i in 1:length(x)){
-    ext_class = c(ext_class, class(x[[i]])[1])
-  }
-  
   ext_dim = {}
+  ext_class = {}
+  ext_size = {}
+  ext_keyN = {}
+  
   for(i in 1:length(x)){
     if(inherits(x[[i]], 'Rfits_vector')){
       ext_dim = c(ext_dim, length(x[[i]]))
@@ -129,11 +134,10 @@ print.Rfits_list=function(x , ...){
         ext_dim = c(ext_dim, paste(dim(x[[i]]), collapse=' x '))
       }
     }
-  }
-  
-  ext_size = {}
-  for(i in 1:length(x)){
+    
+    ext_class = c(ext_class, class(x[[i]])[1])
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
+    ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
   }
   
   summarytable = data.frame(
@@ -141,7 +145,8 @@ print.Rfits_list=function(x , ...){
     'Name' = ext_name,
     'Class' = ext_class,
     'Dim' = ext_dim,
-    'Size/MB' = ext_size
+    'Size/MB' = ext_size,
+    'Key.N' = ext_keyN
   )
   
   cat('Multi-extension FITS loaded with Rfits_read of class Rfits_list\n\n')
