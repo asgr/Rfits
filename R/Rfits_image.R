@@ -321,7 +321,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   filename = path.expand(filename)
   justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   if(create_file){
-    assertPathForOutput(justfilename, overwrite=overwrite_file)
+    assertPathForOutput(justfilename, overwrite=TRUE)
   }else{
     assertFileExists(justfilename)
     assertAccess(justfilename, access='w')
