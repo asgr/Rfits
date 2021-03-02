@@ -10,7 +10,7 @@
 Read and Write all FITS Extensions
 }
 \description{
-Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need.
+Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need. Note that files with compressed image extensions need to be read in more manually with \code{\link{Rfits_read_image}}.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
