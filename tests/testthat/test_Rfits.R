@@ -245,3 +245,12 @@ file_vector = tempfile()
 Rfits_write_vector(temp_vector, file_vector)
 temp_vector2 = Rfits_read_vector(file_vector)
 expect_identical(temp_vector$imDat, temp_vector2$imDat)
+
+#ex 38 multi-ext with compressed images
+file_mix_temp3 = tempfile()
+Rfits_write_image(temp_image$imDat, paste0(file_mix_temp3,'[compress]'),create_ext=T, create_file=T)
+Rfits_write_image(temp_image$imDat, paste0(file_mix_temp3,'[compress]'),create_ext=T, create_file=F)
+Rfits_write_image(temp_image$imDat, file_mix_temp3,create_ext=T, create_file=F)
+Rfits_write_table(temp_table, file_mix_temp3, create_ext=T, create_file=F)
+temp_mix3 = Rfits_read_all(file_mix_temp3)
+expect_length(temp_mix3, 5L)

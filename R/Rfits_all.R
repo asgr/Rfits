@@ -1,4 +1,4 @@
-Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.table=TRUE){
+Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.table=TRUE, anycompress=TRUE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertFlag(pointer)
@@ -34,7 +34,15 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.t
   sel_tables = grep('TABLE',info$summary)
   if(length(sel_tables)>0){
     for(i in sel_tables){
-      data[[i]] = Rfits_read_table(filename, ext=i, header=header, data.table=data.table)
+      if(anycompress==FALSE | is.null(info$headers[[i]]$keyvalues$ZIMAGE) | isFALSE(info$headers[[i]]$keyvalues$ZIMAGE)){ #this is to catch for standard compressed images (stored as tables)
+        data[[i]] = Rfits_read_table(filename, ext=i, header=header, data.table=data.table)
+      }else{
+        if(pointer){
+          data[[i]] = Rfits_point(filename, ext=i, header=header)
+        }else{
+          data[[i]] = Rfits_read_image(filename, ext=i, header=header)
+        }
+      }
     }
   }
   

@@ -10,14 +10,14 @@
 Read and Write all FITS Extensions
 }
 \description{
-Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need. Note that files with compressed image extensions need to be read in more manually with \code{\link{Rfits_read_image}}.
+Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need. Note that files with compressed image extensions should usually be detected automatically, but there might be some un-tested corner cases.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
-  data.table = TRUE)
+  data.table = TRUE, anycompress = TRUE)
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
 Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
-  data.table = TRUE)
+  data.table = TRUE, anycompress = TRUE)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -42,6 +42,9 @@ Logical; should the input \option{data} list structure be fully flattened before
 }
   \item{overwrite_Main}{
 Logical; FITS tables are by default written with EXTNAME = 'Main', if the \option{overwrite_Main} flag is set to TRUE then the EXTNAME will be over-written with the name of the list object. If FALSE then the default EXTNAME of 'Main' is left, with the assoicated comments.
+}
+  \item{anycompress}{
+Logical; might some of the extensions be compressed images? If this is definitely not the case and you are having issues reading in the target FITS then set to FALSE, since it means all binary tables will be treated as FITS tables (not compressed images). In general leaving this set to TRUE should be okay though since \code{Rfits_read_all} / \code{Rfits_read} checks whether the keyword 'ZIMAGE' is TRUE, FALSE or not present (which means it is not a compressed image).
 }
 }
 \details{
