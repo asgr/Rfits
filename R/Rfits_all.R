@@ -2,18 +2,25 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.t
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertFlag(pointer)
+  assertLogical(header)
+  assertFlag(data.table)
+  assertFlag(anycompress)
   
   info = Rfits_info(filename)
   
   data = vector(mode='list', length=length(info$summary))
   
+  if(length(header) == 1){
+    header = rep(header, length(data))
+  }
+  
   #images
   
   if(!is.null(info$headers[[1]]$keyvalues$NAXIS1)){
     if(pointer){
-      data[[1]] = Rfits_point(filename, ext=1, header=header)
+      data[[1]] = Rfits_point(filename, ext=1, header=header[1])
     }else{
-      data[[1]] = Rfits_read_image(filename, ext=1, header=header)
+      data[[1]] = Rfits_read_image(filename, ext=1, header=header[1])
     }
   }
   
@@ -22,9 +29,9 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.t
   if(length(sel_images)>0){
     for(i in sel_images){
       if(pointer){
-        data[[i]] = Rfits_point(filename, ext=i, header=header)
+        data[[i]] = Rfits_point(filename, ext=i, header=header[i])
       }else{
-        data[[i]] = Rfits_read_image(filename, ext=i, header=header)
+        data[[i]] = Rfits_read_image(filename, ext=i, header=header[i])
       }
     }
   }
@@ -35,12 +42,12 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.t
   if(length(sel_tables)>0){
     for(i in sel_tables){
       if(anycompress==FALSE | is.null(info$headers[[i]]$keyvalues$ZIMAGE) | isFALSE(info$headers[[i]]$keyvalues$ZIMAGE)){ #this is to catch for standard compressed images (stored as tables)
-        data[[i]] = Rfits_read_table(filename, ext=i, header=header, data.table=data.table)
+        data[[i]] = Rfits_read_table(filename, ext=i, header=header[i], data.table=data.table)
       }else{
         if(pointer){
-          data[[i]] = Rfits_point(filename, ext=i, header=header)
+          data[[i]] = Rfits_point(filename, ext=i, header=header[i])
         }else{
-          data[[i]] = Rfits_read_image(filename, ext=i, header=header)
+          data[[i]] = Rfits_read_image(filename, ext=i, header=header[i])
         }
       }
     }
@@ -79,9 +86,12 @@ Rfits_read = Rfits_read_all
   else return(unlist(c(lapply(x, .flatten)), recursive = FALSE))
 }
 
-Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE){
+Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE, compress=FALSE){
   assertList(data)
   assertCharacter(filename, max.len=1)
+  assertFlag(flatten)
+  assertFlag(overwrite_Main)
+  assertLogical(compress)
   
   create_file = TRUE
   overwrite_file = TRUE
@@ -90,35 +100,11 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
     data = .flatten(data)
   }
   
-  # EXTNAMES = NULL
-  # EXTCOMMENTS = NULL
-  # ignoreEXT = NULL
+  if(length(compress) == 1){
+    compress = rep(compress, length(data))
+  }
   
   for(i in 1:length(data)){
-    # if(is.list(data[[i]])){
-    #   if(is.null(data[[i]]$keyvalues$EXTNAME)){
-    #     if(is.null(attributes(data[[i]])$keycomments$EXTNAME)){
-    #       EXTNAMES = c(EXTNAMES, names(data)[i])
-    #       EXTCOMMENTS = c(EXTCOMMENTS, '')
-    #     }else{
-    #       EXTNAMES = c(EXTNAMES, attributes(data[[i]])$keyvalues$EXTNAME)
-    #       EXTCOMMENTS = c(EXTCOMMENTS, attributes(data[[i]])$keycomments$EXTNAME)
-    #     }
-    #   }else{
-    #     EXTNAMES = c(EXTNAMES, data[[i]]$keyvalues$EXTNAME)
-    #     EXTCOMMENTS = c(EXTCOMMENTS, data[[i]]$keycomments$EXTNAME)
-    #   }
-    # }else{
-    #   if(is.null(names(data)[i])){
-    #     #EXTNAMES = c(EXTNAMES, paste0('EXT',i))
-    #     EXTNAMES = c(EXTNAMES, NA)
-    #     EXTCOMMENTS = c(EXTCOMMENTS, '')
-    #   }else{
-    #     EXTNAMES = c(EXTNAMES, names(data)[i])
-    #     EXTCOMMENTS = c(EXTCOMMENTS, '')
-    #   }
-    # }
-    
     if(i > 1){
       ext = Rfits_nhdu(filename)
     }else{
@@ -127,7 +113,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
     
     if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix', 'integer', 'numeric'))){
       Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
-                        create_file=create_file, overwrite_file=overwrite_file)
+                        create_file=create_file, overwrite_file=overwrite_file, compress=compress[i])
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
@@ -136,14 +122,12 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
       create_file = FALSE
       overwrite_file = FALSE
     }else if(inherits(data[[i]], 'Rfits_header')){
-      #ignoreEXT = c(ignoreEXT,i)
       Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
                          comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
                          create_file=create_file, overwrite_file=overwrite_file)
       create_file = FALSE
       overwrite_file = FALSE
     }else{
-      #ignoreEXT = c(ignoreEXT,i)
       message('List item ',i,' is not recognised and will not be written to FITS!')
     }
     
@@ -165,19 +149,6 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
       }
     }
   }
-  
-  # if(length(ignoreEXT) > 0){
-  #   EXTNAMES = EXTNAMES[-ignoreEXT]
-  #   EXTCOMMENTS = EXTCOMMENTS[-ignoreEXT]
-  # }
-  # 
-  # if(length(EXTNAMES) > 0){
-  #   for(i in 1:length(EXTNAMES)){
-  #     if(! is.na(EXTNAMES[i])){
-  #       Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=EXTNAMES[i], keycomment=EXTCOMMENTS[i], ext=ext)
-  #     }
-  #   }
-  # }
 }
 
 Rfits_write = Rfits_write_all

@@ -15,10 +15,12 @@ Simple functions that either read in or write out all supported FITS extensions.
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE, anycompress = TRUE)
-Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
+Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
+  compress = FALSE)
 Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE, anycompress = TRUE)
-Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE)
+Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
+  compress = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -45,6 +47,9 @@ Logical; FITS tables are by default written with EXTNAME = 'Main', if the \optio
 }
   \item{anycompress}{
 Logical; might some of the extensions be compressed images? If this is definitely not the case and you are having issues reading in the target FITS then set to FALSE, since it means all binary tables will be treated as FITS tables (not compressed images). In general leaving this set to TRUE should be okay though since \code{Rfits_read_all} / \code{Rfits_read} checks whether the keyword 'ZIMAGE' is TRUE, FALSE or not present (which means it is not a compressed image).
+}
+  \item{compress}{
+Logical vector; option to specify per extension image compression. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images).  
 }
 }
 \details{

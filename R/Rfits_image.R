@@ -313,7 +313,7 @@ Rfits_read_array = Rfits_read_image
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
-                           overwrite_file=TRUE, bzero=0, bscale=1){
+                           overwrite_file=TRUE, bzero=0, bscale=1, compress=FALSE){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -353,6 +353,14 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertCharacter(integer, len=1)
   assertNumeric(bzero)
   assertNumeric(bscale)
+  
+  if(!isFALSE(compress)){
+    if(isTRUE(compress)){
+      filename = paste0(justfilename,'[compress]')
+    }else if(is.character(compress)){
+      filename = paste0(justfilename,'[',compress,']')
+    }
+  }
   
   naxes = dim(data)
   if(is.null(naxes)){naxes = length(data)}

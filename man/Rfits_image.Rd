@@ -36,22 +36,22 @@ Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1) 
+    bscale = 1, compress = FALSE) 
     
 Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1) 
+    bscale = 1, compress = FALSE) 
     
 Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1)
+    bscale = 1, compress = FALSE)
 
 Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1) 
+    bscale = 1, compress = FALSE) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -129,6 +129,9 @@ Numeric scalar; convenience BZERO zero level to apply to image, where VAL = (RAW
 }
   \item{bscale}{
 Numeric scalar; convenience BSCALE scaling factor to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BSCALE value takes priority.
+}
+  \item{compress}{
+Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the compression command that will be written within the square brackets, e.g. \option{compress} = 'compress GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]')
 }
 }
 \details{
