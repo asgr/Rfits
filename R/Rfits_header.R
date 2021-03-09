@@ -229,6 +229,7 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   }else{
     assertFileExists(filename)
     assertAccess(filename, access='w')
+    head_old = Rfits_read_header(filename, ext=ext)
   }
   if(testFileExists(filename) & overwrite_file & create_file){
     file.remove(filename)
@@ -274,10 +275,12 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   }
   
   for(i in 1:length(keyvalues)){
-    if(missing(keycomments)){
-      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
-    }else{
-      Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+    if((! keynames[i] %in% head_old$keynames) & (! paste0('Z',keynames[i]) %in% head_old$keynames)){
+      if(missing(keycomments)){
+        Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
+      }else{
+        Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+      }
     }
   }
   

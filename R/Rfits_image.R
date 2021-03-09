@@ -436,8 +436,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
       checkAA=grep("and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H",comment)
       if(length(checkAA)>0){comment = comment[-checkAA]}
     }
-    filename=strsplit(filename,split = "[",fixed=TRUE)[[1]][1]
-    Rfits_write_header(filename=filename, keyvalues=keyvalues,
+    Rfits_write_header(filename=justfilename, keyvalues=keyvalues,
                        keycomments=keycomments, keynames=keynames,
                        comment=comment, history=history, ext=ext)
   }
