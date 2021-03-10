@@ -518,7 +518,7 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
     short *data_s = (short *)malloc(nelements * sizeof(short));
     for (ii = 0; ii < nelements; ii++)  {
       data_s[ii] = INTEGER(data)[ii];
-    }
+    } 
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
   }else if(datatype == TLONG){
     long *data_l = (long *)malloc(nelements * sizeof(long));
@@ -687,7 +687,7 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
-  int nkeys, keypos, hdutype, ii;
+  int nkeys, keypos, hdutype;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
@@ -696,9 +696,6 @@ SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
   Rcpp::StringVector out(1);
   
   char *header = (char *)malloc(FLEN_CARD * nkeys);
-  //for (ii = 0 ; ii < nkeys ; ii++ ) {
-  //  header[ii] = (char*)calloc(FLEN_CARD, 1);
-  //}
   
   fits_invoke(hdr2str, fptr, 1, nullptr, 0, &header, &nkeys);
   
