@@ -16,11 +16,11 @@ Simple functions that either read in or write out all supported FITS extensions.
 Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE, anycompress = TRUE)
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
-  compress = FALSE)
+  compress = FALSE, list_sub = NULL)
 Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
   data.table = TRUE, anycompress = TRUE)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
-  compress = FALSE)
+  compress = FALSE, list_sub = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -50,6 +50,9 @@ Logical; might some of the extensions be compressed images? If this is definitel
 }
   \item{compress}{
 Logical vector; option to specify per extension image compression. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images).  
+}
+  \item{list_sub}{
+Character vector; if supplied the output list elements will be limited to those named here. This is a convenient way to only write out a subset of a large list by list component name.  
 }
 }
 \details{

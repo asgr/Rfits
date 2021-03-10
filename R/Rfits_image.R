@@ -153,14 +153,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       if(zhi<zlo){stop('zhi must be larger than zlo')}
       if(thi<tlo){stop('thi must be larger than tlo')}
     }
-    # if(xlo < 1){message('xlo out of data range, truncating to start at xlo=1!'); xlo=1}
-    # if(xhi > naxis1){message('xhi out of data range, truncating to end at xhi=NASIX1!'); xhi=naxis1}
-    # if(ylo < 1){message('ylo out of data range, truncating to start at ylo=1!'); ylo=1}
-    # if(yhi > naxis2){message('yhi out of data range, truncating to end at yhi=NASIX2!'); yhi=naxis2}
-    # if(zlo < 1){message('zlo out of data range, truncating to start at zlo=1!'); zlo=1}
-    # if(zhi > naxis3){message('zhi out of data range, truncating to end at zhi=NASIX3!'); zhi=naxis3}
-    # if(tlo < 1){message('tlo out of data range, truncating to start at tlo=1!'); tlo=1}
-    # if(thi > naxis4){message('thi out of data range, truncating to end at thi=NASIX4!'); zhi=naxis3}
   }
   
   if(subset){
@@ -354,14 +346,6 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertNumeric(bzero)
   assertNumeric(bscale)
   
-  if(!isFALSE(compress)){
-    if(isTRUE(compress)){
-      filename = paste0(justfilename,'[compress]')
-    }else if(is.character(compress)){
-      filename = paste0(justfilename,'[',compress,']')
-    }
-  }
-  
   naxes = dim(data)
   if(is.null(naxes)){naxes = length(data)}
   naxis = length(naxes)
@@ -373,6 +357,14 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   }
   if(naxis == 3){
     naxes = c(naxes,1)
+  }
+  
+  if(!isFALSE(compress) & naxis > 1){
+    if(isTRUE(compress)){
+      filename = paste0(justfilename,'[compress]')
+    }else if(is.character(compress)){
+      filename = paste0(justfilename,'[',compress,']')
+    }
   }
   
   bitpix=0

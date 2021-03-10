@@ -22,10 +22,24 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   
   keyvalues = Rfits_read_header(filename=filename, ext=ext)$keyvalues
   
-  dim = c(keyvalues$NAXIS1); type='vector'
-  if(!is.null(keyvalues$NAXIS2)){dim = c(dim, keyvalues$NAXIS2); type='image'}
-  if(!is.null(keyvalues$NAXIS3)){dim = c(dim, keyvalues$NAXIS3); type='cube'}
-  if(!is.null(keyvalues$NAXIS4)){dim = c(dim, keyvalues$NAXIS4); type='array'}
+  if(isTRUE(keyvalues$ZIMAGE)){
+    naxis1 = keyvalues$ZNAXIS1
+    naxis2 = keyvalues$ZNAXIS2
+    naxis3 = keyvalues$ZNAXIS3
+    naxis4 = keyvalues$ZNAXIS4
+    datatype = keyvalues$ZBITPIX
+  }else{
+    naxis1 = keyvalues$NAXIS1
+    naxis2 = keyvalues$NAXIS2
+    naxis3 = keyvalues$NAXIS3
+    naxis4 = keyvalues$NAXIS4
+    datatype = keyvalues$BITPIX
+  }
+  
+  dim = c(naxis1); type='vector'
+  if(!is.null(naxis2)){dim = c(dim, naxis2); type='image'}
+  if(!is.null(naxis3)){dim = c(dim, naxis3); type='cube'}
+  if(!is.null(naxis4)){dim = c(dim, naxis4); type='array'}
   
   output = list(filename=filename, ext=ext, keyvalues=keyvalues, header=header, dim=dim, type=type)
   class(output) = 'Rfits_pointer'
@@ -33,52 +47,100 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
 }
 
 print.Rfits_vector=function(x , ...){
+  
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    naxis1 = x$keyvalues$ZNAXIS1
+    datatype = x$keyvalues$ZBITPIX
+  }else{
+    naxis1 = x$keyvalues$NAXIS1
+    datatype = x$keyvalues$BITPIX
+  }
+  
   cat('Class: Rfits_image\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
-  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
-  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
+  cat('BITPIX:',datatype,'\n')
+  cat('NAXIS1:',naxis1,'\n')
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_image=function(x , ...){
+  
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    naxis1 = x$keyvalues$ZNAXIS1
+    naxis2 = x$keyvalues$ZNAXIS2
+    datatype = x$keyvalues$ZBITPIX
+  }else{
+    naxis1 = x$keyvalues$NAXIS1
+    naxis2 = x$keyvalues$NAXIS2
+    datatype = x$keyvalues$BITPIX
+  }
+  
   cat('Class: Rfits_image\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
-  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
-  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
-  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
+  cat('BITPIX:',datatype,'\n')
+  cat('NAXIS1:',naxis1,'\n')
+  cat('NAXIS2:',naxis2,'\n')
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_cube=function(x , ...){
+  
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    naxis1 = x$keyvalues$ZNAXIS1
+    naxis2 = x$keyvalues$ZNAXIS2
+    naxis3 = x$keyvalues$ZNAXIS3
+    datatype = x$keyvalues$ZBITPIX
+  }else{
+    naxis1 = x$keyvalues$NAXIS1
+    naxis2 = x$keyvalues$NAXIS2
+    naxis3 = x$keyvalues$NAXIS3
+    datatype = x$keyvalues$BITPIX
+  }
+  
   cat('Class: Rfits_cube\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
-  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
-  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
-  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
-  cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
+  cat('BITPIX:',datatype,'\n')
+  cat('NAXIS1:',naxis1,'\n')
+  cat('NAXIS2:',naxis2,'\n')
+  cat('NAXIS3:',naxis3,'\n')
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
 print.Rfits_array=function(x , ...){
+  
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    naxis1 = x$keyvalues$ZNAXIS1
+    naxis2 = x$keyvalues$ZNAXIS2
+    naxis3 = x$keyvalues$ZNAXIS3
+    naxis4 = x$keyvalues$ZNAXIS4
+    datatype = x$keyvalues$ZBITPIX
+  }else{
+    naxis1 = x$keyvalues$NAXIS1
+    naxis2 = x$keyvalues$NAXIS2
+    naxis3 = x$keyvalues$NAXIS3
+    naxis4 = x$keyvalues$NAXIS4
+    datatype = x$keyvalues$BITPIX
+  }
+  
   cat('Class: Rfits_array\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
   cat('RAM size:',round(object.size(x)/(2^20),4),'MB\n')
-  cat('BITPIX:',x$keyvalues[['BITPIX']],'\n')
-  cat('NAXIS1:',x$keyvalues[['NAXIS1']],'\n')
-  cat('NAXIS2:',x$keyvalues[['NAXIS2']],'\n')
-  cat('NAXIS3:',x$keyvalues[['NAXIS3']],'\n')
-  cat('NAXIS4:',x$keyvalues[['NAXIS4']],'\n')
+  cat('BITPIX:',datatype,'\n')
+  cat('NAXIS1:',naxis1,'\n')
+  cat('NAXIS2:',naxis2,'\n')
+  cat('NAXIS3:',naxis3,'\n')
+  cat('NAXIS4:',naxis4,'\n')
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
@@ -102,18 +164,6 @@ print.Rfits_header=function(x, ...){
 
 print.Rfits_list=function(x , ...){
   
-  # ext_name = {}
-  # for(i in 1:length(x)){
-  #   if(is.null(x[[i]]$keyvalues$EXTNAME)){
-  #     if(is.null(attributes(x[[i]])$keyvalues$EXTNAME)){
-  #       ext_name = c(ext_name, 'NA')
-  #     }else{
-  #       ext_name = c(ext_name, attributes(x[[i]])$keyvalues$EXTNAME)
-  #     }
-  #   }else{
-  #     ext_name = c(ext_name, x[[i]]$keyvalues$EXTNAME)
-  #   }
-  # }
   ext_name = names(x)
   ext_dim = {}
   ext_class = {}
@@ -137,7 +187,11 @@ print.Rfits_list=function(x , ...){
     
     ext_class = c(ext_class, class(x[[i]])[1])
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
-    ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
+    if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_table', 'Rfits_header', 'Rfits_pointer'))){
+      ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
+    }else{
+      ext_keyN = c(ext_keyN, NA)
+    }
   }
   
   summarytable = data.frame(
@@ -402,16 +456,37 @@ dim.Rfits_pointer=function(x){
     }
   }
   
-  if(length(box) == 1){box = c(box,box)}
-  if(!missing(i)){
-    if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    naxis1 = x$keyvalues$ZNAXIS1
+    naxis2 = x$keyvalues$ZNAXIS2
+    naxis3 = x$keyvalues$ZNAXIS3
+    naxis4 = x$keyvalues$ZNAXIS4
+    datatype = x$keyvalues$ZBITPIX
+  }else{
+    naxis1 = x$keyvalues$NAXIS1
+    naxis2 = x$keyvalues$NAXIS2
+    naxis3 = x$keyvalues$NAXIS3
+    naxis4 = x$keyvalues$NAXIS4
+    datatype = x$keyvalues$BITPIX
   }
-  if(!missing(j)){
-    if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+  
+  Ndim = 1
+  if(!is.null(naxis2)){Ndim = 2}
+  if(!is.null(naxis3)){Ndim = 3}
+  if(!is.null(naxis4)){Ndim = 4}
+  
+  if(Ndim == 2){
+    if(length(box) == 1){box = c(box,box)}
+    if(!missing(i)){
+      if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
+    }
+    if(!missing(j)){
+      if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+    }
   }
   
   if(!missing(i)){
-    if(is.null(x$keyvalues$NAXIS1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
+    if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
     xlo = min(i)
     xhi = max(i)
   }else{
@@ -419,31 +494,25 @@ dim.Rfits_pointer=function(x){
     xhi = NULL
   }
   if(!missing(j)){
-    if(is.null(x$keyvalues$NAXIS2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
+    if(is.null(naxis2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
     ylo = min(j)
     yhi = max(j)
-    #if(ylo < 1 | yhi < 1){stop('All j must be >= 1')}
-    #if(ylo > x$keyvalues$NAXIS2 | yhi > x$keyvalues$NAXIS2){stop('All j must be <=', x$keyvalues$NAXIS2)}
   }else{
     ylo = NULL
     yhi = NULL
   }
   if(!missing(k)){
-    if(is.null(x$keyvalues$NAXIS3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
+    if(is.null(naxis3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
     zlo = min(k)
     zhi = max(k)
-    #if(zlo < 1 | zhi < 1){stop('All k must be >= 1')}
-    #if(zlo > x$keyvalues$NAXIS3 | zhi > x$keyvalues$NAXIS3){stop('All j must be <=', x$keyvalues$NAXIS3)}
   }else{
     zlo = NULL
     zhi = NULL
   }
   if(!missing(m)){
-    if(is.null(x$keyvalues$NAXIS4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
+    if(is.null(naxis4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
     tlo = min(m)
     thi = max(m)
-    #if(tlo < 1 | thi < 1){stop('All m must be >= 1')}
-    #if(tlo > x$keyvalues$NAXIS4 | thi > x$keyvalues$NAXIS4){stop('All j must be <=', x$keyvalues$NAXIS4)}
   }else{
     tlo = NULL
     thi = NULL

@@ -86,7 +86,7 @@ Rfits_read = Rfits_read_all
   else return(unlist(c(lapply(x, .flatten)), recursive = FALSE))
 }
 
-Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE, compress=FALSE){
+Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE, compress=FALSE, list_sub=NULL){
   assertList(data)
   assertCharacter(filename, max.len=1)
   assertFlag(flatten)
@@ -105,44 +105,47 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
   }
   
   for(i in 1:length(data)){
-    if(i > 1){
-      ext = Rfits_nhdu(filename)
-    }else{
-      ext = 1
-    }
-    
-    if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix', 'integer', 'numeric'))){
-      Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
-                        create_file=create_file, overwrite_file=overwrite_file, compress=compress[i])
-      create_file = FALSE
-      overwrite_file = FALSE
-    }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
-      Rfits_write_table(table=data[[i]], filename=filename, ext=ext,
-                        create_file=create_file, overwrite_file=overwrite_file)
-      create_file = FALSE
-      overwrite_file = FALSE
-    }else if(inherits(data[[i]], 'Rfits_header')){
-      Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
-                         comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
-                         create_file=create_file, overwrite_file=overwrite_file)
-      create_file = FALSE
-      overwrite_file = FALSE
-    }else{
-      message('List item ',i,' is not recognised and will not be written to FITS!')
-    }
-    
-    if(!is.null(names(data)[i])){
-      if(!is.na(names(data)[i])){
-        if(!names(data)[i]==''){
-          ext = Rfits_nhdu(filename) # in case first object was a table
-          check_head = Rfits_read_header(filename=filename, ext=ext)
-          if(is.null(check_head$keyvalues$EXTNAME)){
+    if(is.null(list_sub) | isTRUE(names(data)[i] %in% list_sub)){ #easy way to limit outputs to named list components
+      
+      if(i > 1){
+        ext = Rfits_nhdu(filename)
+      }else{
+        ext = 1
+      }
+      
+      if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix', 'integer', 'numeric'))){
+        Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
+                          create_file=create_file, overwrite_file=overwrite_file, compress=compress[i])
+        create_file = FALSE
+        overwrite_file = FALSE
+      }else if(inherits(data[[i]], c('Rfits_table', 'data.frame', 'data.table'))){
+        Rfits_write_table(table=data[[i]], filename=filename, ext=ext,
+                          create_file=create_file, overwrite_file=overwrite_file)
+        create_file = FALSE
+        overwrite_file = FALSE
+      }else if(inherits(data[[i]], 'Rfits_header')){
+        Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
+                           comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
+                           create_file=create_file, overwrite_file=overwrite_file)
+        create_file = FALSE
+        overwrite_file = FALSE
+      }else{
+        message('List item ',i,' is not recognised and will not be written to FITS!')
+      }
+      
+      if(!is.null(names(data)[i])){
+        if(!is.na(names(data)[i])){
+          if(!names(data)[i]==''){
+            ext = Rfits_nhdu(filename) # in case first object was a table
+            check_head = Rfits_read_header(filename=filename, ext=ext)
+            if(is.null(check_head$keyvalues$EXTNAME)){
               Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], keycomment='', ext=ext)
-          }else{
-            if(is.na(check_head$keyvalues$EXTNAME)){
-              Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], keycomment='', ext=ext)
-            }else if(check_head$keyvalues$EXTNAME=='Main' & overwrite_Main){
-              Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], keycomment='', ext=ext)
+            }else{
+              if(is.na(check_head$keyvalues$EXTNAME)){
+                Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], keycomment='', ext=ext)
+              }else if(check_head$keyvalues$EXTNAME=='Main' & overwrite_Main){
+                Rfits_write_key(filename=filename, keyname='EXTNAME', keyvalue=names(data)[i], keycomment='', ext=ext)
+              }
             }
           }
         }
