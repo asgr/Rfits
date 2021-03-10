@@ -65,10 +65,6 @@ Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, 
     .Call(`_Rfits_Cfits_read_img`, filename, naxis1, naxis2, naxis3, naxis4, ext, datatype)
 }
 
-Cfits_write_image <- function(filename, data, datatype, naxis, naxis1, naxis2, naxis3 = 1L, naxis4 = 1L, ext = 1L, create_ext = 1L, create_file = 1L, bitpix = 32L, bzero = 0.0, bscale = 1.0) {
-    invisible(.Call(`_Rfits_Cfits_write_image`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix, bzero, bscale))
-}
-
 Cfits_read_header <- function(filename, ext = 1L) {
     .Call(`_Rfits_Cfits_read_header`, filename, ext)
 }

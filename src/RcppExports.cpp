@@ -230,29 +230,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Cfits_write_image
-void Cfits_write_image(Rcpp::String filename, SEXP data, int datatype, int naxis, long naxis1, long naxis2, long naxis3, long naxis4, int ext, int create_ext, int create_file, int bitpix, double bzero, double bscale);
-RcppExport SEXP _Rfits_Cfits_write_image(SEXP filenameSEXP, SEXP dataSEXP, SEXP datatypeSEXP, SEXP naxisSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP naxis4SEXP, SEXP extSEXP, SEXP create_extSEXP, SEXP create_fileSEXP, SEXP bitpixSEXP, SEXP bzeroSEXP, SEXP bscaleSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< int >::type datatype(datatypeSEXP);
-    Rcpp::traits::input_parameter< int >::type naxis(naxisSEXP);
-    Rcpp::traits::input_parameter< long >::type naxis1(naxis1SEXP);
-    Rcpp::traits::input_parameter< long >::type naxis2(naxis2SEXP);
-    Rcpp::traits::input_parameter< long >::type naxis3(naxis3SEXP);
-    Rcpp::traits::input_parameter< long >::type naxis4(naxis4SEXP);
-    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    Rcpp::traits::input_parameter< int >::type create_ext(create_extSEXP);
-    Rcpp::traits::input_parameter< int >::type create_file(create_fileSEXP);
-    Rcpp::traits::input_parameter< int >::type bitpix(bitpixSEXP);
-    Rcpp::traits::input_parameter< double >::type bzero(bzeroSEXP);
-    Rcpp::traits::input_parameter< double >::type bscale(bscaleSEXP);
-    Cfits_write_image(filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix, bzero, bscale);
-    return R_NilValue;
-END_RCPP
-}
 // Cfits_read_header
 SEXP Cfits_read_header(Rcpp::String filename, int ext);
 RcppExport SEXP _Rfits_Cfits_read_header(SEXP filenameSEXP, SEXP extSEXP) {
@@ -407,7 +384,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 10},
     {"_Rfits_Cfits_write_pix", (DL_FUNC) &_Rfits_Cfits_write_pix, 9},
     {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 7},
-    {"_Rfits_Cfits_write_image", (DL_FUNC) &_Rfits_Cfits_write_image, 14},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},
     {"_Rfits_Cfits_read_header_raw", (DL_FUNC) &_Rfits_Cfits_read_header_raw, 2},
     {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
