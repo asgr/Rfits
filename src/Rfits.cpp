@@ -506,7 +506,13 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   //below need to work for integers and doubles:
-  if(datatype == TBIT | datatype == TBYTE | datatype == TINT){
+  if(datatype == TBYTE){
+    char *data_b = (char *)malloc(nelements * sizeof(char));
+    for (ii = 0; ii < nelements; ii++)  {
+      data_b[ii] = INTEGER(data)[ii];
+    }
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_b);
+  }else if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
     short *data_s = (short *)malloc(nelements * sizeof(short));
@@ -557,7 +563,7 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
-    std::vector<int> pixels(npixels);
+    std::vector<char> pixels(npixels);
     fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
@@ -765,7 +771,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
-    std::vector<int> pixels(npixels);
+    std::vector<char> pixels(npixels);
     fits_invoke(read_subset, fptr, TBYTE, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
     IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
