@@ -67,7 +67,7 @@ Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.t
   
   #names
   
-  names(data) = rep(NA, length(data))
+  names(data) = rep('', length(data))
   for(i in 1:length(data)){
     if(!is.null(info$headers[[i]]$keyvalues$EXTNAME)){
       names(data)[i] = info$headers[[i]]$keyvalues$EXTNAME

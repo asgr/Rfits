@@ -34,7 +34,7 @@ Logical scalar; specifies whether the images in each extension should be pointer
 List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
 }
   \item{header}{
-Logical; should headers by extracted for each FITS extensions (TRUE, default), or just the data (FALSE). 
+Logical vector; should headers by extracted for each FITS extensions (TRUE, default), or just the data (FALSE). If this is the same length as the number of extensions then this will be set on a per extension bases, but if length 1 then the same logic will be used for all extensions.
 }
   \item{data.table}{
 Logical; should a \code{data.table} be returned?
@@ -43,7 +43,7 @@ Logical; should a \code{data.table} be returned?
 Logical; should the input \option{data} list structure be fully flattened before writing out. Tthis means all elements will become their own extensions at all depths of recursion (as long as they are legal data types). Default is FALSE, which will keep header structures associated with their data.
 }
   \item{overwrite_Main}{
-Logical; FITS tables are by default written with EXTNAME = 'Main', if the \option{overwrite_Main} flag is set to TRUE then the EXTNAME will be over-written with the name of the list object. If FALSE then the default EXTNAME of 'Main' is left, with the assoicated comments.
+Logical; FITS tables are by default written with EXTNAME = 'Main', if the \option{overwrite_Main} flag is set to TRUE then the EXTNAME will be over-written with the name of the list object. If FALSE then the default EXTNAME of 'Main' is left, with the associated comments.
 }
   \item{anycompress}{
 Logical; might some of the extensions be compressed images? If this is definitely not the case and you are having issues reading in the target FITS then set to FALSE, since it means all binary tables will be treated as FITS tables (not compressed images). In general leaving this set to TRUE should be okay though since \code{Rfits_read_all} / \code{Rfits_read} checks whether the keyword 'ZIMAGE' is TRUE, FALSE or not present (which means it is not a compressed image).
@@ -61,7 +61,7 @@ The interface here is very simple. Partly this is to discourage people using thi
 
 }
 \value{
-\code{Rfits_read_all} a list containing the full outputs of \code{\link{Rfits_read_image}}, \code{\link{Rfits_read_table}} as relevant. Uses \option{header}=TRUE for images and \option{header}=FALSE for tables. The output is of class 'Rfits_all', where each list element will have its own respective class ('Rfits_image' or 'Rfit_table').
+\code{Rfits_read_all} a list containing the full outputs of \code{\link{Rfits_read_image}}, \code{\link{Rfits_read_table}} as relevant. The output is of class 'Rfits_list', where each list element will have its own respective class (e.g. 'Rfits_image' or 'Rfit_table'). The name of the list component will be set to that of the EXTNAME in the FITS extension.
 
 \code{Rfits_read} is simply a convenience pointer to \code{Rfits_read_all}.
 
