@@ -506,7 +506,7 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   //below need to work for integers and doubles:
-  if(datatype == TINT){
+  if(datatype == TBIT | datatype == TBYTE | datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
     short *data_s = (short *)malloc(nelements * sizeof(short));

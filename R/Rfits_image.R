@@ -51,7 +51,8 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
-                          yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE){
+                          yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
+                          force_logical=FALSE){
   assertCharacter(filename, max.len=1)
   filename=path.expand(filename)
   assertAccess(filename, access='r')
@@ -159,6 +160,11 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(safex$safe & safey$safe & safez$safe & safet$safe){
       temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                                 lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
+      
+      if(force_logical & is.integer(temp_image)){
+        temp_image = as.logical(temp_image)
+      }
+      
       if(naxis3 > 1 & naxis4 == 1){
         temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
       }
@@ -217,8 +223,14 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis4)){
       naxis4 = 1
     }
-    image=Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+    image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
                          naxis4=naxis4, ext=ext, datatype=datatype)
+    
+    if(force_logical & is.integer(image)){
+      image = as.logical(image)
+      image = matrix(image, naxis1, naxis2)
+    }
+    
     if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
       image = as.vector(image)
     }
@@ -279,8 +291,18 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       
       
     }
-    output=list(imDat=image, hdr=hdr$hdr, header=hdr$header, keyvalues=hdr$keyvalues,
-                keycomments=hdr$keycomments, keynames=hdr$keynames, comment=hdr$comment, history=hdr$history, filename=filename, ext=ext)
+    output = list(imDat = image,
+                  hdr = hdr$hdr,
+                  header = hdr$header,
+                  keyvalues = hdr$keyvalues,
+                  keycomments = hdr$keycomments,
+                  keynames = hdr$keynames,
+                  comment = hdr$comment,
+                  history = hdr$history,
+                  filename = filename,
+                  ext = ext
+                  )
+
     if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
       class(output) = c('Rfits_vector', class(output))
     }else if(naxis3 == 1 & naxis4 == 1){
@@ -373,7 +395,12 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     integer='long'
   }
 
-  if(is.integer(data[1])){
+  if(is.logical(data[1])){
+    bitpix = 8
+    datatype = 11
+  }
+  
+  if(bitpix == 0 & is.integer(data[1])){
     if(integer=='short' | integer=='int' | integer=='16'){
       bitpix = 16
       datatype = 21
@@ -387,7 +414,8 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     bitpix = 64
     datatype = 81
   }
-  if(bitpix==0){
+  
+  if(bitpix==0 & is.numeric(data[1])){
     if(numeric=='single' | numeric=='float' | numeric=='32'){
       bitpix = -32
       datatype = 42
@@ -398,18 +426,6 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
       stop('numeric type must be single/float/32 or double/64')
     }
   }
-  
-  # Below is old deprecated code for reference, safer to create image (Cfits_create_image),
-  # write header (Rfits_write_header), then write pixels (Cfits_write_pix)
-  
-  # if(!missing(keyvalues)){
-  #   if(!is.null(keyvalues$BZERO)){bzero = keyvalues$BZERO}
-  #   if(!is.null(keyvalues$BSCALE)){bscale = keyvalues$BSCALE}
-  # }
-  
-  #Cfits_write_image(filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-  #                  naxis2=naxes[2], naxis3=naxes[3], ext=ext, create_ext=create_ext,
-  #                  create_file=create_file, bitpix=bitpix, bzero=bzero, bscale=bscale)
   
   if(!missing(keyvalues) & !missing(bzero)){keyvalues$BZERO = bzero}
   if(!missing(keyvalues) & !missing(bscale)){keyvalues$BSCALE = bscale}

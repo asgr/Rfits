@@ -19,19 +19,19 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
   
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
 
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
@@ -113,16 +113,19 @@ Integer scalar; low t limit (usually Temporal axis) to cut out from \option{imag
 Integer scalar; high z limit (usually Temporal axis) to cut out from \option{image} (NAXIS4 or smaller and greater than \option{thi}).
 }
   \item{remove_HIERARCH}{
-Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+Logical scalar, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
+  \item{force_logical}{
+Logical scalar; should an integer image be converted to a logical R image. All values note equal to 0L (including negative values) are TRUE, and all values equal to 0L are TRUE. This is really a presentational issue, since internally 0/FALSE and 1/TRUE and R synonyms, and they are both stored as full integers, so there is not even a storage advantage. The main difference is how is.logical and isTRUE/isFALSE behave (0L and 1L are FALSE for all).
 }
   \item{create_ext}{
-Logical; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
+Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
   \item{create_file}{
-Logical; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
+Logical scalar; should a new file be created (TRUE) or not (FALSE). If not then the file at \option{filename} must exist for extensions to be written to it. This is really here to ensure safe operation, i.e. if \option{create_file}=TRUE and \option{overwrite_file}=FALSE and there is a file already at the path given by \option{filename} then you will get an error.
 }
   \item{overwrite_file}{
-Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
+Logical scalar; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
 }
   \item{bzero}{
 Numeric scalar; convenience BZERO zero level to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BZERO value takes priority.
