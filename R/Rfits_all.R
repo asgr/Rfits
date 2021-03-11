@@ -1,6 +1,16 @@
-Rfits_read_all=function(filename='temp.fits', pointer=FALSE, header=TRUE, data.table=TRUE, anycompress=TRUE){
+Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.table=TRUE, anycompress=TRUE){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  if(is.character(pointer)){
+    if(pointer=='auto'){
+      size = file.size(filename)/2^20 # to get to MB
+      if(size > 100){ #If total file size if more than 100 MB then use pointers to access by default
+        pointer = TRUE
+      }else{
+        pointer = FALSE
+      }
+    }
+  }
   assertFlag(pointer)
   assertLogical(header)
   assertFlag(data.table)
@@ -87,7 +97,11 @@ Rfits_read = Rfits_read_all
 }
 
 Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE, compress=FALSE, list_sub=NULL){
-  assertList(data)
+  if(is.list(data)){
+    data_len = length(data)
+  }else{
+    data_len = 1
+  }
   assertCharacter(filename, max.len=1)
   assertFlag(flatten)
   assertFlag(overwrite_Main)
@@ -101,10 +115,10 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
   }
   
   if(length(compress) == 1){
-    compress = rep(compress, length(data))
+    compress = rep(compress, data_len)
   }
   
-  for(i in 1:length(data)){
+  for(i in 1:data_len){
     if(is.null(list_sub) | isTRUE(names(data)[i] %in% list_sub)){ #easy way to limit outputs to named list components
       
       if(i > 1){

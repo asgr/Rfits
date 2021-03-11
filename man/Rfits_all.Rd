@@ -13,12 +13,13 @@ Read and Write all FITS Extensions
 Simple functions that either read in or write out all supported FITS extensions. This is useful if the data volume is small and you just want to have a quick look around the data. In general for processing scripts you should only read in the parts of the FITS you actually need. Note that files with compressed image extensions should usually be detected automatically, but there might be some un-tested corner cases.
 }
 \usage{
-Rfits_read_all(filename = 'temp.fits', pointer = FALSE, header = TRUE,
+Rfits_read_all(filename = 'temp.fits', pointer = 'auto', header = TRUE,
   data.table = TRUE, anycompress = TRUE)
+Rfits_read(filename = 'temp.fits', pointer = 'auto', header = TRUE,
+  data.table = TRUE, anycompress = TRUE)
+  
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
   compress = FALSE, list_sub = NULL)
-Rfits_read(filename = 'temp.fits', pointer = FALSE, header = TRUE,
-  data.table = TRUE, anycompress = TRUE)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
   compress = FALSE, list_sub = NULL)
 }
@@ -28,7 +29,7 @@ Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE
 Character scalar; path to FITS file, either to be written to or read.
 }
   \item{pointer}{
-Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory. See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be left as FALSE, but for very large multi-extension FITS image files setting to TRUE will hugely reduce memory consumption.
+Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory (tables are always loaded into memory). See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be left as FALSE, but for very large multi-extension FITS image files (especially those which contain compressed images) setting to TRUE will hugely reduce memory consumption. The default of 'auto' will set to TRUE if the target FITS file is larger than 100 MB (perhaps a bit unwieldy and slow to load in) and FALSE if it is smaller than this.
 }
   \item{data}{
 List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
