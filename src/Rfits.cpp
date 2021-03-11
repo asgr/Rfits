@@ -507,11 +507,15 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
   
   //below need to work for integers and doubles:
   if(datatype == TBYTE){
-    char *data_b = (char *)malloc(nelements * sizeof(char));
+    // char *data_b = (char *)malloc(nelements * sizeof(char));
+    // for (ii = 0; ii < nelements; ii++)  {
+    //   data_b[ii] = INTEGER(data)[ii];
+    // }
+    std::vector<Rbyte> data_b(nelements);
     for (ii = 0; ii < nelements; ii++)  {
       data_b[ii] = INTEGER(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_b);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_b.data());
   }else if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
@@ -553,38 +557,39 @@ SEXP Cfits_read_img(Rcpp::String filename, long naxis1=100, long naxis2=100, lon
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(npixels);
     fits_invoke(read_img, fptr, TFLOAT, 1, npixels, &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     std::vector<double> pixels(npixels);
     fits_invoke(read_img, fptr, TDOUBLE, 1, npixels, &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
-    std::vector<char> pixels(npixels);
+    //std::vector<char> pixels(npixels);
+    std::vector<Rbyte> pixels(npixels);
     fits_invoke(read_img, fptr, TBYTE, 1, npixels, &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
 // Weirdly we need to use longs here to deal with the scenario of BZERO making the unsigned short too large
     std::vector<long> pixels(npixels);
     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(npixels);
     fits_invoke(read_img, fptr, TLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(npixels);
     fits_invoke(read_img, fptr, TLONGLONG, 1, npixels, &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::memcpy(&(pixel_matrix[0]), &(pixels[0]), npixels * sizeof(double));
     pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
@@ -682,42 +687,42 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, long fpixel0=1, long fpixel1=1
     std::vector<float> pixels(npixels);
     fits_invoke(read_subset, fptr, TFLOAT, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     std::vector<double> pixels(npixels);
     fits_invoke(read_subset, fptr, TDOUBLE, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
     std::vector<char> pixels(npixels);
     fits_invoke(read_subset, fptr, TBYTE, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
     std::vector<short> pixels(npixels);
     fits_invoke(read_subset, fptr, TSHORT, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(npixels);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    IntegerMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(npixels);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
                 &nullvals, pixels.data(), &anynull);
-    NumericMatrix pixel_matrix(naxis1, naxis2 * naxis3 * naxis4);
+    Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::memcpy(&(pixel_matrix[0]), &(pixels[0]), npixels * sizeof(double));
     pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);

@@ -165,6 +165,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         temp_image = as.logical(temp_image)
       }
       
+      if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+        temp_image = matrix(temp_image, xhi-xlo+1, yhi-ylo+1)
+      }
+      
       if(naxis3 > 1 & naxis4 == 1){
         temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
       }
@@ -233,6 +237,9 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     
     if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
       image = as.vector(image)
+    }
+    if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+      image = matrix(image, naxis1, naxis2)
     }
     if(naxis3 > 1 & naxis4 == 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3))
