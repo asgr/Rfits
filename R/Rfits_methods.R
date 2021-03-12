@@ -167,6 +167,8 @@ print.Rfits_list=function(x , ...){
   ext_name = names(x)
   ext_dim = {}
   ext_class = {}
+  ext_mode = {}
+  ext_type = {}
   ext_size = {}
   ext_keyN = {}
   
@@ -186,6 +188,8 @@ print.Rfits_list=function(x , ...){
     }
     
     ext_class = c(ext_class, class(x[[i]])[1])
+    ext_mode = c(ext_mode, mode(x[[i]]))
+    ext_type = c(ext_type, typeof(x[[i]]))
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
     if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_table', 'Rfits_header', 'Rfits_pointer'))){
       ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
@@ -198,6 +202,8 @@ print.Rfits_list=function(x , ...){
     'Ext'= 1:length(x),
     'Name' = ext_name,
     'Class' = ext_class,
+    'Mode' = ext_mode,
+    'Type' = ext_type,
     'Dim' = ext_dim,
     'Size/MB' = ext_size,
     'Key.N' = ext_keyN

@@ -144,7 +144,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         create_file = FALSE
         overwrite_file = FALSE
       }else{
-        message('List item ',i,' is not recognised and will not be written to FITS!')
+        message('List item ',i,' (',names(data)[i],') is not recognised and will not be written to FITS!')
       }
       
       if(!is.null(names(data)[i])){
