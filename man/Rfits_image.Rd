@@ -134,7 +134,7 @@ Numeric scalar; convenience BZERO zero level to apply to image, where VAL = (RAW
 Numeric scalar; convenience BSCALE scaling factor to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BSCALE value takes priority.
 }
   \item{compress}{
-Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the compression command that will be written within the square brackets, e.g. \option{compress} = 'compress GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]')
+Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the additional compression options that will be written within the square brackets, e.g. \option{compress} = 'GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]')
 }
 }
 \details{
@@ -177,8 +177,8 @@ Rodrigo Tobar
 }
 \examples{
 #Read full image
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
@@ -193,7 +193,7 @@ library(magicaxis)
 magimageWCS(temp_image)
 
 #And again with just a subset
-temp_image_sub=Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
+temp_image_sub = Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
 magimageWCS(temp_image_sub)
 
 #check write and read consistency
@@ -230,7 +230,7 @@ sum(temp_image$imDat - temp_image2$imDat)
 
 #Use compression
 file.size(file_image)
-Rfits_write_image(temp_image$imDat, paste0(file_image_temp,'[compress]'))
+Rfits_write_image(temp_image$imDat, file_image_temp, compress=TRUE)
 file.size(file_image_temp) #about a factor 5 compressed
 temp_image3 = Rfits_read_image(file_image_temp, ext=2)
 magimage(temp_image3$imDat)

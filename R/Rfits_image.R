@@ -392,7 +392,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     if(isTRUE(compress)){
       filename = paste0(justfilename,'[compress]')
     }else if(is.character(compress)){
-      filename = paste0(justfilename,'[',compress,']')
+      filename = paste0(justfilename,'[compress ',compress,']')
     }
   }
   
