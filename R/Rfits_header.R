@@ -52,7 +52,8 @@
 
 Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertCharacter(keyname, len=1)
   assertCharacter(keytype, max.len=1)
@@ -70,7 +71,8 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1)
 
 Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="", ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
@@ -110,7 +112,8 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
 
 Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(comment, len=1)
   assertIntegerish(ext, len=1)
@@ -120,7 +123,8 @@ Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
 
 Rfits_write_history=function(filename='temp.fits', history="", ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(history, len=1)
   assertIntegerish(ext, len=1)
@@ -130,7 +134,8 @@ Rfits_write_history=function(filename='temp.fits', history="", ext=1){
 
 Rfits_write_date=function(filename='temp.fits', ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertIntegerish(ext, len=1)
   
@@ -139,7 +144,8 @@ Rfits_write_date=function(filename='temp.fits', ext=1){
 
 Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
   assertIntegerish(ext, len=1)
@@ -150,6 +156,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
 Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   assertFlag(remove_HIERARCH)
@@ -210,7 +217,8 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
 
 Rfits_read_header_raw=function(filename='temp.fits', ext=1){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   return(Cfits_read_header_raw(filename=filename, ext=ext))
@@ -223,7 +231,8 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   assertFlag(create_file)
   assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
     keynames_old = NULL
@@ -241,17 +250,17 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
     if(missing(keynames)){keynames=keyvalues$keynames}
     if(missing(comment)){comment=keyvalues$comment}
     if(missing(history)){history=keyvalues$history}
-    keyvalues=keyvalues$keyvalues
+    keyvalues = keyvalues$keyvalues
   }
   if(! missing(keycomments)){
     if(is.list(keycomments)){
       assertList(keycomments, len=length(keyvalues))
-      keycomments=unlist(keycomments)
+      keycomments = unlist(keycomments)
     }
     assertCharacter(keycomments, len=length(keyvalues))
   }
   if(missing(keynames)){
-    keynames=names(keyvalues)
+    keynames = names(keyvalues)
   }
   assertCharacter(keynames, max.len=length(keyvalues))
   if(! missing(comment)){
@@ -306,6 +315,7 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
 Rfits_info = function(filename='temp.fits', remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertFlag(remove_HIERARCH)
   
@@ -323,6 +333,7 @@ Rfits_info = function(filename='temp.fits', remove_HIERARCH=FALSE){
 Rfits_write_chksum=function(filename='temp.fits'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   
   Cfits_write_chksum(filename=filename)
@@ -331,6 +342,7 @@ Rfits_write_chksum=function(filename='temp.fits'){
 Rfits_verify_chksum=function(filename='temp.fits', verbose=TRUE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertFlag(verbose)
   
@@ -346,6 +358,7 @@ Rfits_verify_chksum=function(filename='temp.fits', verbose=TRUE){
 Rfits_get_chksum = function(filename='temp.fits'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   
   out = Cfits_get_chksum(filename=filename)
@@ -356,6 +369,7 @@ Rfits_get_chksum = function(filename='temp.fits'){
 Rfits_nhdu = function(filename='temp.fits'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   
   return(Cfits_read_nhdu(filename=filename))

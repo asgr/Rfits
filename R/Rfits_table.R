@@ -53,7 +53,8 @@
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
                           header=FALSE, remove_HIERARCH=FALSE){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   assertFlag(data.table)
@@ -106,7 +107,8 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
 
 Rfits_read_colnames=function(filename='temp.fits', ext=2){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   
@@ -126,7 +128,8 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   assertFlag(create_file)
   assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
   }else{

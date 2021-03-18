@@ -54,7 +54,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
                           force_logical=FALSE){
   assertCharacter(filename, max.len=1)
-  filename=path.expand(filename)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   assertFlag(header)
