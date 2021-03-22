@@ -369,7 +369,7 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
 SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
   int hdutype;
   
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
   char comment[81];
