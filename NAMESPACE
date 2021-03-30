@@ -70,6 +70,9 @@ export(plot.Rfits_vector)
 export(lines.Rfits_vector)
 export(plot.Rfits_pointer)
 
+export(corners)
+export(corners.Rfits_image)
+
 export(Rfits_point)
 export(`&.Rfits_pointer`)
 export(`|.Rfits_pointer`)
@@ -113,6 +116,8 @@ S3method("plot", Rfits_array)
 S3method("plot", Rfits_vector)
 S3method("lines", Rfits_vector)
 S3method("plot", Rfits_pointer)
+
+S3method("corners", Rfits_image)
 
 S3method("&", Rfits_pointer)
 S3method("|", Rfits_pointer)

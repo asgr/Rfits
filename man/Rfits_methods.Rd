@@ -12,6 +12,8 @@
 \alias{dim.Rfits_cube}
 \alias{dim.Rfits_array}
 \alias{dim.Rfits_pointer}
+\alias{corners}
+\alias{corners.Rfits_image}
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
@@ -54,6 +56,8 @@
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
+corners(x) 
+\method{corners}{Rfits_image}(x,  ...)
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE)

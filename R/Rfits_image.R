@@ -576,3 +576,25 @@ Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TR
     stop('The tdigest package is needed for Rfits_tdigest to work. Please install from CRAN.', call.=FALSE)
   }
 }
+
+corners <- function(x){
+  UseMethod("corners", x)
+}
+
+corners.Rfits_image=function(x, ...){
+  if(!inherits(x, 'Rfits_image')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  dims = dim(x)
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, ...)
+    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, ...)
+    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, ...)
+    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, ...)
+    output = rbind(BL, TL, TR, BR)
+    row.names(output) = c('BL', 'TL', 'TR', 'BR')
+    return(output)
+  }else{
+    message('The Rwcs package is needed to plot a Rfits_image object.')
+  }
+}
