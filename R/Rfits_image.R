@@ -335,7 +335,7 @@ Rfits_read_array = Rfits_read_image
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
-                           overwrite_file=TRUE, bzero=0, bscale=1, compress=FALSE){
+                           overwrite_file=TRUE, bzero=0, bscale=1, compress=FALSE, bad_compress=0){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -375,6 +375,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertCharacter(integer, len=1)
   assertNumeric(bzero)
   assertNumeric(bscale)
+  assertNumeric(bad_compress)
   
   naxes = dim(data)
   if(is.null(naxes)){naxes = length(data)}
@@ -395,9 +396,16 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     }else if(is.character(compress)){
       filename = paste0(justfilename,'[compress ',compress,']')
     }
+    compress = TRUE
+  }else{
+    compress = FALSE
   }
   
-  bitpix=0
+  if(compress){
+    data[!is.finite(data)] = bad_compress
+  }
+  
+  bitpix = 0
   
   if(max(data,na.rm=TRUE)>2^30){
     integer='long'
@@ -577,11 +585,28 @@ Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TR
   }
 }
 
-corners <- function(x){
+centre = function(x){
+  UseMethod("centre", x)
+}
+
+centre.Rfits_image = function(x, ...){
+  if(!inherits(x, 'Rfits_image')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  dims = dim(x)
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, ...)
+    return(output)
+  }else{
+    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
+  }
+}
+
+corners = function(x){
   UseMethod("corners", x)
 }
 
-corners.Rfits_image=function(x, ...){
+corners.Rfits_image = function(x, ...){
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
@@ -595,6 +620,6 @@ corners.Rfits_image=function(x, ...){
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
     return(output)
   }else{
-    message('The Rwcs package is needed to plot a Rfits_image object.')
+    message('The Rwcs package is needed to find the corners of a Rfits_image object.')
   }
 }

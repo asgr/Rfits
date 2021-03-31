@@ -36,22 +36,22 @@ Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE) 
+    bscale = 1, compress = FALSE, bad_compress = 0) 
     
 Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE) 
+    bscale = 1, compress = FALSE, bad_compress = 0) 
     
 Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE)
+    bscale = 1, compress = FALSE, bad_compress = 0)
 
 Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE) 
+    bscale = 1, compress = FALSE, bad_compress = 0) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -135,6 +135,9 @@ Numeric scalar; convenience BSCALE scaling factor to apply to image, where VAL =
 }
   \item{compress}{
 Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the additional compression options that will be written within the square brackets, e.g. \option{compress} = 'GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]')
+}
+  \item{bad_compress}{
+Numeric scalar; non-numeric replacement value to use when compression is being done. CFITSIO does not work well with any of the usual R non-numeric values (NA, NaN, Inf etc) when compressing since it makes bad guesses at how to correctly re-scale the image for compression. This flag offers a simple numeric value to replace all non-numeric elements with when compression is requested (so it is not applied for uncompressed image writing).
 }
 }
 \details{

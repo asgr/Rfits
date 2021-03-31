@@ -105,8 +105,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
   assertCharacter(filename, max.len=1)
   assertFlag(flatten)
   assertFlag(overwrite_Main)
-  assertLogical(compress)
-  
+
   create_file = TRUE
   overwrite_file = TRUE
   

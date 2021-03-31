@@ -70,6 +70,8 @@ export(plot.Rfits_vector)
 export(lines.Rfits_vector)
 export(plot.Rfits_pointer)
 
+export(centre)
+export(centre.Rfits_image)
 export(corners)
 export(corners.Rfits_image)
 
@@ -117,6 +119,7 @@ S3method("plot", Rfits_vector)
 S3method("lines", Rfits_vector)
 S3method("plot", Rfits_pointer)
 
+S3method("centre", Rfits_image)
 S3method("corners", Rfits_image)
 
 S3method("&", Rfits_pointer)
@@ -135,9 +138,6 @@ S3method("/", Rfits_pointer)
 S3method("%%", Rfits_pointer)
 S3method("%/%", Rfits_pointer)
 S3method("%*%", Rfits_pointer)
-
-#Cfits things
-#export(Cfits_read_img_subset)
 
 #Rcpp
 useDynLib(Rfits, .registration=TRUE)
