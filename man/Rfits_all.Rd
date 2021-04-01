@@ -14,14 +14,14 @@ Simple functions that either read in or write out all supported FITS extensions.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE)
+  data.table = TRUE, anycompress = TRUE, bad = NULL)
 Rfits_read(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE)
+  data.table = TRUE, anycompress = TRUE, bad = NULL)
   
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
-  compress = FALSE, list_sub = NULL)
+  compress = FALSE, bad_compress = 0, list_sub = NULL)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
-  compress = FALSE, list_sub = NULL)
+  compress = FALSE, bad_compress = 0, list_sub = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -49,8 +49,14 @@ Logical; FITS tables are by default written with EXTNAME = 'Main', if the \optio
   \item{anycompress}{
 Logical; might some of the extensions be compressed images? If this is definitely not the case and you are having issues reading in the target FITS then set to FALSE, since it means all binary tables will be treated as FITS tables (not compressed images). In general leaving this set to TRUE should be okay though since \code{Rfits_read_all} / \code{Rfits_read} checks whether the keyword 'ZIMAGE' is TRUE, FALSE or not present (which means it is not a compressed image).
 }
+  \item{bad}{
+Vector; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images).
+}
   \item{compress}{
 Logical vector; option to specify per extension image compression. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images).  
+}
+  \item{bad_compress}{
+Numeric vector; non-numeric replacement value to use when compression is being done. CFITSIO does not work well with any of the usual R non-numeric values (NA, NaN, Inf etc) when compressing since it makes bad guesses at how to correctly re-scale the image for compression. This flag offers a simple numeric value to replace all non-numeric elements with when compression is requested (so it is not applied for uncompressed image writing). If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images).
 }
   \item{list_sub}{
 Character vector; if supplied the output list elements will be limited to those named here. This is a convenient way to only write out a subset of a large list by list component name.  

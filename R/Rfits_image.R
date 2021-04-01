@@ -52,7 +52,7 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE){
+                          force_logical=FALSE, bad=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -68,6 +68,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   assertIntegerish(tlo, null.ok=TRUE)
   assertIntegerish(thi, null.ok=TRUE)
   assertFlag(remove_HIERARCH)
+  assertFlag(force_logical)
+  checkNumeric(bad, null.ok=TRUE)
   
   subset=FALSE
   
@@ -247,6 +249,12 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     if(naxis4 > 1){
       image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
+    }
+    
+    if(!is.null(bad)){
+      if(any(!is.finite(image))){
+        image[!is.finite(image)] = bad
+      }
     }
   }
   

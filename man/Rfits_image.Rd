@@ -19,19 +19,19 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
   
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
 
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
@@ -116,7 +116,10 @@ Integer scalar; high z limit (usually Temporal axis) to cut out from \option{ima
 Logical scalar, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
   \item{force_logical}{
-Logical scalar; should an integer image be converted to a logical R image. All values note equal to 0L (including negative values) are TRUE, and all values equal to 0L are TRUE. This is really a presentational issue, since internally 0/FALSE and 1/TRUE and R synonyms, and they are both stored as full integers, so there is not even a storage advantage. The main difference is how is.logical and isTRUE/isFALSE behave (0L and 1L are FALSE for all).
+Logical scalar; should an integer image be converted to a logical R image. All values not equal to 0L (including negative values) are TRUE, and all values equal to 0L are FALSE. This is really a presentational issue, since internally 0/FALSE and 1/TRUE and R synonyms, and they are both stored as full integers, so there is not even a storage advantage. The main difference is how is.logical and isTRUE/isFALSE behave (0L and 1L are FALSE for all).
+}
+  \item{bad}{
+Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation.
 }
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
