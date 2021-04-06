@@ -109,6 +109,9 @@ Rfits_write_all(temp_mix, file_mix_temp2, overwrite_Main=FALSE)
 temp_mix2 = Rfits_read_all(file_mix_temp2)
 attributes(temp_mix)$filename = attributes(temp_mix2)$filename #should be only changes
 temp_mix2[[1]]$filename = temp_mix[[1]]$filename #should be only changes
+attributes(temp_mix2[[2]])$filename = attributes(temp_mix[[2]])$filename #should be only changes
+attributes(temp_mix2[[3]])$filename = attributes(temp_mix[[3]])$filename #should be only changes
+attributes(temp_mix2[[4]])$filename = attributes(temp_mix[[4]])$filename #should be only changes
 temp_mix2[[5]]$filename = temp_mix[[5]]$filename #should be only changes
 expect_identical(temp_mix, temp_mix2)
 

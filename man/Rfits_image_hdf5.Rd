@@ -4,7 +4,7 @@
 \alias{Rfits_write_image_hdf5}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-FITS Style HSF5 Reader and Writer
+FITS Style HDF5 Image Reader and Writer
 }
 \description{
 Image readers and writers that use HDF5 for the storage back-end, rather than FITS. The read in files will look almost identical to those read in with \code{\link{Rfits_read_image}}.
@@ -60,7 +60,7 @@ This funcation attempted to mimic a FITS like data stucture using HDF5, making u
 \value{
 \code{Rfits_read_image_hdf5} reads in image data from a HDF5 file.
 
-\code{Rfits_write_image_hdf5} writes image data to a HDF5 file. This funcation will not allow you to write an extension with the same name as one that is currently present (you will need to manually delete it).
+\code{Rfits_write_image_hdf5} writes image data to a HDF5 file. This function will not allow you to write an extension with the same name as one that is currently present (you will need to manually delete it).
 }
 \author{
 Aaron Robotham
@@ -73,6 +73,8 @@ These functions are a proof of concept for creating more generic astronomy data 
 \code{\link{Rfits_image}}
 }
 \examples{
+library(hdf5r)
+
 #Read full image
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
@@ -80,8 +82,11 @@ temp_image = Rfits_read_image(file_image)
 #write it out
 file_image_temp = tempfile()
 Rfits_write_image_hdf5(temp_image, file_image_temp)
+
+#Read it in again
 temp_image_hdf5 = Rfits_read_image_hdf5(file_image_temp)
 
+#Check
 sum(temp_image$imDat - temp_image_hdf5$imDat)
 }
 

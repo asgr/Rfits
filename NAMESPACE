@@ -43,6 +43,9 @@ export(Rfits_encode_chksum)
 export(Rfits_decode_chksum)
 export(Rfits_nhdu)
 
+export(Rfits_read_table_hdf5)
+export(Rfits_write_table_hdf5)
+
 export(Rfits_read_image_hdf5)
 export(Rfits_write_image_hdf5)
 

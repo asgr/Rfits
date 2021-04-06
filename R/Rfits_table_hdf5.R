@@ -1,18 +1,7 @@
-Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, header=TRUE,
-                                 xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, remove_HIERARCH=FALSE){
+Rfits_read_table_hdf5 = function(filename='temp.h5', extname='table1', ext=NULL, data.table=TRUE, header=FALSE, remove_HIERARCH=FALSE){
   if(requireNamespace("hdf5r", quietly = TRUE)){
-    assertCharacter(filename, max.len=1)
-    filename = path.expand(filename)
-    assertAccess(filename, access='r')
-    assertCharacter(extname, max.len=1)
-    assertFlag(header)
-    assertIntegerish(xlo, null.ok=TRUE)
-    assertIntegerish(xhi, null.ok=TRUE)
-    assertIntegerish(ylo, null.ok=TRUE)
-    assertIntegerish(yhi, null.ok=TRUE)
-    assertFlag(remove_HIERARCH)
     
-    file.h5 = hdf5r::H5File$new(filename, mode='r')
+    file.h5 = hdf5r::H5File$new(filename, mode='a')
     
     output = NULL
     
@@ -21,22 +10,12 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
         extname = file.h5$names[ext]
       }
       
-      dim = file.h5[[extname]]$dims
-      naxis1 = dim[1]
-      naxis2 = dim[2]
+      output = file.h5[[extname]][]
       
-      if(is.null(xlo)){xlo = 1}
-      if(is.null(xhi)){xhi = naxis1}
-      if(is.null(ylo)){ylo = 1}
-      if(is.null(yhi)){yhi = naxis2}
-      
-      assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
-      assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
-      assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
-      assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
-      
-      if(xhi<xlo){stop('xhi must be larger than xlo')}
-      if(yhi<ylo){stop('yhi must be larger than ylo')}
+      if(data.table){
+        output = data.table::as.data.table(output)
+        
+      }
       
       if(header){
         #raw header
@@ -89,36 +68,36 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
         
         ext = which(file.h5$names == extname)
         
-        output = list(imDat = file.h5[[extname]][xlo:xhi,ylo:yhi],
-                      header = header,
-                      hdr = hdr,
-                      keyvalues = keyvalues,
-                      keycomments = keycomments,
-                      keynames = keynames,
-                      comment = comment,
-                      history = history,
-                      filename = filename,
-                      ext = ext,
-                      extname = extname
+        hdr = list(header = header,
+                   hdr = hdr,
+                   keyvalues = keyvalues,
+                   keycomments = keycomments,
+                   keynames = keynames,
+                   comment = comment,
+                   history = history
         )
         
-        class(output) = c('Rfits_image', class(output))
-      }else{
-        output = file.h5[[extname]][xlo:xhi,ylo:yhi]
+        attributes(output) = c(attributes(output), 
+                               hdr,
+                               filename = filename,
+                               ext = ext,
+                               extname = hdr$keyvalues$EXTNAME
+        )
+        
+        class(output) = c('Rfits_table', class(output))
+        
       }
     })
     
     file.h5$close_all()
     
-    if(!is.null(output)){
-      return(output)  
-    }
+    return(output)
   }else{
     stop('The hdf5r package is needed for reading to work. Please install from CRAN.', call. = FALSE)
   }
 }
 
-Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', create_ext=TRUE, overwrite_file=FALSE){
+Rfits_write_table_hdf5 = function(table, filename='temp.h5', extname='table1', create_ext=TRUE, overwrite_file=FALSE){
   if(requireNamespace("hdf5r", quietly = TRUE)){
     assertCharacter(filename, max.len=1)
     assertCharacter(extname, max.len=1)
@@ -135,14 +114,13 @@ Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', cre
     file.h5 = hdf5r::H5File$new(filename, mode='a')
     
     try({
-      if(inherits(data, what=c('Rfits_image'))){
-        header = data$header
-        data = data$imDat
+      if(inherits(table, what=c('Rfits_table'))){
+        header = attributes(table)$header
         
-        file.h5[[extname]] = data
+        file.h5[[extname]] = table
         hdf5r::h5attr(file.h5[[extname]], 'header') = header
       }else{
-        file.h5[[extname]] = data
+        file.h5[[extname]] = table
       }
     })
     

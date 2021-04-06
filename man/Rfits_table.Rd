@@ -27,11 +27,14 @@ Rfits_write_table(table, filename = 'temp.fits', ext = 2, extname = 'Main',
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read.
 }
+  \item{table}{
+Data.frame or data.table; data to be written out as a binary FITS table.
+}
   \item{ext}{
 Integer scalar; the extension to read or write (usually starts at 2 for tables). For writing, what really happens is the specified extension is deleted (if \option{create_ext} = FALSE), all current extensions shuffle forward one place, and a new extension is appended at the end of the file. This means unless the target extension is already at the end of the FITS file, the extension order will change. This is how cfitsio works with extensions (not a \code{Rfits} design decision). If the order is really important then you will need to construct a new FITS file from scratch and build it in the order desired.
 }
-  \item{table}{
-Data.frame or data.table; data to be written out as a binary FITS table.
+  \item{data.table}{
+Logical; should a \code{data.table} be returned?
 }
   \item{cols}{
 Vector; either a vector of integer column numbers to be extracted from the target FITS table, or a vector of column names (all must be present in the target FITS table).  
@@ -40,7 +43,7 @@ Vector; either a vector of integer column numbers to be extracted from the targe
 Logical; should the progress of table reading and writing be displayed? This is probably only useful for very large (many GB) that might take a long time to read or write.
 }
   \item{header}{
-Logical; if TRUE then \code{Rfits_table} gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_read_header}} (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
+Logical; if TRUE then output gains attributes containing the header information from a call to \code{\link{Rfits_read_header}} (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
 }
   \item{extname}{
 Character scalar; name of the table extension. 
@@ -62,9 +65,6 @@ Logical; should a new file be created (TRUE) or not (FALSE). If not then the fil
 }
   \item{overwrite_file}{
 Logical; if file exists at location \option{filename}, should it be overwritten (i.e. deleted and a fresh FITS file created)?
-}
-  \item{data.table}{
-Logical; should a \code{data.table} be returned?
 }
   \item{table_type}{
 Character scalar; type of table to be written. Must be one of 'binary' (default) or 'ascii'.  

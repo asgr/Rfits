@@ -77,28 +77,36 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   assertFlag(header)
   assertFlag(remove_HIERARCH)
 
-  output=list()
-  count=1
+  output = list()
+  count = 1
   
   for(i in cols){
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]]=Cfits_read_col(filename=filename, colref=i, ext=ext)
+    output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext)
     count = count + 1
   }
   
   if(data.table){
-    output=data.table::as.data.table(output)
+    output = data.table::as.data.table(output)
     
   }else{
-    output=as.data.frame(output)
+    output = as.data.frame(output)
   }
   
   colnames(output) = colnames
   
   if(header){
-    attributes(output) = c(attributes(output), Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH))
+    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
+    
+    attributes(output) = c(attributes(output), 
+                           hdr,
+                           filename = filename,
+                           ext = ext,
+                           extname = hdr$keyvalues$EXTNAME
+                           )
+    
     class(output) = c('Rfits_table', class(output))
   }
   
@@ -154,13 +162,13 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   NaN_replace = as.integer(NaN_replace)
   Inf_replace = as.integer(Inf_replace)
   
-  ttypes=colnames(table)
+  ttypes = colnames(table)
   
-  check.logical=sapply(table,is.logical)
-  check.int=sapply(table,is.integer)
-  check.integer64=sapply(table,is.integer64)
-  check.double=sapply(table,is.numeric) & (! check.int) & (! check.integer64)
-  check.char=sapply(table,is.character)
+  check.logical = sapply(table,is.logical)
+  check.int = sapply(table,is.integer)
+  check.integer64 = sapply(table,is.integer64)
+  check.double = sapply(table,is.numeric) & (! check.int) & (! check.integer64)
+  check.char = sapply(table,is.character)
   
   if(any(check.logical)){
     for(i in which(check.logical)){
