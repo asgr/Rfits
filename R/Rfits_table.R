@@ -84,7 +84,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]]=Cfits_read_col(filename=filename,colref=i,ext=ext)
+    output[[count]]=Cfits_read_col(filename=filename, colref=i, ext=ext)
     count = count + 1
   }
   
@@ -98,7 +98,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   colnames(output) = colnames
   
   if(header){
-    attributes(output) = c(attributes(output), Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH = remove_HIERARCH))
+    attributes(output) = c(attributes(output), Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH))
     class(output) = c('Rfits_table', class(output))
   }
   

@@ -56,7 +56,7 @@ Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out as a FITS image or cube. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing (see Examples). For writing just \option{image} data (no WCS is allowed at this time) you can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. E.g \option{filename} = 'file.fits' for writing a normal uncompressed images, or \option{filename} = 'file.fits[compress]' for writing a compressed image. These have additional parameters that can be passed in, see \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}. Support for WCS writing of compressed images will come in the future, currently you should only write the image matrix to a compressed extenstion (see Examples).
@@ -146,13 +146,13 @@ Numeric scalar; non-numeric replacement value to use when compression is being d
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to work.
 
-\code{Rfits_read_image} reads in data from a FITS file. This can be either an image or a cube. Note that image subsetting does not work for cubes (you have to read in the full cube).
+\code{Rfits_read_image} reads in data from a FITS file. This can be either a vector, image, cube or 4D array.
 
 \code{Rfits_read_cube} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
 
 \code{Rfits_read_array} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
 
-\code{Rfits_write_image} writes image or cube data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
+\code{Rfits_write_image} writes vector, image, cube or 4D array data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 
 \code{Rfits_write_cube} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
 
@@ -166,7 +166,7 @@ When reading, if \option{header}=FALSE then then the output is just the raw imag
 You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent (see Examples).
 }
 \value{
-\code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}.
+\code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext} and \option{extname}.
 
 \code{Rfits_write_image} write out image to target FITS extension.
 }

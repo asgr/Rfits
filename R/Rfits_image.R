@@ -75,7 +75,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | header){
     
-    hdr=Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
+    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
     
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
       naxis1=hdr$keyvalues$ZNAXIS1
@@ -308,15 +308,16 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       
     }
     output = list(imDat = image,
-                  hdr = hdr$hdr,
                   header = hdr$header,
+                  hdr = hdr$hdr,
                   keyvalues = hdr$keyvalues,
                   keycomments = hdr$keycomments,
                   keynames = hdr$keynames,
                   comment = hdr$comment,
                   history = hdr$history,
                   filename = filename,
-                  ext = ext
+                  ext = ext,
+                  extname = hdr$keyvalues$EXTNAME
                   )
 
     if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
@@ -379,6 +380,8 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   if(!missing(history)){history=as.character(history)}
   if(is.numeric(numeric)){numeric=as.character(numeric)}
   if(is.numeric(integer)){integer=as.character(integer)}
+  
+  assertIntegerish(ext, len=1)
   assertCharacter(numeric, len=1)
   assertCharacter(integer, len=1)
   assertNumeric(bzero)
