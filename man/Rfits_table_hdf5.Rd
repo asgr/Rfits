@@ -70,17 +70,23 @@ library(hdf5r)
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
 temp_table = Rfits_read_table(file_table, header=TRUE)
 
+#Extra header attributes (does not affect the data.frame or data.table class)
+attributes(temp_table)$header[1:5]
+
 #Write it out
 file_table_temp = tempfile()
 Rfits_write_table_hdf5(temp_table, filename=file_table_temp)
 
 #Read it in again
-temp_table_hdf5 = Rfits_read_table_hdf5(file_table_temp)
+temp_table_hdf5 = Rfits_read_table_hdf5(file_table_temp, header=TRUE)
 temp_table_hdf5[1:5,]
 
 #Check
 cols_check = which(sapply(temp_table[1,], is.numeric))
 sum(temp_table[,..cols_check] - temp_table_hdf5[,..cols_check])
+
+#Extra header attributes are still present in the HDF5 file
+attributes(temp_table_hdf5)$header[1:5]
 }
 
 \concept{ HDF5 }
