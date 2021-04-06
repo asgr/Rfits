@@ -1,5 +1,7 @@
 Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, header=TRUE,
-                                 xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, remove_HIERARCH=FALSE){
+                                 xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, zlo=NULL, zhi=NULL,
+                                 tlo=NULL, thi=NULL, remove_HIERARCH=FALSE, force_logical=FALSE,
+                                 bad=NULL){
   if(requireNamespace("hdf5r", quietly = TRUE)){
     assertCharacter(filename, max.len=1)
     filename = path.expand(filename)
@@ -22,21 +24,110 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
       }
       
       dim = file.h5[[extname]]$dims
-      naxis1 = dim[1]
-      naxis2 = dim[2]
       
-      if(is.null(xlo)){xlo = 1}
-      if(is.null(xhi)){xhi = naxis1}
-      if(is.null(ylo)){ylo = 1}
-      if(is.null(yhi)){yhi = naxis2}
+      Ndim = length(dim)
       
-      assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
-      assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
-      assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
-      assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
+      naxis1 = naxis2 = naxis3 = naxis4 = 1
       
-      if(xhi<xlo){stop('xhi must be larger than xlo')}
-      if(yhi<ylo){stop('yhi must be larger than ylo')}
+      if(Ndim >= 1){naxis1 = dim[1]}
+      if(Ndim >= 2){naxis2 = dim[2]}
+      if(Ndim >= 3){naxis3 = dim[3]}
+      if(Ndim == 4){naxis4 = dim[4]}
+      
+      subset = FALSE
+      
+      if(is.null(xlo)){xlo = 1}else{subset=TRUE}
+      if(is.null(xhi)){xhi = naxis1}else{subset=TRUE}
+      if(is.null(ylo)){ylo = 1}else{subset=TRUE}
+      if(is.null(yhi)){yhi = naxis2}else{subset=TRUE}
+      if(is.null(zlo)){zlo = 1}else{subset=TRUE}
+      if(is.null(zhi)){zhi = naxis3}else{subset=TRUE}
+      if(is.null(tlo)){tlo = 1}else{subset=TRUE}
+      if(is.null(thi)){thi = naxis4}else{subset=TRUE}
+      
+      if(subset){
+        safex = .safedim(1,naxis1,xlo,xhi)
+        safey = .safedim(1,naxis2,ylo,yhi)
+        safez = .safedim(1,naxis3,zlo,zhi)
+        safet = .safedim(1,naxis4,tlo,thi)
+        xlo = min(safex$orig)
+        xhi = max(safex$orig)
+        ylo = min(safey$orig)
+        yhi = max(safey$orig)
+        zlo = min(safez$orig)
+        zhi = max(safez$orig)
+        tlo = min(safet$orig)
+        thi = max(safet$orig)
+        
+        if(safex$safe){
+          assertIntegerish(xlo, lower=1, upper=naxis1, len=1)
+          assertIntegerish(xhi, lower=1, upper=naxis1, len=1)
+        }
+        if(safey$safe){
+          assertIntegerish(ylo, lower=1, upper=naxis2, len=1)
+          assertIntegerish(yhi, lower=1, upper=naxis2, len=1)
+        }
+        if(safez$safe){
+          assertIntegerish(zlo, lower=1, upper=naxis3, len=1)
+          assertIntegerish(zhi, lower=1, upper=naxis3, len=1)
+        }
+        if(safet$safe){
+          assertIntegerish(tlo, lower=1, upper=naxis4, len=1)
+          assertIntegerish(thi, lower=1, upper=naxis4, len=1)
+        }
+        
+        if(xhi < xlo){stop('xhi must be larger than xlo')}
+        if(yhi < ylo){stop('yhi must be larger than ylo')}
+        if(zhi < zlo){stop('zhi must be larger than zlo')}
+        if(thi < tlo){stop('thi must be larger than tlo')}
+      
+        if(safex$safe & safey$safe & safez$safe & safet$safe){
+          if(Ndim == 1){temp_image = file.h5[[extname]][xlo:xhi]}
+          if(Ndim == 2){temp_image = file.h5[[extname]][xlo:xhi,ylo:yhi]}
+          if(Ndim == 3){temp_image = file.h5[[extname]][xlo:xhi,ylo:yhi,zlo:zhi]}
+          if(Ndim == 4){temp_image = file.h5[[extname]][xlo:xhi,ylo:yhi,zlo:zhi,tlo:thi]}
+        }
+        if(Ndim==1){
+          image = rep(NA, safex$len_tar)
+          if(safex$safe){
+            image[safex$tar] = temp_image
+          }
+        }
+        if(Ndim==2){
+          image = array(NA, c(safex$len_tar, safey$len_tar))
+          if(safex$safe & safey$safe){
+            image[safex$tar,safey$tar] = temp_image
+          }
+        }
+        if(Ndim==3){
+          image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
+          if(safex$safe & safey$safe & safez$safe){
+            image[safex$tar,safey$tar,safez$tar] = temp_image
+          }
+        }
+        if(Ndim==4){
+          image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
+          if(safex$safe & safey$safe & safez$safe & safet$safe){
+            image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+          }
+        }
+        
+      }else{
+        if(Ndim == 1){image = file.h5[[extname]][]}
+        if(Ndim == 2){image = file.h5[[extname]][,]}
+        if(Ndim == 3){image = file.h5[[extname]][,,]}
+        if(Ndim == 4){image = file.h5[[extname]][,,,]}
+      }
+      
+      if(force_logical & is.integer(image)){
+        image = as.logical(image)
+      }
+      
+      if(!is.null(bad)){
+        if(any(!is.finite(image))){
+          image[!is.finite(image)] = bad
+        }
+      }
       
       if(header){
         #raw header
@@ -89,7 +180,52 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
         
         ext = which(file.h5$names == extname)
         
-        output = list(imDat = file.h5[[extname]][xlo:xhi,ylo:yhi],
+        if(subset){
+          #Dim 1
+          hdr[which(hdr=='NAXIS1')+1] = safex$len_tar
+          hdr[which(hdr=='CRPIX1')+1] = as.character(keyvalues$CRPIX1 - safex$lo_tar + 1)
+          keyvalues$NAXIS1 = safex$len_tar
+          keyvalues$CRPIX1 = keyvalues$CRPIX1 - safex$lo_tar + 1
+          keycomments$NAXIS1 = paste(keycomments$NAXIS1, 'SUBMOD')
+          keycomments$CRPIX1 = paste(keycomments$CRPIX1, 'SUBMOD')
+          header[grep('NAXIS1', header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(keyvalues$NAXIS1, width=21),' / ',keycomments$NAXIS1,sep='')
+          header[grep('CRPIX1', header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(keyvalues$CRPIX1, width=21),' / ',keycomments$CRPIX1,sep='')
+          #Dim 2
+          if(Ndim >= 2){
+            hdr[which(hdr=='NAXIS2')+1] = safey$len_tar
+            hdr[which(hdr=='CRPIX2')+1] = as.character(keyvalues$CRPIX2 - safey$lo_tar + 1)
+            keyvalues$NAXIS2 = safey$len_tar
+            keyvalues$CRPIX2 = keyvalues$CRPIX2 - safey$lo_tar + 1
+            keycomments$NAXIS2 = paste(keycomments$NAXIS2, 'SUBMOD')
+            keycomments$CRPIX2 = paste(keycomments$CRPIX2, 'SUBMOD')
+            header[grep('NAXIS2', header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(keyvalues$NAXIS2, width=21),' / ',keycomments$NAXIS2,sep='')
+            header[grep('CRPIX2', header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(keyvalues$CRPIX2, width=21),' / ',keycomments$CRPIX2,sep='')
+          }
+          #Dim 3
+          if(Ndim >= 3){
+            hdr[which(hdr=='NAXIS3')+1] = safez$len_tar
+            hdr[which(hdr=='CRPIX3')+1] = as.character(keyvalues$CRPIX3 - safez$lo_tar + 1)
+            keyvalues$NAXIS3 = safez$len_tar
+            keyvalues$CRPIX3 = keyvalues$CRPIX3 - safez$lo_tar + 1
+            keycomments$NAXIS3 = paste(keycomments$NAXIS3, 'SUBMOD')
+            keycomments$CRPIX3 = paste(keycomments$CRPIX3, 'SUBMOD')
+            header[grep('NAXIS3', header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(keyvalues$NAXIS3, width=21),' / ',keycomments$NAXIS3,sep='')
+            header[grep('CRPIX3', header)] = paste(formatC('CRPIX3', width=8,flag="-"),'=',formatC(keyvalues$CRPIX3, width=21),' / ',keycomments$CRPIX3,sep='')
+          }
+          #Dim 4
+          if(Ndim >= 4){
+            hdr[which(hdr=='NAXIS4')+1] = safet$len_tar
+            hdr[which(hdr=='CRPIX4')+1] = as.character(keyvalues$CRPIX4 - safet$lo_tar + 1)
+            keyvalues$NAXIS4 = safet$len_tar
+            keyvalues$CRPIX4 = keyvalues$CRPIX4 - safet$lo_tar + 1
+            keycomments$NAXIS4 = paste(keycomments$NAXIS4, 'SUBMOD')
+            keycomments$CRPIX4 = paste(keycomments$CRPIX4, 'SUBMOD')
+            header[grep('NAXIS4', header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(keyvalues$NAXIS4, width=21),' / ',keycomments$NAXIS4,sep='')
+            header[grep('CRPIX4', header)] = paste(formatC('CRPIX4', width=8,flag="-"),'=',formatC(keyvalues$CRPIX4, width=21),' / ',keycomments$CRPIX4,sep='')
+          }
+        }
+        
+        output = list(imDat = image,
                       header = header,
                       hdr = hdr,
                       keyvalues = keyvalues,
@@ -102,16 +238,20 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
                       extname = extname
         )
         
-        class(output) = c('Rfits_image', class(output))
+        if(Ndim == 1){class(output) = c('Rfits_vector', class(output))}
+        if(Ndim == 2){class(output) = c('Rfits_image', class(output))}
+        if(Ndim == 3){class(output) = c('Rfits_cube', class(output))}
+        if(Ndim == 4){class(output) = c('Rfits_array', class(output))}
+        
       }else{
-        output = file.h5[[extname]][xlo:xhi,ylo:yhi]
+        output = image
       }
     })
     
     file.h5$close_all()
     
     if(!is.null(output)){
-      return(output)  
+      return(invisible(output))
     }
   }else{
     stop('The hdf5r package is needed for reading to work. Please install from CRAN.', call. = FALSE)
@@ -135,7 +275,7 @@ Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', cre
     file.h5 = hdf5r::H5File$new(filename, mode='a')
     
     try({
-      if(inherits(data, what=c('Rfits_image'))){
+      if(inherits(data, what=c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
         header = data$header
         data = data$imDat
         

@@ -11,14 +11,15 @@ Image readers and writers that use HDF5 for the storage back-end, rather than FI
 }
 \usage{
 Rfits_read_image_hdf5(filename = "temp.h5", extname = "data1", ext = NULL, header = TRUE,
-  xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, remove_HIERARCH = FALSE)
+  xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
 Rfits_write_image_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix (i.e. image) data to be written out as a HDF5 image. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out as a HDF5 image. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
 }
   \item{filename}{
 Character scalar; path to HDF5 file, either to be written to or read.
@@ -44,8 +45,26 @@ Integer scalar; low y limit (usually Declination axis) to cut out from \option{i
   \item{yhi}{
 Integer scalar; high y limit (usually Declination axis) to cut out from \option{image} (NAXIS2 or smaller and greater than \option{yhi}).
 }
+  \item{zlo}{
+Integer scalar; low z limit (usually Spectral axis) to cut out from \option{image} (1 or larger and less than \option{zhi}).
+}
+  \item{zhi}{
+Integer scalar; high z limit (usually Spectral axis) to cut out from \option{image} (NAXIS3 or smaller and greater than \option{zhi}).
+}
+  \item{tlo}{
+Integer scalar; low t limit (usually Temporal axis) to cut out from \option{image} (1 or larger and less than \option{thi}).
+}
+  \item{thi}{
+Integer scalar; high z limit (usually Temporal axis) to cut out from \option{image} (NAXIS4 or smaller and greater than \option{thi}).
+}
   \item{remove_HIERARCH}{
 Logical scalar, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
+  \item{force_logical}{
+Logical scalar; should an integer image be converted to a logical R image. All values not equal to 0L (including negative values) are TRUE, and all values equal to 0L are FALSE. This is really a presentational issue, since internally 0/FALSE and 1/TRUE and R synonyms, and they are both stored as full integers, so there is not even a storage advantage. The main difference is how is.logical and isTRUE/isFALSE behave (0L and 1L are FALSE for all).
+}
+  \item{bad}{
+Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation.
 }
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE).
