@@ -1,10 +1,16 @@
 \name{Rfits_image_hdf5}
 \alias{Rfits_image_hdf5}
+\alias{Rfits_read_vector_hdf5}
 \alias{Rfits_read_image_hdf5}
+\alias{Rfits_read_cube_hdf5}
+\alias{Rfits_read_array_hdf5}
+\alias{Rfits_write_vector_hdf5}
 \alias{Rfits_write_image_hdf5}
+\alias{Rfits_write_cube_hdf5}
+\alias{Rfits_write_array_hdf5}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-FITS Style HDF5 Image Reader and Writer
+FITS Style HDF5 Vector Image Cube and Array Readers and Writers
 }
 \description{
 Image readers and writers that use HDF5 for the storage back-end, rather than FITS. The read in files will look almost identical to those read in with \code{\link{Rfits_read_image}}.
@@ -12,8 +18,30 @@ Image readers and writers that use HDF5 for the storage back-end, rather than FI
 \usage{
 Rfits_read_image_hdf5(filename = "temp.h5", extname = "data1", ext = NULL, header = TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+
+Rfits_read_vector_hdf5(filename = "temp.h5", extname = "data1", ext = NULL, header = TRUE,
+  xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+
+Rfits_read_cube_hdf5(filename = "temp.h5", extname = "data1", ext = NULL, header = TRUE,
+  xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE)
+
+Rfits_read_array_hdf5(filename = "temp.h5", extname = "data1", ext = NULL, header = TRUE,
+  xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE) 
+
 Rfits_write_image_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
+  overwrite_file = FALSE)
+  
+Rfits_write_vector_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
+  overwrite_file = FALSE)
+  
+Rfits_write_cube_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
+  overwrite_file = FALSE)
+  
+Rfits_write_array_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -63,9 +91,6 @@ Logical scalar, should the leading 'HIERARCH' be removed for extended keyword na
   \item{force_logical}{
 Logical scalar; should an integer image be converted to a logical R image. All values not equal to 0L (including negative values) are TRUE, and all values equal to 0L are FALSE. This is really a presentational issue, since internally 0/FALSE and 1/TRUE and R synonyms, and they are both stored as full integers, so there is not even a storage advantage. The main difference is how is.logical and isTRUE/isFALSE behave (0L and 1L are FALSE for all).
 }
-  \item{bad}{
-Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation.
-}
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE).
 }
@@ -77,9 +102,9 @@ Logical scalar; if file exists at location \option{filename}, should it be overw
 This funcation attempted to mimic a FITS like data stucture using HDF5, making use to the attributes of the group for writing the header.
 }
 \value{
-\code{Rfits_read_image_hdf5} reads in image data from a HDF5 file.
+\code{Rfits_read_xxx_hdf5} reads in image data from a HDF5 file. The different variants actually all point to \code{Rfits_read_image_hdf5} internally, but for code clarity it is often good to make the data type more explicit.
 
-\code{Rfits_write_image_hdf5} writes image data to a HDF5 file. This function will not allow you to write an extension with the same name as one that is currently present (you will need to manually delete it).
+\code{Rfits_write_xxx_hdf5} writes image data to a HDF5 file. This function will not allow you to write an extension with the same name as one that is currently present (you will need to manually delete it). The different variants actually all point to \code{Rfits_write_image_hdf5} internally, but for code clarity it is often good to make the data type more explicit.
 }
 \author{
 Aaron Robotham

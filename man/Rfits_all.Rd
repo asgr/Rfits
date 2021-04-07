@@ -35,7 +35,7 @@ Logical scalar; specifies whether the images in each extension should be pointer
 List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
 }
   \item{header}{
-Logical vector; should headers by extracted for each FITS extensions (TRUE, default), or just the data (FALSE). If this is the same length as the number of extensions then this will be set on a per extension bases, but if length 1 then the same logic will be used for all extensions.
+Logical vector; should headers by extracted for each FITS extension (TRUE, default), or just the data (FALSE). If this is the same length as the number of extensions then this will be set on a per extension bases, but if length 1 then the same logic will be used for all extensions.
 }
   \item{data.table}{
 Logical; should a \code{data.table} be returned?
@@ -63,7 +63,7 @@ Character vector; if supplied the output list elements will be limited to those 
 }
 }
 \details{
-The interface here is very simple. Partly this is to discourage people using this as a complete replacement of the finer control available in lower level functions available in \code{Rfits}, i.e. do not expect to be able to complete all operations through the use of \code{Rfits_read_all} and \code{Rfits_read_all} alone.
+The interface here is very simple. Partly this is to discourage people using this as a complete replacement of the finer control available in lower level functions available in \code{Rfits}, i.e. do not expect to be able to complete all operations through the use of \code{Rfits_read_all} and \code{Rfits_write_all} alone.
 
 
 }
@@ -88,7 +88,7 @@ temp_image = Rfits_read_image(file_image, header=TRUE)
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
 temp_table = Rfits_read_table(file_table, header=TRUE)
 
-data=list(temp_image, temp_table)
+data = list(temp_image, temp_table)
   
 file_mix_temp = tempfile()
 

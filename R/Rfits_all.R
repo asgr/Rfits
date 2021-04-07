@@ -102,7 +102,8 @@ Rfits_read = Rfits_read_all
   else return(unlist(c(lapply(x, .flatten)), recursive = FALSE))
 }
 
-Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE, compress=FALSE, bad_compress=0, list_sub=NULL){
+Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE,
+                         compress=FALSE, bad_compress=0, list_sub=NULL){
   if(is.list(data)){
     data_len = length(data)
   }else{

@@ -43,11 +43,22 @@ export(Rfits_encode_chksum)
 export(Rfits_decode_chksum)
 export(Rfits_nhdu)
 
+export(Rfits_read_all_hdf5)
+export(Rfits_write_all_hdf5)
+export(Rfits_read_hdf5)
+export(Rfits_write_hdf5)
+
 export(Rfits_read_table_hdf5)
 export(Rfits_write_table_hdf5)
 
+export(Rfits_read_vector_hdf5)
 export(Rfits_read_image_hdf5)
+export(Rfits_read_cube_hdf5)
+export(Rfits_read_array_hdf5)
+export(Rfits_write_vector_hdf5)
 export(Rfits_write_image_hdf5)
+export(Rfits_write_cube_hdf5)
+export(Rfits_write_array_hdf5)
 
 export(`[.Rfits_image`)
 export(`[.Rfits_cube`)

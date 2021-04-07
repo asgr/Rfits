@@ -11,7 +11,7 @@
 \alias{Rfits_write_vector}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-FITS Image and Cube Readers and Writers
+FITS Vector Image Cube and Array Readers and Writers
 }
 \description{
 Generic image, cube and array (4D) readers and writers. Currently reading and writing functions will work up to 4D.
@@ -21,6 +21,10 @@ Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
   
+Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
+    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+    
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
@@ -29,11 +33,12 @@ Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
     xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
     thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
 
-Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
-
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
+    keynames, comment, history, numeric = "single", integer = "long",
+    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+    bscale = 1, compress = FALSE, bad_compress = 0) 
+
+Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
     bscale = 1, compress = FALSE, bad_compress = 0) 
@@ -47,11 +52,6 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
     bscale = 1, compress = FALSE, bad_compress = 0)
-
-Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
-    keynames, comment, history, numeric = "single", integer = "long",
-    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -146,17 +146,9 @@ Numeric scalar; non-numeric replacement value to use when compression is being d
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to work.
 
-\code{Rfits_read_image} reads in data from a FITS file. This can be either a vector, image, cube or 4D array.
+\code{Rfits_read_xxx} reads in data from a FITS file. This can be either a vector, image, cube or 4D array. The different variants actually all point to \code{Rfits_read_image} internally, but for code clarity it is often good to make the data type more explicit.
 
-\code{Rfits_read_cube} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
-
-\code{Rfits_read_array} is an alias for \code{Rfits_read_image}, but is there for potentially clearer and more literal code.
-
-\code{Rfits_write_image} writes vector, image, cube or 4D array data to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
-
-\code{Rfits_write_cube} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
-
-\code{Rfits_write_array} is an alias for \code{Rfits_write_image}, but is there for potentially neater code.
+\code{Rfits_write_xxx} writes vector, image, cube or 4D array data to a FITS file. The different variants actually all point to \code{Rfits_write_image} internally, but for code clarity it is often good to make the data type more explicit. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 
 When reading, if \option{header}=TRUE (default) then the output of \option{Rfits_write_image} is a list with components: \option{imDat}; the header list outputs created by \code{\link{Rfits_read_header}} (all at the same level); the \option{filename} and \option{ext}. The object returned is of class \option{Rfits_image}, and has class dependent \code{print} and \code{dim} functions.
 

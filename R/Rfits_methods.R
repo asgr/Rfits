@@ -191,8 +191,10 @@ print.Rfits_list=function(x , ...){
     ext_mode = c(ext_mode, mode(x[[i]]))
     ext_type = c(ext_type, typeof(x[[i]]))
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
-    if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_table', 'Rfits_header', 'Rfits_pointer'))){
+    if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_pointer'))){
       ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
+    }else if(inherits(x[[i]], what='Rfits_table')){
+      ext_keyN = c(ext_keyN, length(attributes(x[[i]])$keyvalues))
     }else{
       ext_keyN = c(ext_keyN, NA)
     }

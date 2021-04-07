@@ -1,7 +1,6 @@
 Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, header=TRUE,
                                  xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, zlo=NULL, zhi=NULL,
-                                 tlo=NULL, thi=NULL, remove_HIERARCH=FALSE, force_logical=FALSE,
-                                 bad=NULL){
+                                 tlo=NULL, thi=NULL, remove_HIERARCH=FALSE, force_logical=FALSE){
   if(requireNamespace("hdf5r", quietly = TRUE)){
     assertCharacter(filename, max.len=1)
     filename = path.expand(filename)
@@ -121,12 +120,6 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
       
       if(force_logical & is.integer(image)){
         image = as.logical(image)
-      }
-      
-      if(!is.null(bad)){
-        if(any(!is.finite(image))){
-          image[!is.finite(image)] = bad
-        }
       }
       
       if(header){
@@ -258,6 +251,10 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
   }
 }
 
+Rfits_read_vector_hdf5 = Rfits_read_image_hdf5
+Rfits_read_cube_hdf5 = Rfits_read_image_hdf5
+Rfits_read_array_hdf5 = Rfits_read_image_hdf5
+
 Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', create_ext=TRUE, overwrite_file=FALSE){
   if(requireNamespace("hdf5r", quietly = TRUE)){
     assertCharacter(filename, max.len=1)
@@ -291,3 +288,7 @@ Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', cre
     stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
   }
 }
+
+Rfits_write_vector_hdf5 = Rfits_write_image_hdf5
+Rfits_write_cube_hdf5 = Rfits_write_image_hdf5
+Rfits_write_array_hdf5 = Rfits_write_image_hdf5
