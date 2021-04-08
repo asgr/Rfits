@@ -7,7 +7,7 @@ Rfits_read_all_hdf5=function(filename='temp.h5', header=TRUE, data.table=TRUE){
   file.h5 = hdf5r::H5File$new(filename, mode='a')
   extnames = file.h5$names
   dataclass = as.character(file.h5$ls()$dataset.type_class)
-  file.h5$close_all()
+  #file.h5$close_all()
   
   data = vector(mode='list', length=length(extnames))
   

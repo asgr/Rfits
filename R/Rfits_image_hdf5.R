@@ -241,7 +241,7 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
       }
     })
     
-    file.h5$close_all()
+    #file.h5$close_all()
     
     if(!is.null(output)){
       return(invisible(output))
@@ -283,7 +283,7 @@ Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', cre
       }
     })
     
-    file.h5$close_all()
+    #file.h5$close_all()
   }else{
     stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
   }

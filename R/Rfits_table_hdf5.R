@@ -89,7 +89,7 @@ Rfits_read_table_hdf5 = function(filename='temp.h5', extname='table1', ext=NULL,
       }
     })
     
-    file.h5$close_all()
+    #file.h5$close_all()
     
     return(output)
   }else{
@@ -124,7 +124,7 @@ Rfits_write_table_hdf5 = function(table, filename='temp.h5', extname='table1', c
       }
     })
     
-    file.h5$close_all()
+    #file.h5$close_all()
   }else{
     stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
   }
