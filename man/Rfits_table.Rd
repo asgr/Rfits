@@ -12,7 +12,7 @@ Generic table readers and writers. Works with a wide range of data types includi
 }
 \usage{
 Rfits_read_table(filename = 'temp.fits', ext = 2, data.table = TRUE,
-    cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE)
+    cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE, nrow = 0L)
 
 Rfits_read_colnames(filename = 'temp.fits', ext = 2)
 
@@ -44,6 +44,12 @@ Logical; should the progress of table reading and writing be displayed? This is 
 }
   \item{header}{
 Logical; if TRUE then output gains attributes containing the header information from a call to \code{\link{Rfits_read_header}} (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
+}
+  \item{remove_HIERARCH}{
+Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
+  \item{nrow}{
+Integer scalar; explicitly specify how many rows to read in. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEMENTS being used in the header to specify the number of rows).
 }
   \item{extname}{
 Character scalar; name of the table extension. 
@@ -77,9 +83,6 @@ Integer scalar; value to replace NaN (since FITS does not support NaN). If numer
 }
   \item{Inf_replace}{
 Integer scalar; value to replace Inf (since FITS does not support Inf). If numeric, it will be converted to integer internally.  
-}
-  \item{remove_HIERARCH}{
-Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
 }
 \details{

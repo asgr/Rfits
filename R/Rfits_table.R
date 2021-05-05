@@ -51,7 +51,7 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
-                          header=FALSE, remove_HIERARCH=FALSE){
+                          header=FALSE, remove_HIERARCH=FALSE, nrow=0L){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -84,7 +84,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext)
+    output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
     count = count + 1
   }
   

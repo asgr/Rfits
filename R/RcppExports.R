@@ -5,8 +5,8 @@ Cfits_create_header <- function(filename, create_ext = 1L, create_file = 1L) {
     invisible(.Call(`_Rfits_Cfits_create_header`, filename, create_ext, create_file))
 }
 
-Cfits_read_col <- function(filename, colref = 1L, ext = 2L) {
-    .Call(`_Rfits_Cfits_read_col`, filename, colref, ext)
+Cfits_read_col <- function(filename, colref = 1L, ext = 2L, nrow = 0L) {
+    .Call(`_Rfits_Cfits_read_col`, filename, colref, ext, nrow)
 }
 
 Cfits_read_nrow <- function(filename, ext = 2L) {

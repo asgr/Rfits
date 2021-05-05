@@ -18,15 +18,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_read_col
-SEXP Cfits_read_col(Rcpp::String filename, int colref, int ext);
-RcppExport SEXP _Rfits_Cfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP) {
+SEXP Cfits_read_col(Rcpp::String filename, int colref, int ext, long nrow);
+RcppExport SEXP _Rfits_Cfits_read_col(SEXP filenameSEXP, SEXP colrefSEXP, SEXP extSEXP, SEXP nrowSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< int >::type colref(colrefSEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
-    rcpp_result_gen = Rcpp::wrap(Cfits_read_col(filename, colref, ext));
+    Rcpp::traits::input_parameter< long >::type nrow(nrowSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_col(filename, colref, ext, nrow));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -369,7 +370,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_create_header", (DL_FUNC) &_Rfits_Cfits_create_header, 3},
-    {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 3},
+    {"_Rfits_Cfits_read_col", (DL_FUNC) &_Rfits_Cfits_read_col, 4},
     {"_Rfits_Cfits_read_nrow", (DL_FUNC) &_Rfits_Cfits_read_nrow, 2},
     {"_Rfits_Cfits_read_nhdu", (DL_FUNC) &_Rfits_Cfits_read_nhdu, 1},
     {"_Rfits_Cfits_read_ncol", (DL_FUNC) &_Rfits_Cfits_read_ncol, 2},

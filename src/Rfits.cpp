@@ -120,15 +120,17 @@ void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_fil
 }
   
 // [[Rcpp::export]]
-SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2){
+SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0){
 
   int hdutype,anynull,typecode,ii;
-  long nrow,repeat,width;
+  long repeat,width;
 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_num_rows, fptr, &nrow);
   fits_invoke(get_coltype, fptr, colref, &typecode, &repeat, &width);
+  if(nrow==0){
+    fits_invoke(get_num_rows, fptr, &nrow);
+  }
   
   if ( typecode == TSTRING ) {
     int cwidth;
