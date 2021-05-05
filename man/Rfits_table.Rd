@@ -49,7 +49,7 @@ Logical; if TRUE then output gains attributes containing the header information 
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
   \item{nrow}{
-Integer scalar; explicitly specify how many rows to read in. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEMENTS being used in the header to specify the number of rows).
+Integer scalar; explicitly specify how many rows to read in. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEM being used in the header to specify the number of rows).
 }
   \item{extname}{
 Character scalar; name of the table extension. 
