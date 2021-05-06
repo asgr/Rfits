@@ -206,7 +206,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   
   headertemp = headertemp[loc_goodhead]
   #comments list
-  keycomments = lapply(strsplit(headertemp,'/ '),function(x) x[2])
+  keycomments = lapply(strsplit(headertemp,' / '),function(x) x[2])
   names(keycomments) = keynames
   
   output = list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments,
@@ -389,7 +389,7 @@ Rfits_header_to_hdr = function(header, remove_HIERARCH=FALSE){
   Nhead = length(header_good)
   headlist = list()
   for (i in 1:Nhead){
-    headtemp = strsplit(header_good[i], "/")[[1]][1]
+    headtemp = strsplit(header_good[i], " /")[[1]][1]
     find_eq = gregexpr('=', headtemp)[[1]][1] #more generic, even though it should be at character 9 in FITS standard
     headlist[[i]] = c(substr(headtemp, 1, find_eq-1), substr(headtemp, find_eq+1, nchar(headtemp)))
   }
