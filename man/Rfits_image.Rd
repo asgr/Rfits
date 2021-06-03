@@ -36,22 +36,22 @@ Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0) 
+    bscale = 1, compress = FALSE, bad_compress = 0L) 
 
 Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0) 
+    bscale = 1, compress = FALSE, bad_compress = 0L) 
     
 Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0) 
+    bscale = 1, compress = FALSE, bad_compress = 0L) 
     
 Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     keynames, comment, history, numeric = "single", integer = "long",
     create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0)
+    bscale = 1, compress = FALSE, bad_compress = 0L)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

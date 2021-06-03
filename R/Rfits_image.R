@@ -336,7 +336,7 @@ Rfits_read_array = Rfits_read_image
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
-                           overwrite_file=TRUE, bzero=0, bscale=1, compress=FALSE, bad_compress=0){
+                           overwrite_file=TRUE, bzero=0, bscale=1, compress=FALSE, bad_compress=0L){
   assertFlag(create_ext)
   assertFlag(create_file)
   assertFlag(overwrite_file)
@@ -404,7 +404,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     compress = FALSE
   }
   
-  if(compress){
+  if(compress & any(!is.finite(data))){
     data[!is.finite(data)] = bad_compress
   }
   
