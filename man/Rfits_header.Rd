@@ -129,9 +129,34 @@ R FITS readers and writers that uses CFITSIO to do the interfacing with files. R
 \code{header} functions work with any FITS header, reading and writing them in their entirety.
 }
 \value{
-\code{Rfits_read_key}: read single key entry into scalar numeric or string.
+\code{Rfits_read_header}: read header into list containing:
 
-\code{Rfits_read_header}: read header into list containing the unformatted header string vector (\option{header}), the keyname / keyvalue stripped version (\option{hdr}), the named \option{keyvalues} list, the named \option{comments} list, and the vector of non-comment keynames (\option{keynames}).
+  \item{keyvalues}{
+List; named key value list.
+}
+  \item{keycomments}{
+List; named key comment list.
+}
+ \item{keynames}{
+Character vector; key name vector.
+}
+  \item{header}{
+Character vector; unformatted header with one header entry per vector element.
+}
+  \item{hdr}{
+Character vector; keyname / keyvalue stripped version of header.
+}
+  \item{raw}{
+Character scalar; raw unformatted header (one long string, mostly for passing to CFITSio routines).
+}
+  \item{comment}{
+Character vector; header comment entries starting with COMMENT.
+}
+  \item{history}{
+Character vector; header comment entries starting with HISTORY.
+}
+
+\code{Rfits_read_key}: read single key entry into scalar numeric or string.
 
 \code{Rfits_info}: read headers and summary into list containing top level summary (\option{summary}), and list of all headers contained in target file (\option{headers}).
 

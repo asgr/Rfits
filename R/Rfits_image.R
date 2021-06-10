@@ -256,55 +256,63 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   if(header){
     if(subset){
       #Dim 1
-      hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = safex$len_tar
-      hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - safex$lo_tar + 1)
       hdr$keyvalues$NAXIS1 = safex$len_tar
-      hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1
       hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
+      hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1
       hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
-      hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
-      hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
+      #hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = safex$len_tar
+      #hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - safex$lo_tar + 1)
+      #hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
+      #hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
       #Dim 2
       if(Ndim >= 2){
-        hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = safey$len_tar
-        hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - safey$lo_tar + 1)
         hdr$keyvalues$NAXIS2 = safey$len_tar
-        hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1
         hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
+        hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1
         hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
-        hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
-        hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
+        #hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = safey$len_tar
+        #hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - safey$lo_tar + 1)
+        #hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
+        #hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
       }
       #Dim 3
       if(Ndim >= 3){
-        hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = safez$len_tar
-        hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - safez$lo_tar + 1)
         hdr$keyvalues$NAXIS3 = safez$len_tar
-        hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1
         hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
-        hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
-        hdr$header[grep('NAXIS3', hdr$header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS3, width=21),' / ',hdr$keycomments$NAXIS3,sep='')
-        hdr$header[grep('CRPIX3', hdr$header)] = paste(formatC('CRPIX3', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX3, width=21),' / ',hdr$keycomments$CRPIX3,sep='')
+        if(!is.null(hdr$keyvalues$CRPIX3)){
+          hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1
+          hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
+        }
+        #hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = safez$len_tar
+        #hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - safez$lo_tar + 1)
+        #hdr$header[grep('NAXIS3', hdr$header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS3, width=21),' / ',hdr$keycomments$NAXIS3,sep='')
+        #hdr$header[grep('CRPIX3', hdr$header)] = paste(formatC('CRPIX3', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX3, width=21),' / ',hdr$keycomments$CRPIX3,sep='')
       }
       #Dim 4
       if(Ndim >= 4){
-        hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = safet$len_tar
-        hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - safet$lo_tar + 1)
         hdr$keyvalues$NAXIS4 = safet$len_tar
-        hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1
         hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
-        hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
-        hdr$header[grep('NAXIS4', hdr$header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS4, width=21),' / ',hdr$keycomments$NAXIS4,sep='')
-        hdr$header[grep('CRPIX4', hdr$header)] = paste(formatC('CRPIX4', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX4, width=21),' / ',hdr$keycomments$CRPIX4,sep='')
+        if(!is.null(hdr$keyvalues$CRPIX4)){
+          hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1
+          hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
+        }
+        #hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = safet$len_tar
+        #hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - safet$lo_tar + 1)
+        #hdr$header[grep('NAXIS4', hdr$header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS4, width=21),' / ',hdr$keycomments$NAXIS4,sep='')
+        #hdr$header[grep('CRPIX4', hdr$header)] = paste(formatC('CRPIX4', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX4, width=21),' / ',hdr$keycomments$CRPIX4,sep='')
       }
+      hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
+      hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
+      hdr$raw = Rfits_header_to_raw(hdr$header)
     }
     
     output = list(imDat = image,
-                  header = hdr$header,
-                  hdr = hdr$hdr,
                   keyvalues = hdr$keyvalues,
                   keycomments = hdr$keycomments,
                   keynames = hdr$keynames,
+                  header = hdr$header,
+                  hdr = hdr$hdr,
+                  raw = hdr$raw,
                   comment = hdr$comment,
                   history = hdr$history,
                   filename = filename,
@@ -482,7 +490,11 @@ plot.Rfits_image=function(x, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    Rwcs::Rwcs_image(x, ...)
+    if(is.null(x$raw)){
+      Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, ...)
+    }else{
+      Rwcs::Rwcs_image(x$imDat, header=x$raw, ...)
+    }
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
   }
@@ -493,7 +505,11 @@ plot.Rfits_cube=function(x, slice=1, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, ...)
+    if(is.null(x$raw)){
+      Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, ...)
+    }else{
+      Rwcs::Rwcs_image(x$imDat[,,slice], header=x$raw, ...)
+    }
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
@@ -504,7 +520,11 @@ plot.Rfits_array=function(x, slice=c(1,1), ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], keyvalues=x$keyvalues, ...)
+    if(is.null(x$raw)){
+      Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], keyvalues=x$keyvalues, ...)
+    }else{
+      Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], header=x$raw, ...)
+    }
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
@@ -553,7 +573,11 @@ plot.Rfits_pointer=function(x, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    Rwcs::Rwcs_image(x[,], keyvalues=x$keyvalues, ...)
+    if(is.null(x$raw)){
+      Rwcs::Rwcs_image(x[,], keyvalues=x$keyvalues, ...)
+    }else{
+      Rwcs::Rwcs_image(x[,], header=x$raw, ...)
+    }
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
   }

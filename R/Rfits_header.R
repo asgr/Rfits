@@ -209,8 +209,14 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   keycomments = lapply(strsplit(headertemp,' / '),function(x) x[2])
   names(keycomments) = keynames
   
-  output = list(header=header, hdr=hdr, keyvalues=keyvalues, keycomments=keycomments,
-                keynames=keynames, comment=comment, history=history)
+  output = list(keyvalues=keyvalues,
+                keycomments=keycomments,
+                keynames=keynames,
+                header=header,
+                hdr=hdr,
+                raw=Rfits_header_to_raw(header),
+                comment=comment,
+                history=history)
   class(output) = c('Rfits_header', class(output))
   return(output)
 }
@@ -457,7 +463,11 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   }
   temp_out = {}
   for(i in 1:length(keyvalues)){
-    temp_keyvalue = as.character(keyvalues[[i]])
+    if(is.character(keyvalues[[i]])){
+      temp_keyvalue = paste0('\'',keyvalues[[i]],'\'')
+    }else{
+      temp_keyvalue = as.character(keyvalues[[i]])
+    }
     if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
     if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}
     temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '=', formatC(temp_keyvalue,width=21),' / ')
