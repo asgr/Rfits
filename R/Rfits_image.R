@@ -490,11 +490,7 @@ plot.Rfits_image=function(x, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(is.null(x$raw)){
-      Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, ...)
-    }else{
-      Rwcs::Rwcs_image(x$imDat, header=x$raw, ...)
-    }
+    Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=x$raw, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_image object.')
   }
@@ -505,11 +501,7 @@ plot.Rfits_cube=function(x, slice=1, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(is.null(x$raw)){
-      Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, ...)
-    }else{
-      Rwcs::Rwcs_image(x$imDat[,,slice], header=x$raw, ...)
-    }
+    Rwcs::Rwcs_image(x$imDat[,,slice], keyvalues=x$keyvalues, header=x$raw, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
@@ -520,11 +512,7 @@ plot.Rfits_array=function(x, slice=c(1,1), ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(is.null(x$raw)){
-      Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], keyvalues=x$keyvalues, ...)
-    }else{
-      Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], header=x$raw, ...)
-    }
+   Rwcs::Rwcs_image(x$imDat[,,slice[1],slice[2]], keyvalues=x$keyvalues, header=x$raw, ...)
   }else{
     message('The Rwcs package is needed to plot a Rfits_cube object.')
   }
@@ -622,7 +610,7 @@ centre.Rfits_image = function(x, ...){
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, ...)
+    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, header=x$raw, ...)
     return(output)
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
@@ -639,10 +627,10 @@ corners.Rfits_image = function(x, ...){
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, ...)
-    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, ...)
-    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, ...)
-    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, ...)
+    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, header=x$raw, ...)
+    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, header=x$raw, ...)
+    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, header=x$raw, ...)
+    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, header=x$raw, ...)
     output = rbind(BL, TL, TR, BR)
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
     return(output)

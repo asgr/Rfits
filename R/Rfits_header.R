@@ -466,7 +466,15 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
     if(is.character(keyvalues[[i]])){
       temp_keyvalue = paste0('\'',keyvalues[[i]],'\'')
     }else{
-      temp_keyvalue = as.character(keyvalues[[i]])
+      if(is.numeric(keyvalues[[i]])){
+        if(keyvalues[[i]] <= 1e-4 | keyvalues[[i]] >= 1e4){
+          temp_keyvalue = formatC(keyvalues[[i]],format='E')
+        }else{
+          temp_keyvalue = as.character(keyvalues[[i]])
+        }
+      }else{
+        temp_keyvalue = as.character(keyvalues[[i]])
+      }
     }
     if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
     if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}

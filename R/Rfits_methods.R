@@ -291,7 +291,7 @@ dim.Rfits_pointer=function(x){
     if(requireNamespace("Rwcs", quietly=TRUE)){
       assertNumeric(i,len=1)
       assertNumeric(j,len=1)
-      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R')[1,]
+      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R',header=x$raw)[1,]
       i = ceiling(ij[1])
       j = ceiling(ij[2])
     }else{
@@ -337,12 +337,18 @@ dim.Rfits_pointer=function(x){
     
     #header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
     
+    hdr = Rfits_keyvalues_to_hdr(keyvalues)
+    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    raw = Rfits_header_to_raw(header)
     
     output = list(
       imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
+      header = header,
+      hdr = hdr,
+      raw = raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
@@ -456,7 +462,7 @@ dim.Rfits_pointer=function(x){
     if(requireNamespace("Rwcs", quietly=TRUE)){
       assertNumeric(i,len=1)
       assertNumeric(j,len=1)
-      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R')[1,]
+      ij = Rwcs::Rwcs_s2p(i,j,keyvalues=x$keyvalues,pixcen='R',header=x$raw)[1,]
       i = ceiling(ij[1])
       j = ceiling(ij[2])
     }else{
