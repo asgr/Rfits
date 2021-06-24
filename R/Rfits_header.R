@@ -463,29 +463,28 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   }
   temp_out = {}
   for(i in 1:length(keyvalues)){
-    if(is.character(keyvalues[[i]])){
-      temp_keyvalue = paste0('\'',keyvalues[[i]],'\'')
-    }else{
-      if(is.numeric(keyvalues[[i]])){
-        if(keyvalues[[i]] <= 1e-4 | keyvalues[[i]] >= 1e4){
-          temp_keyvalue = formatC(keyvalues[[i]],format='E', digits=10)
+    if(!is.na(keyvalues[[i]])){
+      if(is.character(keyvalues[[i]])){
+        temp_keyvalue = paste0('\'',keyvalues[[i]],'\'')
+      }else{
+        if(is.numeric(keyvalues[[i]])){
+          if(keyvalues[[i]] <= 1e-4 | keyvalues[[i]] >= 1e4){
+            temp_keyvalue = formatC(keyvalues[[i]],format='E', digits=10)
+          }else{
+            temp_keyvalue = as.character(keyvalues[[i]])
+          }
         }else{
           temp_keyvalue = as.character(keyvalues[[i]])
         }
-      }else{
-        temp_keyvalue = as.character(keyvalues[[i]])
-        if(is.na(temp_keyvalue)){
-          temp_keyvalue = 'NA'
-        }
       }
+      if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
+      if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}
+      temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '=', formatC(temp_keyvalue,width=21),' / ')
+      if(!is.null(keycomments)){
+        temp_key = paste0(temp_key,keycomments[[i]])
+      }
+      temp_out = c(temp_out, temp_key)
     }
-    if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
-    if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}
-    temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '=', formatC(temp_keyvalue,width=21),' / ')
-    if(!is.null(keycomments)){
-      temp_key = paste0(temp_key,keycomments[[i]])
-    }
-    temp_out = c(temp_out, temp_key)
   }
   if(!is.null(comment)){
     temp_out = c(temp_out, paste0('COMMENT ',comment))
