@@ -1,10 +1,10 @@
-.safedim = function(lo_orig=1, hi_orig=1, lo_tar=1, hi_tar=1){
-  len_orig = hi_orig - lo_orig + 1
-  len_tar = hi_tar - lo_tar + 1
+.safedim = function(lo_orig=1L, hi_orig=1L, lo_tar=1L, hi_tar=1L){
+  len_orig = hi_orig - lo_orig + 1L
+  len_tar = hi_tar - lo_tar + 1L
   
-  out_lo_orig = max(lo_tar, 1)
+  out_lo_orig = max(lo_tar, 1L)
   out_hi_orig = min(hi_tar, len_orig)
-  diff = (1 - lo_tar)
+  diff = (1L - lo_tar)
   out_lo_tar = out_lo_orig + diff
   out_hi_tar = out_hi_orig + diff
   safe = (out_hi_tar >= out_lo_tar) & (out_hi_orig & out_lo_orig)
@@ -300,11 +300,16 @@ dim.Rfits_pointer=function(x){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
-  if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+  if(length(i) == 1){i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))}
+  if(length(j) == 1){j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))}
   
-  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
+  safedim_i = .safedim(1L, dim(x$imDat)[1], min(i), max(i))
+  safedim_j = .safedim(1L, dim(x$imDat)[2], min(j), max(j))
+  
+  print(safedim_i$lo_orig)
+  print(safedim_i$hi_orig)
+  print(safedim_i$lo_tar)
+  print(safedim_i$hi_tar)
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar))
   if(safedim_i$safe & safedim_j$safe){
@@ -315,8 +320,8 @@ dim.Rfits_pointer=function(x){
     keyvalues = x$keyvalues
     keyvalues$NAXIS1 = safedim_i$len_tar
     keyvalues$NAXIS2 = safedim_j$len_tar
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
+    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
     
     #New keyvalues being added
     keyvalues$XCUTLO = safedim_i$lo_orig
