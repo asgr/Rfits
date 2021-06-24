@@ -306,11 +306,6 @@ dim.Rfits_pointer=function(x){
   safedim_i = .safedim(1L, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1L, dim(x$imDat)[2], min(j), max(j))
   
-  print(safedim_i$lo_orig)
-  print(safedim_i$hi_orig)
-  print(safedim_i$lo_tar)
-  print(safedim_i$hi_tar)
-  
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar))
   if(safedim_i$safe & safedim_j$safe){
     tar[safedim_i$tar,safedim_j$tar] = x$imDat[safedim_i$orig,safedim_j$orig]
