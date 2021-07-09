@@ -16,6 +16,8 @@
 \alias{centre.Rfits_image}
 \alias{corners}
 \alias{corners.Rfits_image}
+\alias{pixscale}
+\alias{pixscale.Rfits_image}
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
@@ -62,6 +64,8 @@ centre(x)
 \method{centre}{Rfits_image}(x,  ...)
 corners(x) 
 \method{corners}{Rfits_image}(x,  ...)
+pixscale(x) 
+\method{pixscale}{Rfits_image}(x,  ...)
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE)

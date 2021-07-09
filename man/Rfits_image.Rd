@@ -9,6 +9,7 @@
 \alias{Rfits_write_cube}
 \alias{Rfits_write_array}
 \alias{Rfits_write_vector}
+\alias{Rfits_create_image}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Vector Image Cube and Array Readers and Writers
@@ -18,45 +19,51 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 }
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+  xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+  xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+  xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
-    xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-    thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL)
+  xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
-    keynames, comment, history, numeric = "single", integer = "long",
-    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0L) 
+  keynames, comment, history, numeric = "single", integer = "long",
+  create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+  bscale = 1, compress = FALSE, bad_compress = 0L) 
 
 Rfits_write_vector(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
-    keynames, comment, history, numeric = "single", integer = "long",
-    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0L) 
+  keynames, comment, history, numeric = "single", integer = "long",
+  create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+  bscale = 1, compress = FALSE, bad_compress = 0L) 
     
 Rfits_write_cube(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
-    keynames, comment, history, numeric = "single", integer = "long",
-    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0L) 
+  keynames, comment, history, numeric = "single", integer = "long",
+  create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+  bscale = 1, compress = FALSE, bad_compress = 0L) 
     
 Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
-    keynames, comment, history, numeric = "single", integer = "long",
-    create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
-    bscale = 1, compress = FALSE, bad_compress = 0L)
+  keynames, comment, history, numeric = "single", integer = "long",
+  create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
+  bscale = 1, compress = FALSE, bad_compress = 0L)
+    
+Rfits_create_image(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
+    filename='', ext=1, keypass=TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
 Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+}
+  \item{image}{
+Numeric vector, matrix, cube, array; data to be made into an internal FITS-like object.  
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing (see Examples). For writing just \option{image} data (no WCS is allowed at this time) you can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. E.g \option{filename} = 'file.fits' for writing a normal uncompressed images, or \option{filename} = 'file.fits[compress]' for writing a compressed image. These have additional parameters that can be passed in, see \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}. Support for WCS writing of compressed images will come in the future, currently you should only write the image matrix to a compressed extenstion (see Examples).
@@ -121,6 +128,9 @@ Logical scalar; should an integer image be converted to a logical R image. All v
   \item{bad}{
 Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation.
 }
+  \item{keypass}{
+Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
+}
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
@@ -161,6 +171,8 @@ You can either specifify BZERO and BSCALE through the input \option{bzero} and \
 \code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext} and \option{extname}.
 
 \code{Rfits_write_image} write out image to target FITS extension.
+
+\code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

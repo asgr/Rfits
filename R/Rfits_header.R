@@ -153,7 +153,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
-Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
+Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -208,6 +208,13 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE){
   #comments list
   keycomments = lapply(strsplit(headertemp,' / '),function(x) x[2])
   names(keycomments) = keynames
+  
+  if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
+    keyvalues = Rwcs::Rwcs_keypass(keyvalues)
+    keynames = names(keyvalues)
+    header = Rfits_keyvalues_to_header(keyvalues=keyvalues, keycomments=keycomments, comment=comment, history=history)
+    hdr = Rfits_header_to_hdr(headertemp, remove_HIERARCH=remove_HIERARCH)
+  }
   
   output = list(keyvalues=keyvalues,
                 keycomments=keycomments,

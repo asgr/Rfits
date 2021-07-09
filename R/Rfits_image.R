@@ -52,7 +52,7 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL){
+                          force_logical=FALSE, bad=NULL, keypass=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -75,7 +75,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | header){
     
-    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH)
+    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass)
     
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
       naxis1=hdr$keyvalues$ZNAXIS1
@@ -637,4 +637,61 @@ corners.Rfits_image = function(x, ...){
   }else{
     message('The Rwcs package is needed to find the corners of a Rfits_image object.')
   }
+}
+
+pixscale = function(x){
+  UseMethod("pixscale", x)
+}
+
+pixscale.Rfits_image = function(x, ...){
+  if(!inherits(x, 'Rfits_image')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    keyvalues = Rwcs::Rwcs_keypass(x$keyvalues)
+    CD1_1 = keyvalues$CD1_1
+    CD1_2 = keyvalues$CD1_2
+    CD2_1 = keyvalues$CD2_1
+    CD2_2 = keyvalues$CD2_2
+    
+    return(3600*(sqrt(CD1_1^2+CD1_2^2)+sqrt(CD2_1^2+CD2_2^2))/2)
+  }else{
+    message('The Rwcs package is needed to find the corners of a Rfits_image object.')
+  }
+}
+
+Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
+                              filename='', ext=1, keypass=TRUE){
+  
+  if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
+    keyvalues = Rwcs::Rwcs_keypass(keyvalues)
+  }
+  hdr = Rfits_keyvalues_to_hdr(keyvalues)
+  header = Rfits_keyvalues_to_header(keyvalues, keycomments=keycomments, comment=comment, history=history)
+  raw = Rfits_header_to_raw(header)
+  keynames = names(keyvalues)
+  if(is.null(keycomments)){
+    keycomments = as.list(rep('', length(keyvalues)))
+  }
+  names(keycomments) = keynames
+  
+  output = list(
+    imDat = image,
+    keyvalues = keyvalues,
+    keycomments = keycomments,
+    keynames = keynames,
+    header = header,
+    hdr = hdr,
+    raw = raw,
+    comment = comment,
+    history = history,
+    filename = filename,
+    ext = ext,
+    extname = keyvalues$EXTNAME
+  )
+  
+  class(output) = c('Rfits_image', class(output))
+  
+  return(output)
 }

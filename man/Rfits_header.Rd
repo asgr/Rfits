@@ -25,11 +25,12 @@ FITS Header Readers and Writers
 Generic header key readers and writers. Works with a wide range of data types including 64 bit integers (long long).
 }
 \usage{
-Rfits_read_header(filename = 'temp.fits', ext = 1, remove_HIERARCH = FALSE)
+Rfits_read_header(filename = 'temp.fits', ext = 1, remove_HIERARCH = FALSE,
+  keypass = FALSE)
 
 Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
-    comment, history, ext = 1, create_ext = FALSE, create_file = FALSE,
-    overwrite_file = FALSE) 
+  comment, history, ext = 1, create_ext = FALSE, create_file = FALSE,
+  overwrite_file = FALSE) 
 
 Rfits_info(filename = 'temp.fits', remove_HIERARCH = FALSE)
 
@@ -70,6 +71,9 @@ Integer scalar; the extension to read or write (usually starts at 1 for images a
 }
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
+}
+  \item{keypass}{
+Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
 }
   \item{keyname}{
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  
