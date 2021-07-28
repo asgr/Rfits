@@ -20,7 +20,9 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   assertIntegerish(ext, len=1)
   assertFlag(header)
   
-  keyvalues = Rfits_read_header(filename=filename, ext=ext)$keyvalues
+  temp = Rfits_read_header(filename=filename, ext=ext)
+  keyvalues = temp$keyvalues
+  raw = temp$raw
   
   if(isTRUE(keyvalues$ZIMAGE)){
     naxis1 = keyvalues$ZNAXIS1
@@ -41,7 +43,7 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
   if(!is.null(naxis3)){dim = c(dim, naxis3); type='cube'}
   if(!is.null(naxis4)){dim = c(dim, naxis4); type='array'}
   
-  output = list(filename=filename, ext=ext, keyvalues=keyvalues, header=header, dim=dim, type=type)
+  output = list(filename=filename, ext=ext, keyvalues=keyvalues, raw=raw, header=header, dim=dim, type=type)
   class(output) = 'Rfits_pointer'
   return(invisible(output))
 }

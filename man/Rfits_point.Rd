@@ -43,10 +43,11 @@ Aaron Robotham
 \code{\link{Rfits_image}}, \code{\link{Rfits_methods}}
 }
 \examples{
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_point(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_point(file_image)
 
-#temp_image[1:5,1:5]
+temp_image[1:5,1:5]
+
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
