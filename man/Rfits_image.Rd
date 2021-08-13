@@ -55,7 +55,7 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   bscale = 1, compress = FALSE, bad_compress = 0L)
     
 Rfits_create_image(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
-    filename='', ext=1, keypass=TRUE)
+    filename = '', ext = 1, keypass = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

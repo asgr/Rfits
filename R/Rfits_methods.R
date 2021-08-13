@@ -257,7 +257,9 @@ dim.Rfits_pointer=function(x){
   if(keepWCS){
     keyvalues = x$keyvalues
     keyvalues$NAXIS1 = safedim_i$len_tar
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
+    if(!is.null(keyvalues$CRPIX1)){
+      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    }
     output = list(
       imDat = tar,
       keyvalues = keyvalues,
@@ -317,8 +319,12 @@ dim.Rfits_pointer=function(x){
     keyvalues = x$keyvalues
     keyvalues$NAXIS1 = safedim_i$len_tar
     keyvalues$NAXIS2 = safedim_j$len_tar
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    if(!is.null(keyvalues$CRPIX1)){
+      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX2)){
+      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    }
     
     #New keyvalues being added
     keyvalues$XCUTLO = safedim_i$lo_orig
@@ -383,9 +389,15 @@ dim.Rfits_pointer=function(x){
     keyvalues$NAXIS1 = safedim_i$len_tar
     keyvalues$NAXIS2 = safedim_j$len_tar
     keyvalues$NAXIS3 = safedim_k$len_tar
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
-    keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1
+    if(!is.null(keyvalues$CRPIX1)){
+      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX2)){
+      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX3)){
+      keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
+    }
     
     output = list(
       imDat = tar,
@@ -427,10 +439,18 @@ dim.Rfits_pointer=function(x){
     keyvalues$NAXIS2 = safedim_j$len_tar
     keyvalues$NAXIS3 = safedim_k$len_tar
     keyvalues$NAXIS4 = safedim_m$len_tar
-    keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1
-    keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1
-    keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1
-    keyvalues$CRPIX4 = keyvalues$CRPIX4 - safedim_m$lo_tar + 1
+    if(!is.null(keyvalues$CRPIX1)){
+      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX2)){
+      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX3)){
+      keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
+    }
+    if(!is.null(keyvalues$CRPIX4)){
+      keyvalues$CRPIX4 = keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
+    }
     
     output = list(
       imDat = tar,
