@@ -216,8 +216,8 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
     }
     
-    if(length(grep('1B|1K|1J|1D|A',tforms)) != ncol){
-      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|A',tforms))),sep='\n'))
+    if(length(grep('1B|1K|1J|1D|1E|A',tforms)) != ncol){
+      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|A',tforms))),sep='\n'))
     }
   }
   
