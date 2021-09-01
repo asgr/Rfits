@@ -60,10 +60,10 @@
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
-centre(x) 
-\method{centre}{Rfits_image}(x,  ...)
-corners(x) 
-\method{corners}{Rfits_image}(x,  ...)
+centre(x, useraw=FALSE) 
+\method{centre}{Rfits_image}(x, useraw=FALSE, ...)
+corners(x, useraw=FALSE) 
+\method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
 pixscale(x) 
 \method{pixscale}{Rfits_image}(x,  ...)
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
@@ -93,6 +93,7 @@ pixscale(x)
   \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
   \item{k}{Integer vector, a contiguous vector os desired k indices to extract}
   \item{m}{Integer vector, a contiguous vector os desired m indices to extract}
+  \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
