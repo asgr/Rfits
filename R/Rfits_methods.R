@@ -473,9 +473,9 @@ dim.Rfits_pointer=function(x){
   
   if(!missing(i)){
     if(length(i)==2 & missing(j)){
-      if(i[2]-i[1] !=1){
-        j = as.numeric(i[2])
-        i = as.numeric(i[1])
+      if(i[2]-i[1] != 1){
+        j = ceiling(i[2])
+        i = ceiling(i[1])
       }
     }
   }
@@ -523,32 +523,32 @@ dim.Rfits_pointer=function(x){
   
   if(!missing(i)){
     if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
-    xlo = min(i)
-    xhi = max(i)
+    xlo = ceiling(min(i))
+    xhi = ceiling(max(i))
   }else{
     xlo = NULL
     xhi = NULL
   }
   if(!missing(j)){
     if(is.null(naxis2)){stop('NAXIS2 is NULL: specifying too many dimensions!')}
-    ylo = min(j)
-    yhi = max(j)
+    ylo = ceiling(min(j))
+    yhi = ceiling(max(j))
   }else{
     ylo = NULL
     yhi = NULL
   }
   if(!missing(k)){
     if(is.null(naxis3)){stop('NAXIS3 is NULL: specifying too many dimensions!')}
-    zlo = min(k)
-    zhi = max(k)
+    zlo = ceiling(min(k))
+    zhi = ceiling(max(k))
   }else{
     zlo = NULL
     zhi = NULL
   }
   if(!missing(m)){
     if(is.null(naxis4)){stop('NAXIS4 is NULL: specifying too many dimensions!')}
-    tlo = min(m)
-    thi = max(m)
+    tlo = ceiling(min(m))
+    thi = ceiling(max(m))
   }else{
     tlo = NULL
     thi = NULL
