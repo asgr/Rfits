@@ -510,9 +510,6 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
   //below need to work for integers and doubles:
   if(datatype == TBYTE){
     // char *data_b = (char *)malloc(nelements * sizeof(char));
-    // for (ii = 0; ii < nelements; ii++)  {
-    //   data_b[ii] = INTEGER(data)[ii];
-    // }
     std::vector<Rbyte> data_b(nelements);
     for (ii = 0; ii < nelements; ii++)  {
       data_b[ii] = INTEGER(data)[ii];
@@ -521,27 +518,30 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int datatype,
   }else if(datatype == TINT){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
-    short *data_s = (short *)malloc(nelements * sizeof(short));
+    // short *data_s = (short *)malloc(nelements * sizeof(short));
+    std::vector<short> data_s(nelements);
     for (ii = 0; ii < nelements; ii++)  {
       data_s[ii] = INTEGER(data)[ii];
     } 
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s.data());
   }else if(datatype == TLONG){
-    long *data_l = (long *)malloc(nelements * sizeof(long));
+    // long *data_l = (long *)malloc(nelements * sizeof(long));
+    std::vector<long> data_l(nelements);
     for (ii = 0; ii < nelements; ii++)  {
       data_l[ii] = INTEGER(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l.data());
   }else if(datatype == TLONGLONG){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TDOUBLE){
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
-    float *data_f = (float *)malloc(nelements * sizeof(float));
+    // float *data_f = (float *)malloc(nelements * sizeof(float));
+    std::vector<float> data_f(nelements);
     for (ii = 0; ii < nelements; ii++)  {
       data_f[ii] = REAL(data)[ii];
     }
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f.data());
   }
 }
 
@@ -632,6 +632,8 @@ SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
   fits_invoke(hdr2str, fptr, 1, nullptr, 0, &header, &nkeys);
   
   out[0] = header;
+  
+  free(header);
   
   return(out);
 }
