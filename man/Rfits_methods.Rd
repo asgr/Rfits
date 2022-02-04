@@ -89,10 +89,10 @@ pixscale(x)
 \method{\%*\%}{Rfits_pointer}(e1, e2)
 }
 \arguments{
-  \item{i}{Integer vector, a contiguous vector os desired i indices to extract}
-  \item{j}{Integer vector, a contiguous vector os desired j indices to extract}
-  \item{k}{Integer vector, a contiguous vector os desired k indices to extract}
-  \item{m}{Integer vector, a contiguous vector os desired m indices to extract}
+  \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'.}
+  \item{j}{Integer vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.}
+  \item{k}{Integer vector, a contiguous vector of desired k indices to extract}
+  \item{m}{Integer vector, a contiguous vector of desired m indices to extract}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
@@ -121,7 +121,11 @@ temp_image=Rfits_read_image(file_image)
 
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
-temp_image[1:5,1:5] #convenient
+temp_image[1:5,1:5]$imDat #extracts the image and header, then just shows $imDat
+temp_image[1:5,1:5,keepWCS=FALSE] #same as above
+
+#If we want the header too, this is the default:
+temp_image[1:5,1:5]
 
 #Cutout with fixed header
 \dontrun{
@@ -129,7 +133,7 @@ plot(temp_image[1:50,1:50])
 plot(temp_image[352.2917,-31.82667,box=51,type='coord'])
 }
 
-#Same witha  pointer:
+#Same with a pointer:
 temp_point=Rfits_point(file_image)
 \dontrun{
 plot(temp_point[352.2917,-31.82667,box=51,type='coord',header=TRUE])
