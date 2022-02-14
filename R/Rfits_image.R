@@ -645,25 +645,37 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
-pixscale = function(x){
+pixscale = function(x, useraw=FALSE){
   UseMethod("pixscale", x)
 }
 
-pixscale.Rfits_image = function(x, ...){
+pixscale.Rfits_image = function(x, useraw=FALSE, ...){
+  # if(!inherits(x, 'Rfits_image')){
+  #   stop('Object class is not of type Rfits_image!')
+  # }
+  # 
+  # if(requireNamespace("Rwcs", quietly=TRUE)){
+  #   keyvalues = Rwcs::Rwcs_keypass(x$keyvalues)
+  #   CD1_1 = keyvalues$CD1_1
+  #   CD1_2 = keyvalues$CD1_2
+  #   CD2_1 = keyvalues$CD2_1
+  #   CD2_2 = keyvalues$CD2_2
+  #   
+  #   return(3600*(sqrt(CD1_1^2+CD1_2^2)+sqrt(CD2_1^2+CD2_2^2))/2)
+  # }else{
+  #   message('The Rwcs package is needed to find the corners of a Rfits_image object.')
+  # }
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
-  
+  dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    keyvalues = Rwcs::Rwcs_keypass(x$keyvalues)
-    CD1_1 = keyvalues$CD1_1
-    CD1_2 = keyvalues$CD1_2
-    CD2_1 = keyvalues$CD2_1
-    CD2_2 = keyvalues$CD2_2
-    
-    return(3600*(sqrt(CD1_1^2+CD1_2^2)+sqrt(CD2_1^2+CD2_2^2))/2)
+    if(useraw){header = x$raw}else{header = NULL}
+    output = Rwcs::Rwcs_p2s(dims[1]/2 + c(-0.5,0.5), dims[2]/2 + c(-0.5,0.5), keyvalues = x$keyvalues, header=header, ...)
+    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
+    return(2545.584412*sqrt(diff(output[,1])^2 + diff(output[,2])^2)) # 2545.584412 = 3600/sqrt(2)
   }else{
-    message('The Rwcs package is needed to find the corners of a Rfits_image object.')
+    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
   }
 }
 
