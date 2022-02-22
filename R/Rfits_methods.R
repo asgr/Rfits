@@ -369,7 +369,7 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE){
+`[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE, collapse=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
@@ -398,6 +398,15 @@ dim.Rfits_pointer=function(x){
     if(!is.null(keyvalues$CRPIX3)){
       keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
     }
+
+    if(keyvalues$NAXIS3 == 1L & collapse){
+      tar = tar[,,1]
+      keyvalues$NAXIS3 = NULL
+      keyvalues$CRPIX3 = NULL
+      class_out = "Rfits_image"
+    }else{
+      class_out = "Rfits_cube"
+    }
     
     output = list(
       imDat = tar,
@@ -409,14 +418,16 @@ dim.Rfits_pointer=function(x){
       filename = x$filename,
       ext = x$ext
     )
-    class(output) = "Rfits_cube"
+    
+    class(output) = class_out
+    
     return(output)
   }else{
-    return(x$imDat[i,j,k])
+    return(tar)
   }
 }
 
-`[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE){
+`[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE){
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
@@ -452,6 +463,22 @@ dim.Rfits_pointer=function(x){
       keyvalues$CRPIX4 = keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
     }
     
+    if(keyvalues$NAXIS3 == 1L & keyvalues$NAXIS4 == 1L & collapse){
+      tar = tar[,,1,1]
+      keyvalues$NAXIS3 = NULL
+      keyvalues$NAXIS4 = NULL
+      keyvalues$CRPIX3 = NULL
+      keyvalues$CRPIX4 = NULL
+      class_out = "Rfits_image"
+    }else if(keyvalues$NAXIS4 == 1L & collapse){
+      tar = tar[,,,1]
+      keyvalues$NAXIS4 = NULL
+      keyvalues$CRPIX4 = NULL
+      class_out = "Rfits_cube"
+    }else{
+      class_out = "Rfits_array"
+    }
+    
     output = list(
       imDat = tar,
       keyvalues = keyvalues,
@@ -462,7 +489,9 @@ dim.Rfits_pointer=function(x){
       filename = x$filename,
       ext = x$ext
     )
-    class(output) = "Rfits_array"
+    
+    class(output) = class_out
+    
     return(output)
   }else{
     return(tar)

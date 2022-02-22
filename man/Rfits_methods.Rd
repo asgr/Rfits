@@ -68,8 +68,8 @@ pixscale(x, useraw=FALSE)
 \method{pixscale}{Rfits_image}(x, useraw=FALSE,  ...)
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
-\method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE)
-\method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE)
+\method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
+\method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
 \method{&}{Rfits_pointer}(e1, e2)
 \method{|}{Rfits_pointer}(e1, e2)
@@ -95,6 +95,7 @@ pixscale(x, useraw=FALSE)
   \item{m}{Integer vector, a contiguous vector of desired m indices to extract}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
+  \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
   \item{x}{An object of class 'Rfits_pointer'}

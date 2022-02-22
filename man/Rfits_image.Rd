@@ -192,7 +192,7 @@ temp_image = Rfits_read_image(file_image)
 
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
-temp_image[1:5,1:5] #convenient
+temp_image[1:5,1:5,keepWCS=FALSE] #convenient
 
 #And we can print and check dim easily
 print(temp_image)

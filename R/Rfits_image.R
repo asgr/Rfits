@@ -228,19 +228,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
                          naxis4=naxis4, ext=ext, datatype=datatype)
-    
-    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
-      image = as.vector(image)
-    }
-    if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-      image = matrix(image, naxis1, naxis2)
-    }
-    if(naxis3 > 1 & naxis4 == 1){
-      image = array(image, dim=c(naxis1, naxis2, naxis3))
-    }
-    if(naxis4 > 1){
-      image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
-    }
   }
   
   if(force_logical & is.integer(image)){
@@ -256,58 +243,59 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   if(header){
     if(subset){
       #Dim 1
-      hdr$keyvalues$NAXIS1 = safex$len_tar
+      naxis1 = safex$len_tar
+      hdr$keyvalues$NAXIS1 = naxis1
       hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
       if(!is.null(hdr$keyvalues$CRPIX1)){
-        hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1
+        hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L
         hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
       }
-      #hdr$hdr[which(hdr$hdr=='NAXIS1')+1] = safex$len_tar
-      #hdr$hdr[which(hdr$hdr=='CRPIX1')+1] = as.character(hdr$keyvalues$CRPIX1 - safex$lo_tar + 1)
-      #hdr$header[grep('NAXIS1', hdr$header)] = paste(formatC('NAXIS1', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS1, width=21),' / ',hdr$keycomments$NAXIS1,sep='')
-      #hdr$header[grep('CRPIX1', hdr$header)] = paste(formatC('CRPIX1', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX1, width=21),' / ',hdr$keycomments$CRPIX1,sep='')
       #Dim 2
       if(Ndim >= 2){
-        hdr$keyvalues$NAXIS2 = safey$len_tar
+        naxis2 = safey$len_tar
+        hdr$keyvalues$NAXIS2 = naxis2
         hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX2)){
-          hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1
+          hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L
           hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
         }
-        #hdr$hdr[which(hdr$hdr=='NAXIS2')+1] = safey$len_tar
-        #hdr$hdr[which(hdr$hdr=='CRPIX2')+1] = as.character(hdr$keyvalues$CRPIX2 - safey$lo_tar + 1)
-        #hdr$header[grep('NAXIS2', hdr$header)] = paste(formatC('NAXIS2', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS2, width=21),' / ',hdr$keycomments$NAXIS2,sep='')
-        #hdr$header[grep('CRPIX2', hdr$header)] = paste(formatC('CRPIX2', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX2, width=21),' / ',hdr$keycomments$CRPIX2,sep='')
       }
       #Dim 3
       if(Ndim >= 3){
-        hdr$keyvalues$NAXIS3 = safez$len_tar
+        naxis3 = safez$len_tar
+        hdr$keyvalues$NAXIS3 = naxis3
         hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX3)){
-          hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1
+          hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L
           hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
         }
-        #hdr$hdr[which(hdr$hdr=='NAXIS3')+1] = safez$len_tar
-        #hdr$hdr[which(hdr$hdr=='CRPIX3')+1] = as.character(hdr$keyvalues$CRPIX3 - safez$lo_tar + 1)
-        #hdr$header[grep('NAXIS3', hdr$header)] = paste(formatC('NAXIS3', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS3, width=21),' / ',hdr$keycomments$NAXIS3,sep='')
-        #hdr$header[grep('CRPIX3', hdr$header)] = paste(formatC('CRPIX3', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX3, width=21),' / ',hdr$keycomments$CRPIX3,sep='')
       }
       #Dim 4
       if(Ndim >= 4){
-        hdr$keyvalues$NAXIS4 = safet$len_tar
+        naxis4 = safet$len_tar
+        hdr$keyvalues$NAXIS4 = naxis4
         hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX4)){
-          hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1
+          hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L
           hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
         }
-        #hdr$hdr[which(hdr$hdr=='NAXIS4')+1] = safet$len_tar
-        #hdr$hdr[which(hdr$hdr=='CRPIX4')+1] = as.character(hdr$keyvalues$CRPIX4 - safet$lo_tar + 1)
-        #hdr$header[grep('NAXIS4', hdr$header)] = paste(formatC('NAXIS4', width=8,flag="-"),'=',formatC(hdr$keyvalues$NAXIS4, width=21),' / ',hdr$keycomments$NAXIS4,sep='')
-        #hdr$header[grep('CRPIX4', hdr$header)] = paste(formatC('CRPIX4', width=8,flag="-"),'=',formatC(hdr$keyvalues$CRPIX4, width=21),' / ',hdr$keycomments$CRPIX4,sep='')
       }
       hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
       hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
       hdr$raw = Rfits_header_to_raw(hdr$header)
+    }
+    
+    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+      image = as.vector(image)
+    }
+    if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+      image = matrix(image, naxis1, naxis2)
+    }
+    if(naxis3 > 1 & naxis4 == 1){
+      image = array(image, dim=c(naxis1, naxis2, naxis3))
+    }
+    if(naxis4 > 1){
+      image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
     }
     
     output = list(imDat = image,
