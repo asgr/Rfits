@@ -240,10 +240,29 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
+  if(subset){
+    naxis1 = safex$len_tar
+    naxis2 = safey$len_tar
+    naxis3 = safez$len_tar
+    naxis4 = safet$len_tar
+  }
+  
+  if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+    image = as.vector(image)
+  }
+  if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+    image = matrix(image, naxis1, naxis2)
+  }
+  if(naxis3 > 1 & naxis4 == 1){
+    image = array(image, dim=c(naxis1, naxis2, naxis3))
+  }
+  if(naxis4 > 1){
+    image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
+  }
+  
   if(header){
     if(subset){
       #Dim 1
-      naxis1 = safex$len_tar
       hdr$keyvalues$NAXIS1 = naxis1
       hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
       if(!is.null(hdr$keyvalues$CRPIX1)){
@@ -252,7 +271,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
       #Dim 2
       if(Ndim >= 2){
-        naxis2 = safey$len_tar
         hdr$keyvalues$NAXIS2 = naxis2
         hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX2)){
@@ -262,7 +280,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
       #Dim 3
       if(Ndim >= 3){
-        naxis3 = safez$len_tar
         hdr$keyvalues$NAXIS3 = naxis3
         hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX3)){
@@ -272,7 +289,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
       #Dim 4
       if(Ndim >= 4){
-        naxis4 = safet$len_tar
         hdr$keyvalues$NAXIS4 = naxis4
         hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
         if(!is.null(hdr$keyvalues$CRPIX4)){
@@ -283,19 +299,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
       hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
       hdr$raw = Rfits_header_to_raw(hdr$header)
-    }
-    
-    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
-      image = as.vector(image)
-    }
-    if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-      image = matrix(image, naxis1, naxis2)
-    }
-    if(naxis3 > 1 & naxis4 == 1){
-      image = array(image, dim=c(naxis1, naxis2, naxis3))
-    }
-    if(naxis4 > 1){
-      image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
     }
     
     output = list(imDat = image,

@@ -408,11 +408,18 @@ dim.Rfits_pointer=function(x){
       class_out = "Rfits_cube"
     }
     
+    hdr = Rfits_keyvalues_to_hdr(keyvalues)
+    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    raw = Rfits_header_to_raw(header)
+    
     output = list(
       imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
+      header = header,
+      hdr = hdr,
+      raw = raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
@@ -479,11 +486,18 @@ dim.Rfits_pointer=function(x){
       class_out = "Rfits_array"
     }
     
+    hdr = Rfits_keyvalues_to_hdr(keyvalues)
+    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    raw = Rfits_header_to_raw(header)
+    
     output = list(
       imDat = tar,
       keyvalues = keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
+      header = header,
+      hdr = hdr,
+      raw = raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
