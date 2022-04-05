@@ -216,12 +216,17 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
     hdr = Rfits_header_to_hdr(headertemp, remove_HIERARCH=remove_HIERARCH)
   }
   
+  #weirdly, I found some issues using wcslib when CDX_Y wasn't in front of the distortion terms. This is a hard fix
+  
+  CDloc = grep('CD[1-2]_[1-2]   =', header)
+  raw = Rfits_header_to_raw(c(header[CDloc], header[-CDloc]))
+  
   output = list(keyvalues=keyvalues,
                 keycomments=keycomments,
                 keynames=keynames,
                 header=header,
                 hdr=hdr,
-                raw=Rfits_header_to_raw(header),
+                raw=raw,
                 comment=comment,
                 history=history)
   class(output) = c('Rfits_header', class(output))

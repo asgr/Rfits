@@ -385,38 +385,39 @@ dim.Rfits_pointer=function(x){
   }
   
   if(keepWCS){
-    keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = safedim_i$len_tar
-    keyvalues$NAXIS2 = safedim_j$len_tar
-    keyvalues$NAXIS3 = safedim_k$len_tar
-    if(!is.null(keyvalues$CRPIX1)){
-      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    x$keyvalues$NAXIS1 = safedim_i$len_tar
+    x$keyvalues$NAXIS2 = safedim_j$len_tar
+    x$keyvalues$NAXIS3 = safedim_k$len_tar
+    if(!is.null(x$keyvalues$CRPIX1)){
+      x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
-    if(!is.null(keyvalues$CRPIX2)){
-      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX2)){
+      x$keyvalues$CRPIX2 = x$keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
     }
-    if(!is.null(keyvalues$CRPIX3)){
-      keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX3)){
+      x$keyvalues$CRPIX3 = x$keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
     }
 
-    if(keyvalues$NAXIS3 == 1L & collapse){
+    if(x$keyvalues$NAXIS3 == 1L & collapse){
       tar = tar[,,1]
-      keyvalues$NAXIS3 = NULL
-      keyvalues$CRPIX3 = NULL
+      x$keyvalues$NAXIS3 = NULL
+      x$keyvalues$CRPIX3 = NULL
+      x$keycomments$NAXIS3 = NULL
+      x$keycomments$CRPIX3 = NULL
       class_out = "Rfits_image"
     }else{
       class_out = "Rfits_cube"
     }
     
-    hdr = Rfits_keyvalues_to_hdr(keyvalues)
-    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
     raw = Rfits_header_to_raw(header)
     
     output = list(
       imDat = tar,
-      keyvalues = keyvalues,
+      keyvalues = x$keyvalues,
       keycomments = x$keycomments,
-      keynames = x$keynames,
+      keynames = names(x$keyvalues),
       header = header,
       hdr = hdr,
       raw = raw,
@@ -452,49 +453,56 @@ dim.Rfits_pointer=function(x){
   }
   
   if(keepWCS){
-    keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = safedim_i$len_tar
-    keyvalues$NAXIS2 = safedim_j$len_tar
-    keyvalues$NAXIS3 = safedim_k$len_tar
-    keyvalues$NAXIS4 = safedim_m$len_tar
-    if(!is.null(keyvalues$CRPIX1)){
-      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    x$keyvalues$NAXIS1 = safedim_i$len_tar
+    x$keyvalues$NAXIS2 = safedim_j$len_tar
+    x$keyvalues$NAXIS3 = safedim_k$len_tar
+    x$keyvalues$NAXIS4 = safedim_m$len_tar
+    if(!is.null(x$keyvalues$CRPIX1)){
+      x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
-    if(!is.null(keyvalues$CRPIX2)){
-      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX2)){
+      x$keyvalues$CRPIX2 = x$keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
     }
-    if(!is.null(keyvalues$CRPIX3)){
-      keyvalues$CRPIX3 = keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX3)){
+      x$keyvalues$CRPIX3 = x$keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
     }
-    if(!is.null(keyvalues$CRPIX4)){
-      keyvalues$CRPIX4 = keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX4)){
+      x$keyvalues$CRPIX4 = x$keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
     }
     
-    if(keyvalues$NAXIS3 == 1L & keyvalues$NAXIS4 == 1L & collapse){
+    if(x$keyvalues$NAXIS3 == 1L & x$keyvalues$NAXIS4 == 1L & collapse){
       tar = tar[,,1,1]
-      keyvalues$NAXIS3 = NULL
-      keyvalues$NAXIS4 = NULL
-      keyvalues$CRPIX3 = NULL
-      keyvalues$CRPIX4 = NULL
+      x$keyvalues$NAXIS3 = NULL
+      x$keyvalues$CRPIX3 = NULL
+      x$keyvalues$CRPIX4 = NULL
+      x$keyvalues$NAXIS4 = NULL
+      
+      x$keycomments$NAXIS3 = NULL
+      x$keycomments$CRPIX3 = NULL
+      x$keycomments$CRPIX4 = NULL
+      x$keycomments$NAXIS4 = NULL
       class_out = "Rfits_image"
-    }else if(keyvalues$NAXIS4 == 1L & collapse){
+    }else if(x$keyvalues$NAXIS4 == 1L & collapse){
       tar = tar[,,,1]
-      keyvalues$NAXIS4 = NULL
-      keyvalues$CRPIX4 = NULL
+      x$keyvalues$NAXIS4 = NULL
+      x$keyvalues$CRPIX4 = NULL
+      
+      x$keycomments$NAXIS4 = NULL
+      x$keycomments$CRPIX4 = NULL
       class_out = "Rfits_cube"
     }else{
       class_out = "Rfits_array"
     }
     
-    hdr = Rfits_keyvalues_to_hdr(keyvalues)
-    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
     raw = Rfits_header_to_raw(header)
     
     output = list(
       imDat = tar,
-      keyvalues = keyvalues,
+      keyvalues = x$keyvalues,
       keycomments = x$keycomments,
-      keynames = x$keynames,
+      keynames = names(x$keyvalues),
       header = header,
       hdr = hdr,
       raw = raw,
