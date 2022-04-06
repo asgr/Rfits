@@ -301,6 +301,24 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       hdr$raw = Rfits_header_to_raw(hdr$header)
     }
     
+    WCSfound = grep('CRVAL1', hdr$keynames, value=TRUE)
+    
+    if(length(WCSfound) == 0){
+      WCSref = 'None'
+    }else if(length(WCSfound) == 1){
+      WCSref = 'NULL'
+    }else{
+      WCSref = {}
+      for(i in 1:length(WCSfound)){
+        WCScurrent = strsplit(WCSfound[i], 'CRVAL1', fixed=TRUE)[[1]]
+        if(length(WCScurrent) == 1){
+          WCSref = c(WCSref, 'Null')
+        }else{
+          WCSref = c(WCSref, WCScurrent[2])
+        }
+      }
+    }
+    
     output = list(imDat = image,
                   keyvalues = hdr$keyvalues,
                   keycomments = hdr$keycomments,
@@ -312,7 +330,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   history = hdr$history,
                   filename = filename,
                   ext = ext,
-                  extname = hdr$keyvalues$EXTNAME
+                  extname = hdr$keyvalues$EXTNAME,
+                  WCSref = WCSref
                   )
 
     if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
