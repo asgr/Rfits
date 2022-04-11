@@ -255,14 +255,17 @@ dim.Rfits_pointer=function(x){
   }
     
   if(keepWCS){
-    keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = safedim_i$len_tar
+    if(!isTRUE(x$keyvalues$ZIMAGE)){
+      x$keyvalues$NAXIS1 = safedim_i$len_tar
+    }else{
+      x$keyvalues$ZNAXIS1 = safedim_i$len_tar
+    }
     if(!is.null(keyvalues$CRPIX1)){
-      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+      x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
     output = list(
       imDat = tar,
-      keyvalues = keyvalues,
+      keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
       comment = x$comment,
@@ -316,21 +319,25 @@ dim.Rfits_pointer=function(x){
   }
 
   if(keepWCS){
-    keyvalues = x$keyvalues
-    keyvalues$NAXIS1 = safedim_i$len_tar
-    keyvalues$NAXIS2 = safedim_j$len_tar
-    if(!is.null(keyvalues$CRPIX1)){
-      keyvalues$CRPIX1 = keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    if(!isTRUE(x$keyvalues$ZIMAGE)){
+      x$keyvalues$NAXIS1 = safedim_i$len_tar
+      x$keyvalues$NAXIS2 = safedim_j$len_tar
+    }else{
+      x$keyvalues$ZNAXIS1 = safedim_i$len_tar
+      x$keyvalues$ZNAXIS2 = safedim_j$len_tar
     }
-    if(!is.null(keyvalues$CRPIX2)){
-      keyvalues$CRPIX2 = keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
+    if(!is.null(x$keyvalues$CRPIX1)){
+      x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
+    }
+    if(!is.null(x$keyvalues$CRPIX2)){
+      x$keyvalues$CRPIX2 = x$keyvalues$CRPIX2 - safedim_j$lo_tar + 1L
     }
     
     #New keyvalues being added
-    keyvalues$XCUTLO = safedim_i$lo_orig
-    keyvalues$XCUTHI = safedim_i$hi_orig
-    keyvalues$YCUTLO = safedim_j$lo_orig
-    keyvalues$YCUTHI = safedim_j$hi_orig
+    x$keyvalues$XCUTLO = safedim_i$lo_orig
+    x$keyvalues$XCUTHI = safedim_i$hi_orig
+    x$keyvalues$YCUTLO = safedim_j$lo_orig
+    x$keyvalues$YCUTHI = safedim_j$hi_orig
     
     #New keycomments being added
     x$keycomments$XCUTLO = 'Low image x range'
@@ -345,13 +352,13 @@ dim.Rfits_pointer=function(x){
     
     #header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
     
-    hdr = Rfits_keyvalues_to_hdr(keyvalues)
-    header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
     raw = Rfits_header_to_raw(header)
     
     output = list(
       imDat = tar,
-      keyvalues = keyvalues,
+      keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
       header = header,
@@ -385,9 +392,15 @@ dim.Rfits_pointer=function(x){
   }
   
   if(keepWCS){
-    x$keyvalues$NAXIS1 = safedim_i$len_tar
-    x$keyvalues$NAXIS2 = safedim_j$len_tar
-    x$keyvalues$NAXIS3 = safedim_k$len_tar
+    if(!isTRUE(x$keyvalues$ZIMAGE)){
+      x$keyvalues$NAXIS1 = safedim_i$len_tar
+      x$keyvalues$NAXIS2 = safedim_j$len_tar
+      x$keyvalues$NAXIS3 = safedim_k$len_tar
+    }else{
+      x$keyvalues$ZNAXIS1 = safedim_i$len_tar
+      x$keyvalues$ZNAXIS2 = safedim_j$len_tar
+      x$keyvalues$ZNAXIS3 = safedim_k$len_tar
+    }
     if(!is.null(x$keyvalues$CRPIX1)){
       x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
@@ -453,10 +466,17 @@ dim.Rfits_pointer=function(x){
   }
   
   if(keepWCS){
-    x$keyvalues$NAXIS1 = safedim_i$len_tar
-    x$keyvalues$NAXIS2 = safedim_j$len_tar
-    x$keyvalues$NAXIS3 = safedim_k$len_tar
-    x$keyvalues$NAXIS4 = safedim_m$len_tar
+    if(!isTRUE(x$keyvalues$ZIMAGE)){
+      x$keyvalues$NAXIS1 = safedim_i$len_tar
+      x$keyvalues$NAXIS2 = safedim_j$len_tar
+      x$keyvalues$NAXIS3 = safedim_k$len_tar
+      x$keyvalues$NAXIS4 = safedim_m$len_tar
+    }else{
+      x$keyvalues$ZNAXIS1 = safedim_i$len_tar
+      x$keyvalues$ZNAXIS2 = safedim_j$len_tar
+      x$keyvalues$ZNAXIS3 = safedim_k$len_tar
+      x$keyvalues$ZNAXIS4 = safedim_m$len_tar
+    }
     if(!is.null(x$keyvalues$CRPIX1)){
       x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }

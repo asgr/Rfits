@@ -262,43 +262,83 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(header){
     if(subset){
-      #Dim 1
-      hdr$keyvalues$NAXIS1 = naxis1
-      hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
-      if(!is.null(hdr$keyvalues$CRPIX1)){
-        hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L
-        hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
-      }
-      #Dim 2
-      if(Ndim >= 2){
-        hdr$keyvalues$NAXIS2 = naxis2
-        hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
-        if(!is.null(hdr$keyvalues$CRPIX2)){
-          hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L
-          hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
+      if(!isTRUE(hdr$keyvalues$ZIMAGE)){
+        #Dim 1
+        hdr$keyvalues$NAXIS1 = naxis1
+        hdr$keycomments$NAXIS1 = paste(hdr$keycomments$NAXIS1, 'SUBMOD')
+        if(!is.null(hdr$keyvalues$CRPIX1)){
+          hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L
+          hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
         }
-      }
-      #Dim 3
-      if(Ndim >= 3){
-        hdr$keyvalues$NAXIS3 = naxis3
-        hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
-        if(!is.null(hdr$keyvalues$CRPIX3)){
-          hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L
-          hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
+        #Dim 2
+        if(Ndim >= 2){
+          hdr$keyvalues$NAXIS2 = naxis2
+          hdr$keycomments$NAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX2)){
+            hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L
+            hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
+          }
         }
-      }
-      #Dim 4
-      if(Ndim >= 4){
-        hdr$keyvalues$NAXIS4 = naxis4
-        hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
-        if(!is.null(hdr$keyvalues$CRPIX4)){
-          hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L
-          hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
+        #Dim 3
+        if(Ndim >= 3){
+          hdr$keyvalues$NAXIS3 = naxis3
+          hdr$keycomments$NAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX3)){
+            hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L
+            hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
+          }
         }
+        #Dim 4
+        if(Ndim >= 4){
+          hdr$keyvalues$NAXIS4 = naxis4
+          hdr$keycomments$NAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX4)){
+            hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L
+            hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
+          }
+        }
+        hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
+        hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
+        hdr$raw = Rfits_header_to_raw(hdr$header)
+      }else{
+        #Dim 1
+        hdr$keyvalues$ZNAXIS1 = naxis1
+        hdr$keycomments$ZNAXIS1 = paste(hdr$keycomments$ZNAXIS1, 'SUBMOD')
+        if(!is.null(hdr$keyvalues$CRPIX1)){
+          hdr$keyvalues$CRPIX1 = hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L
+          hdr$keycomments$CRPIX1 = paste(hdr$keycomments$CRPIX1, 'SUBMOD')
+        }
+        #Dim 2
+        if(Ndim >= 2){
+          hdr$keyvalues$ZNAXIS2 = naxis2
+          hdr$keycomments$ZNAXIS2 = paste(hdr$keycomments$NAXIS2, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX2)){
+            hdr$keyvalues$CRPIX2 = hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L
+            hdr$keycomments$CRPIX2 = paste(hdr$keycomments$CRPIX2, 'SUBMOD')
+          }
+        }
+        #Dim 3
+        if(Ndim >= 3){
+          hdr$keyvalues$ZNAXIS3 = naxis3
+          hdr$keycomments$ZNAXIS3 = paste(hdr$keycomments$NAXIS3, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX3)){
+            hdr$keyvalues$CRPIX3 = hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L
+            hdr$keycomments$CRPIX3 = paste(hdr$keycomments$CRPIX3, 'SUBMOD')
+          }
+        }
+        #Dim 4
+        if(Ndim >= 4){
+          hdr$keyvalues$ZNAXIS4 = naxis4
+          hdr$keycomments$ZNAXIS4 = paste(hdr$keycomments$NAXIS4, 'SUBMOD')
+          if(!is.null(hdr$keyvalues$CRPIX4)){
+            hdr$keyvalues$CRPIX4 = hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L
+            hdr$keycomments$CRPIX4 = paste(hdr$keycomments$CRPIX4, 'SUBMOD')
+          }
+        }
+        hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
+        hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
+        hdr$raw = Rfits_header_to_raw(hdr$header)
       }
-      hdr$hdr = Rfits_keyvalues_to_hdr(hdr$keyvalues)
-      hdr$header = Rfits_keyvalues_to_header(hdr$keyvalues, hdr$keycomments, hdr$comment, hdr$history)
-      hdr$raw = Rfits_header_to_raw(hdr$header)
     }
     
     WCSfound = grep('CRVAL1', hdr$keynames, value=TRUE)
