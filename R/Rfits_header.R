@@ -508,7 +508,7 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
 }
 
 Rfits_header_to_raw = function(header){
-  return(paste(formatC(header, width=80, flag='-'),sep='',collapse = ''))
+  return(paste(formatC(substr(header,1,80), width=80, flag='-'),sep='',collapse = ''))
 }
 
 Rfits_raw_to_header = function(header){
