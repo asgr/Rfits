@@ -355,9 +355,10 @@ dim.Rfits_pointer=function(x){
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
     #detect minimal update:
-    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    if(length(updateloc) > 0){
-      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    if(length(updateloc_header) > 0){
+      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
       x$raw = Rfits_header_to_raw(x$header)
     }
     
@@ -430,9 +431,11 @@ dim.Rfits_pointer=function(x){
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
     #detect minimal update:
-    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    if(length(updateloc) > 0){
-      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+    #detect minimal update:
+    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    if(length(updateloc_header) > 0){
+      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
       x$raw = Rfits_header_to_raw(x$header)
     }
     
@@ -527,9 +530,10 @@ dim.Rfits_pointer=function(x){
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
     #detect minimal update:
-    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    if(length(updateloc) > 0){
-      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    if(length(updateloc_header) > 0){
+      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
       x$raw = Rfits_header_to_raw(x$header)
     }
     
