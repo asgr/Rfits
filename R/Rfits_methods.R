@@ -260,7 +260,7 @@ dim.Rfits_pointer=function(x){
     }else{
       x$keyvalues$ZNAXIS1 = safedim_i$len_tar
     }
-    if(!is.null(keyvalues$CRPIX1)){
+    if(!is.null(x$keyvalues$CRPIX1)){
       x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
     output = list(
@@ -353,17 +353,22 @@ dim.Rfits_pointer=function(x){
     #header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
     
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
-    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
-    raw = Rfits_header_to_raw(header)
+    
+    #detect minimal update:
+    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    if(length(updateloc) > 0){
+      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+      x$raw = Rfits_header_to_raw(x$header)
+    }
     
     output = list(
       imDat = tar,
       keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
-      header = header,
+      header = x$header,
       hdr = hdr,
-      raw = raw,
+      raw = x$raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
@@ -423,17 +428,22 @@ dim.Rfits_pointer=function(x){
     }
     
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
-    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
-    raw = Rfits_header_to_raw(header)
+    
+    #detect minimal update:
+    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    if(length(updateloc) > 0){
+      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+      x$raw = Rfits_header_to_raw(x$header)
+    }
     
     output = list(
       imDat = tar,
       keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = names(x$keyvalues),
-      header = header,
+      header = x$header,
       hdr = hdr,
-      raw = raw,
+      raw = x$raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
@@ -515,17 +525,22 @@ dim.Rfits_pointer=function(x){
     }
     
     hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
-    header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
-    raw = Rfits_header_to_raw(header)
+    
+    #detect minimal update:
+    updateloc = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    if(length(updateloc) > 0){
+      x$header[updateloc] = Rfits_keyvalues_to_header(x$keyvalues[updateloc], x$keycomments[updateloc])
+      x$raw = Rfits_header_to_raw(x$header)
+    }
     
     output = list(
       imDat = tar,
       keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = names(x$keyvalues),
-      header = header,
+      header = x$header,
       hdr = hdr,
-      raw = raw,
+      raw = x$raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,

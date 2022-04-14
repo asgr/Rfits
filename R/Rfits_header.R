@@ -399,7 +399,7 @@ Rfits_header_to_hdr = function(header, remove_HIERARCH=FALSE){
   
   #Based on parseHdr in FITSio
   sel_HIERARCH = grep('HIERARCH', header)
-  good = sort(unique(c(which(substr(header, 9, 10) == "= "),sel_HIERARCH)))
+  good = sort(unique(c(which(substr(header, 9, 9) == "="),sel_HIERARCH)))
   if(remove_HIERARCH){
     header = sub('HIERARCH  ', '', header)
   }
@@ -491,7 +491,7 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
       }
       if(temp_keyvalue == 'TRUE'){temp_keyvalue = 'T'}
       if(temp_keyvalue == 'FALSE'){temp_keyvalue = 'F'}
-      temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '=', formatC(temp_keyvalue,width=21),' / ')
+      temp_key = paste0(formatC(names(keyvalues[i]),width = 8, flag='-'), '= ', formatC(temp_keyvalue,width=20),' / ')
       if(!is.null(keycomments)){
         temp_key = paste0(temp_key,keycomments[[i]])
       }
@@ -507,8 +507,12 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   return(temp_out)
 }
 
-Rfits_header_to_raw = function(header){
-  return(paste(formatC(substr(header,1,80), width=80, flag='-'),sep='',collapse = ''))
+Rfits_header_to_raw = function(header, fix=TRUE){
+  if(fix){
+    CDloc = grep('CD[1-2]_[1-2]   =', header)
+    header = c(header[CDloc], header[-CDloc])
+  }
+  return(paste(formatC(substr(header,1,79), width=80, flag='-'),sep='',collapse = ''))
 }
 
 Rfits_raw_to_header = function(header){
