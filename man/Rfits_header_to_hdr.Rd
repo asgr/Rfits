@@ -20,7 +20,7 @@ Rfits_header_to_keyvalues(header, remove_HIERARCH = FALSE)
 Rfits_keyvalues_to_hdr(keyvalues)
 Rfits_keyvalues_to_header(keyvalues, keycomments = NULL, comment = NULL,
   history = NULL)
-Rfits_header_to_raw(header)
+Rfits_header_to_raw(header, fix = TRUE)
 Rfits_raw_to_header(header)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -55,6 +55,9 @@ Character vector; additional header comments to write to header.
 }
   \item{history}{
 Character vector; additional header history to write to header.
+}
+  \item{fix}{
+Logical; try to 'fix' the raw header by moving CD matrix values to the front (wcslib seems to have issues if they appear after the distortion terms, not sure why).  
 }
 }
 \details{
