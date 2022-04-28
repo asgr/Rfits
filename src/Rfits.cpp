@@ -802,5 +802,13 @@ SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
   return(out);
 }
 
-
+// [[Rcpp::export]]
+int Cfits_read_nkey(Rcpp::String filename, int ext=1){
+  int nkeys, keypos, hdutype;
+  fits_file fptr;
+  fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  return(nkeys);
+}
 

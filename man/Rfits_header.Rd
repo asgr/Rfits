@@ -16,6 +16,7 @@
 \alias{Rfits_encode_chksum}
 \alias{Rfits_decode_chksum}
 \alias{Rfits_nhdu}
+\alias{Rfits_nkey}
 \alias{Rfits_read_header_raw}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
@@ -59,7 +60,11 @@ Rfits_decode_chksum(checksum, complement = FALSE)
 
 Rfits_nhdu(filename)
 
+Rfits_nkey(filename = 'temp.fits', ext = 1)
+
 Rfits_read_header_raw(filename = 'temp.fits', ext = 1)
+
+
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -159,6 +164,9 @@ Character vector; header comment entries starting with COMMENT.
   \item{history}{
 Character vector; header comment entries starting with HISTORY.
 }
+  \item{nkey}{
+Integer scalar; total number of keys in the header.  
+}
 
 \code{Rfits_read_key}: read single key entry into scalar numeric or string.
 
@@ -188,7 +196,11 @@ Character vector; header comment entries starting with HISTORY.
 
 \code{Rfits_nhdu} returns the total number of extensions in the target file.
 
+\code{Rfits_nkey} returns the total number of keys in the target file extension.
+
 \code{Rfits_read_header_raw} fully concatenated header output with full padding. This is really for later passing into \code{Rwcs} functions that can accept such headers, \code{Rfits} does not use this otherwise.
+
+
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

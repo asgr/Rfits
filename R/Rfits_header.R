@@ -164,6 +164,9 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   #raw header
   header = Cfits_read_header(filename=filename, ext=ext)
   
+  #read nkey
+  nkey = Cfits_read_nkey(filename=filename, ext=ext)
+  
   #remove comments for parsing
   loc_comment = grep('COMMENT', header)
   loc_history = grep('HISTORY', header)
@@ -218,8 +221,10 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   
   #weirdly, I found some issues using wcslib when CDX_Y wasn't in front of the distortion terms. This is a hard fix
   
-  CDloc = grep('CD[1-2]_[1-2]   =', header)
-  raw = Rfits_header_to_raw(c(header[CDloc], header[-CDloc]))
+  #CDloc = grep('CD[1-2]_[1-2]   =', header)
+  #raw = Rfits_header_to_raw(c(header[CDloc], header[-CDloc]))
+  
+  #The above was never really the issue- all came back to mangled headers.
   
   output = list(keyvalues=keyvalues,
                 keycomments=keycomments,
@@ -228,7 +233,8 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
                 hdr=hdr,
                 raw=raw,
                 comment=comment,
-                history=history)
+                history=history,
+                nkey=nkey)
   class(output) = c('Rfits_header', class(output))
   return(output)
 }
@@ -303,12 +309,15 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   }
   
   for(i in 1:length(keyvalues)){
-    
-    if((! keynames[i] %in% keynames_old) & (! paste0('Z',keynames[i]) %in% keynames_old)){
-      if(missing(keycomments)){
-        Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
-      }else{
-        Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+    if(ext==1){
+      if(!keynames[i] %in% c('XTENSION', 'PCOUNT', ' GCOUNT')){
+        if((! keynames[i] %in% keynames_old) & (! paste0('Z',keynames[i]) %in% keynames_old)){
+          if(missing(keycomments)){
+            Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
+          }else{
+            Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+          }
+        }
       }
     }
   }
@@ -391,6 +400,15 @@ Rfits_nhdu = function(filename='temp.fits'){
   assertAccess(filename, access='r')
   
   return(Cfits_read_nhdu(filename=filename))
+}
+
+Rfits_nkey = function(filename='temp.fits', ext=1){
+  assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
+  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
+  assertAccess(filename, access='r')
+  assertIntegerish(ext, len=1)
+  return(Cfits_read_nkey(filename=filename, ext=ext))
 }
 
 Rfits_header_to_hdr = function(header, remove_HIERARCH=FALSE){
@@ -507,11 +525,11 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   return(temp_out)
 }
 
-Rfits_header_to_raw = function(header, fix=TRUE){
-  if(fix){
-    CDloc = grep('CD[1-2]_[1-2]   =', header)
-    header = c(header[CDloc], header[-CDloc])
-  }
+Rfits_header_to_raw = function(header){
+  # if(fix){
+  #   CDloc = grep('CD[1-2]_[1-2]   =', header)
+  #   header = c(header[CDloc], header[-CDloc])
+  # }
   return(paste(formatC(substr(header,1,79), width=80, flag='-'),sep='',collapse = ''))
 }
 

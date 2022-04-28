@@ -368,6 +368,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   raw = hdr$raw,
                   comment = hdr$comment,
                   history = hdr$history,
+                  nkey = hdr$nkey,
                   filename = filename,
                   ext = ext,
                   extname = hdr$keyvalues$EXTNAME,

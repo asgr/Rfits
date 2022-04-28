@@ -109,3 +109,7 @@ Cfits_decode_chksum <- function(ascii, complement = 0L) {
     .Call(`_Rfits_Cfits_decode_chksum`, ascii, complement)
 }
 
+Cfits_read_nkey <- function(filename, ext = 1L) {
+    .Call(`_Rfits_Cfits_read_nkey`, filename, ext)
+}
+
