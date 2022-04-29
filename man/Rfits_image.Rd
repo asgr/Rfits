@@ -20,19 +20,23 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
+  zap = NULL)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
+  zap = NULL)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
+  zap = NULL)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
+  zap = NULL)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -130,6 +134,9 @@ Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This ca
 }
   \item{keypass}{
 Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
+}
+  \item{zap}{
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
 }
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.

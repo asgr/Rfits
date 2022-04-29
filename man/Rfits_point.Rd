@@ -6,10 +6,10 @@
 FITS File Pointer
 }
 \description{
-Creates a pointer to an on-disk FITS file, which can then be used like a Matrix.
+Creates a pointer to an on-disk FITS image file, which can then be used like a Matrix.
 }
 \usage{
-Rfits_point(filename, ext = 1, header = FALSE)
+Rfits_point(filename, ext = 1, header = FALSE, zap = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -21,6 +21,9 @@ Integer scalar; the extension to read the image from (usually starts at 1 for im
 }
   \item{header}{
 Logical; should a header be extracted for each subset operation? Setting to TRUE adds computational overhead.
+}
+  \item{zap}{
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
 }
 }
 \details{

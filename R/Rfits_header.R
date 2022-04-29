@@ -153,7 +153,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
 }
 
-Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE){
+Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE, zap=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -163,6 +163,10 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   
   #raw header
   header = Cfits_read_header(filename=filename, ext=ext)
+  
+  if(!is.null(zap)){
+    header = Rfits_header_zap(header, zap=zap)
+  }
   
   #read nkey
   nkey = Cfits_read_nkey(filename=filename, ext=ext)
@@ -354,7 +358,7 @@ Rfits_info = function(filename='temp.fits', remove_HIERARCH=FALSE){
     info = c(info, temp$header[1])
     headers = c(headers, list(temp))
   }
-  return(invisible(list(summary = info, headers=headers)))
+  return(invisible(list(summary=info, headers=headers)))
 }
 
 Rfits_write_chksum=function(filename='temp.fits'){

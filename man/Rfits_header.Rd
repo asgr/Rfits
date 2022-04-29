@@ -27,7 +27,7 @@ Generic header key readers and writers. Works with a wide range of data types in
 }
 \usage{
 Rfits_read_header(filename = 'temp.fits', ext = 1, remove_HIERARCH = FALSE,
-  keypass = FALSE)
+  keypass = FALSE, zap = NULL)
 
 Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
   comment, history, ext = 1, create_ext = FALSE, create_file = FALSE,
@@ -79,6 +79,9 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
 }
   \item{keypass}{
 Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
+}
+  \item{zap}{
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
 }
   \item{keyname}{
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  

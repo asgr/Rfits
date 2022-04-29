@@ -13,14 +13,14 @@
               hi_tar=hi_tar, diff=diff))
 }
 
-Rfits_point=function(filename='temp.fits', ext=1, header=FALSE){
+Rfits_point=function(filename='temp.fits', ext=1, header=FALSE, zap=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')
   assertIntegerish(ext, len=1)
   assertFlag(header)
   
-  temp = Rfits_read_header(filename=filename, ext=ext)
+  temp = Rfits_read_header(filename=filename, ext=ext, zap=zap)
   keyvalues = temp$keyvalues
   raw = temp$raw
   
