@@ -469,10 +469,6 @@ Rfits_hdr_to_keyvalues = function(hdr){
   return(keyvalues)
 }
 
-Rfits_header_to_keyvalues=function(header, remove_HIERARCH=FALSE){
-  return(Rfits_hdr_to_keyvalues(Rfits_header_to_hdr(header=header, remove_HIERARCH=remove_HIERARCH)))
-}
-
 Rfits_keyvalues_to_hdr = function(keyvalues){
   assertList(keyvalues)
   temp_out = rep('', 2*length(keyvalues))
@@ -529,16 +525,8 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   return(temp_out)
 }
 
-Rfits_header_zap=function(header, zap=NULL, ...){
-  if(!is.null(zap)){
-    for(i in 1:length(zap)){
-      zaplocs = grep(zap[i], header, ...)
-      if(length(zaplocs) > 0){
-        header = header[-zaplocs]
-      }
-    }
-  }
-  return(header)
+Rfits_header_to_keyvalues=function(header, remove_HIERARCH=FALSE){
+  return(Rfits_hdr_to_keyvalues(Rfits_header_to_hdr(header=header, remove_HIERARCH=remove_HIERARCH)))
 }
 
 Rfits_header_to_raw = function(header, zap=NULL, ...){
@@ -549,6 +537,18 @@ Rfits_header_to_raw = function(header, zap=NULL, ...){
 Rfits_raw_to_header = function(header){
   nkey = nchar(header)/80
   return(substring(header, 1+(80*((1:nkey)-1)), 80*(1:nkey)))
+}
+
+Rfits_header_zap=function(header, zap=NULL, ...){
+  if(!is.null(zap)){
+    for(i in 1:length(zap)){
+      zaplocs = grep(zap[i], header, ...)
+      if(length(zaplocs) > 0){
+        header = header[-zaplocs]
+      }
+    }
+  }
+  return(header)
 }
 
 Rfits_encode_chksum = function(checksum, complement=FALSE){
