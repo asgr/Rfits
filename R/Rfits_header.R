@@ -525,11 +525,20 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
   return(temp_out)
 }
 
-Rfits_header_to_raw = function(header){
-  # if(fix){
-  #   CDloc = grep('CD[1-2]_[1-2]   =', header)
-  #   header = c(header[CDloc], header[-CDloc])
-  # }
+Rfits_header_zap=function(header, zap=NULL, ...){
+  if(!is.null(zap)){
+    for(i in 1:length(zap)){
+      zaplocs = grep(zap[i], header, ...)
+      if(length(zaplocs) > 0){
+        header = header[-zaplocs]
+      }
+    }
+  }
+  return(header)
+}
+
+Rfits_header_to_raw = function(header, zap=NULL, ...){
+  header = Rfits_header_zap(header=header, zap=zap, ...)
   return(paste(formatC(substr(header,1,79), width=80, flag='-'),sep='',collapse = ''))
 }
 

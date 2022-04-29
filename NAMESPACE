@@ -30,6 +30,7 @@ export(Rfits_keyvalues_to_hdr)
 export(Rfits_keyvalues_to_header)
 export(Rfits_header_to_raw)
 export(Rfits_raw_to_header)
+export(Rfits_header_zap)
 
 export(Rfits_read_key)
 export(Rfits_write_key)

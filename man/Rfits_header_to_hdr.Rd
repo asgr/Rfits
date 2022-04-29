@@ -6,6 +6,7 @@
 \alias{Rfits_keyvalues_to_header}
 \alias{Rfits_header_to_raw}
 \alias{Rfits_raw_to_header}
+\alias{Rfits_header_zap}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Header Converters
@@ -20,8 +21,9 @@ Rfits_header_to_keyvalues(header, remove_HIERARCH = FALSE)
 Rfits_keyvalues_to_hdr(keyvalues)
 Rfits_keyvalues_to_header(keyvalues, keycomments = NULL, comment = NULL,
   history = NULL)
-Rfits_header_to_raw(header)
+Rfits_header_to_raw(header, zap = NULL, ...)
 Rfits_raw_to_header(header)
+Rfits_header_zap(header, zap = NULL, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -56,6 +58,12 @@ Character vector; additional header comments to write to header.
   \item{history}{
 Character vector; additional header history to write to header.
 }
+  \item{zap}{
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
+}
+  \item{\dots}{
+Other arguments to be passed on to \code{\link{grep}}.
+}
 }
 \details{
 Utility converstion functions, should you be stuck with an older format header.
@@ -77,6 +85,8 @@ Utility converstion functions, should you be stuck with an older format header.
 \code{Rfits_header_to_raw} return a raw \option{header} where all keys are exactly separated by 80 characters, and all are concatenated together into a single string. This is mostly for use with \code{Cwcs_head_s2p} and \code{Cwcs_head_p2s} which takes a raw form header as input and passes it through WCSLIB.
 
 \code{Rfits_raw_to_header} return a \option{header} vector, as used in most instances of \option{header} in \code{Rfits}.
+
+\code{Rfits_header_zap} returns a header vector with header lines containing specified text zapped out. This can be useful for cleaning bad headers up easily.
 }
 \author{
 Aaron Robotham
