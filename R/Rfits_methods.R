@@ -263,11 +263,33 @@ dim.Rfits_pointer=function(x){
     if(!is.null(x$keyvalues$CRPIX1)){
       x$keyvalues$CRPIX1 = x$keyvalues$CRPIX1 - safedim_i$lo_tar + 1L
     }
+    
+    #New keyvalues being added
+    x$keyvalues$XCUTLO = safedim_i$lo_tar
+    x$keyvalues$XCUTHI = safedim_i$hi_tar
+    
+    #New keycomments being added
+    x$keycomments$XCUTLO = 'Low image x range'
+    x$keycomments$XCUTHI = 'High image x range'
+    
+    #New keynames being added
+    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI') 
+    
+    #New history being added
+    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar))
+    
+    x$header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
+    x$raw = Rfits_header_to_raw(x$header)
+    x$hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    
     output = list(
       imDat = tar,
       keyvalues = x$keyvalues,
       keycomments = x$keycomments,
       keynames = x$keynames,
+      header = x$header,
+      hdr = x$hdr,
+      raw = x$raw,
       comment = x$comment,
       history = x$history,
       filename = x$filename,
@@ -334,10 +356,10 @@ dim.Rfits_pointer=function(x){
     }
     
     #New keyvalues being added
-    x$keyvalues$XCUTLO = safedim_i$lo_orig
-    x$keyvalues$XCUTHI = safedim_i$hi_orig
-    x$keyvalues$YCUTLO = safedim_j$lo_orig
-    x$keyvalues$YCUTHI = safedim_j$hi_orig
+    x$keyvalues$XCUTLO = safedim_i$lo_tar
+    x$keyvalues$XCUTHI = safedim_i$hi_tar
+    x$keyvalues$YCUTLO = safedim_j$lo_tar
+    x$keyvalues$YCUTHI = safedim_j$hi_tar
     
     #New keycomments being added
     x$keycomments$XCUTLO = 'Low image x range'
@@ -348,19 +370,21 @@ dim.Rfits_pointer=function(x){
     #New keynames being added
     x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
     
-    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_orig,':',safedim_i$hi_orig, ' / y= ', safedim_j$lo_orig,':',safedim_j$hi_orig))
+    #New history being added
+    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar))
     
-    #header = Rfits_keyvalues_to_header(keyvalues, x$keycomments, x$comment, x$history)
+    x$header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
+    x$raw = Rfits_header_to_raw(x$header)
+    x$hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
-    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
-    
+    #Now I don't think we need this, so prefer to remove it
     #detect minimal update:
-    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
-    if(length(updateloc_header) > 0){
-      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
-      x$raw = Rfits_header_to_raw(x$header)
-    }
+    # updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
+    # updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    # if(length(updateloc_header) > 0){
+    #   x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
+    #   x$raw = Rfits_header_to_raw(x$header)
+    # }
     
     output = list(
       imDat = tar,
@@ -368,7 +392,7 @@ dim.Rfits_pointer=function(x){
       keycomments = x$keycomments,
       keynames = x$keynames,
       header = x$header,
-      hdr = hdr,
+      hdr = x$hdr,
       raw = x$raw,
       comment = x$comment,
       history = x$history,
@@ -428,16 +452,39 @@ dim.Rfits_pointer=function(x){
       class_out = "Rfits_cube"
     }
     
-    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    #New keyvalues being added
+    x$keyvalues$XCUTLO = safedim_i$lo_tar
+    x$keyvalues$XCUTHI = safedim_i$hi_tar
+    x$keyvalues$YCUTLO = safedim_j$lo_tar
+    x$keyvalues$YCUTHI = safedim_j$hi_tar
+    x$keyvalues$ZCUTLO = safedim_k$lo_tar
+    x$keyvalues$ZCUTHI = safedim_k$hi_tar
+    
+    #New keycomments being added
+    x$keycomments$XCUTLO = 'Low image x range'
+    x$keycomments$XCUTHI = 'High image x range'
+    x$keycomments$YCUTLO = 'Low image y range'
+    x$keycomments$YCUTHI = 'High image y range'
+    x$keycomments$ZCUTLO = 'Low image z range'
+    x$keycomments$ZCUTHI = 'High image z range'
+    
+    #New keynames being added
+    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI') 
+    
+    #New history being added
+    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar))
+    
+    x$header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
+    x$raw = Rfits_header_to_raw(x$header)
+    x$hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
     #detect minimal update:
-    #detect minimal update:
-    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
-    if(length(updateloc_header) > 0){
-      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
-      x$raw = Rfits_header_to_raw(x$header)
-    }
+    # updateloc_key = grep('NAXIS[1-3]|CRPIX[1-3]|ZNAXIS[1-3]', x$keynames)
+    # updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    # if(length(updateloc_header) > 0){
+    #   x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
+    #   x$raw = Rfits_header_to_raw(x$header)
+    # }
     
     output = list(
       imDat = tar,
@@ -445,7 +492,7 @@ dim.Rfits_pointer=function(x){
       keycomments = x$keycomments,
       keynames = names(x$keyvalues),
       header = x$header,
-      hdr = hdr,
+      hdr = x$hdr,
       raw = x$raw,
       comment = x$comment,
       history = x$history,
@@ -527,15 +574,43 @@ dim.Rfits_pointer=function(x){
       class_out = "Rfits_array"
     }
     
-    hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
+    #New keyvalues being added
+    x$keyvalues$XCUTLO = safedim_i$lo_tar
+    x$keyvalues$XCUTHI = safedim_i$hi_tar
+    x$keyvalues$YCUTLO = safedim_j$lo_tar
+    x$keyvalues$YCUTHI = safedim_j$hi_tar
+    x$keyvalues$ZCUTLO = safedim_k$lo_tar
+    x$keyvalues$ZCUTHI = safedim_k$hi_tar
+    x$keyvalues$TCUTLO = safedim_m$lo_tar
+    x$keyvalues$TCUTHI = safedim_m$hi_tar
+    
+    #New keycomments being added
+    x$keycomments$XCUTLO = 'Low image x range'
+    x$keycomments$XCUTHI = 'High image x range'
+    x$keycomments$YCUTLO = 'Low image y range'
+    x$keycomments$YCUTHI = 'High image y range'
+    x$keycomments$ZCUTLO = 'Low image z range'
+    x$keycomments$ZCUTHI = 'High image z range'
+    x$keycomments$TCUTLO = 'Low image t range'
+    x$keycomments$TCUTHI = 'High image t range'
+    
+    #New keynames being added
+    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI', 'TCUTLO', 'TCUTHI') 
+    
+    #New history being added
+    x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar, ' / t= ', safedim_m$lo_tar,':',safedim_m$hi_tar))
+    
+    x$header = Rfits_keyvalues_to_header(x$keyvalues, x$keycomments, x$comment, x$history)
+    x$raw = Rfits_header_to_raw(x$header)
+    x$hdr = Rfits_keyvalues_to_hdr(x$keyvalues)
     
     #detect minimal update:
-    updateloc_key = grep('NAXIS[1-2]|CRPIX[1-2]|ZNAXIS[1-2]', x$keynames)
-    updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
-    if(length(updateloc_header) > 0){
-      x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
-      x$raw = Rfits_header_to_raw(x$header)
-    }
+    # updateloc_key = grep('NAXIS[1-4]|CRPIX[1-4]|ZNAXIS[1-4]', x$keynames)
+    # updateloc_header = grep(paste(x$keynames[updateloc_key],collapse='|'), x$header)
+    # if(length(updateloc_header) > 0){
+    #   x$header[updateloc_header] = Rfits_keyvalues_to_header(x$keyvalues[updateloc_key], x$keycomments[updateloc_key])
+    #   x$raw = Rfits_header_to_raw(x$header)
+    # }
     
     output = list(
       imDat = tar,
@@ -543,7 +618,7 @@ dim.Rfits_pointer=function(x){
       keycomments = x$keycomments,
       keynames = names(x$keyvalues),
       header = x$header,
-      hdr = hdr,
+      hdr = x$hdr,
       raw = x$raw,
       comment = x$comment,
       history = x$history,
