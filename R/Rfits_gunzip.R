@@ -1,7 +1,6 @@
-Rfits_gunzip = function(filename){
+Rfits_gunzip = function(filename, tempdir=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
-  filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   if(grepl('fits.gz',filename,fixed=TRUE) | grepl('fit.gz',filename,fixed=TRUE)){
     if(filename %in% options()$Rfits_gunzip[,1]){
@@ -10,7 +9,10 @@ Rfits_gunzip = function(filename){
       if(!requireNamespace("R.utils", quietly = TRUE)){
         stop('The R.utils package is needed to decompress the target fits.gz. Please install it from CRAN', call. = FALSE)
       }
-      file_temp = paste(tempdir(),strsplit(basename(filename),'.gz')[[1]], sep='/')
+      if(is.null(tempdir)){
+        tempdir = tempdir()
+      }
+      file_temp = paste(tempdir,strsplit(basename(filename),'.gz')[[1]], sep='/')
       R.utils::gunzip(filename, destname=file_temp, remove=FALSE, overwrite=TRUE)
       options(Rfits_gunzip = rbind(options()$Rfits_gunzip, c(filename, file_temp)))
       return(file_temp)
@@ -44,4 +46,15 @@ Rfits_gunzip_clear = function(filenames='all'){
       options(Rfits_gunzip = options()$Rfits_gunzip[!options()$Rfits_gunzip[,1] %in% filenames,])
     }
   }
+}
+
+Rfits_create_RAMdisk = function(diskname="RAMDisk", sizeGB=1){
+  command = paste0("diskutil erasevolume HFS+ \'",diskname,"\' \`hdiutil attach -nomount ram://",2097152*sizeGB,"\`")
+  system(command)
+  return(paste0('/Volumes/',diskname))
+}
+
+Rfits_remove_RAMdisk = function(diskname="RAMDisk"){
+  command = paste0("diskutil unmountDisk /Volumes/",diskname)
+  system(command)
 }
