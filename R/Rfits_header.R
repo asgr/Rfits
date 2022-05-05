@@ -55,6 +55,7 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertCharacter(keyname, len=1)
   assertCharacter(keytype, max.len=1)
   assertIntegerish(ext, len=1)
@@ -158,6 +159,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   assertFlag(remove_HIERARCH)
   
@@ -248,6 +250,7 @@ Rfits_read_header_raw=function(filename='temp.fits', ext=1){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   return(Cfits_read_header_raw(filename=filename, ext=ext))
 }
@@ -348,6 +351,7 @@ Rfits_info = function(filename='temp.fits', remove_HIERARCH=FALSE){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertFlag(remove_HIERARCH)
   
   ext = Cfits_read_nhdu(filename=filename)
@@ -375,6 +379,7 @@ Rfits_verify_chksum=function(filename='temp.fits', verbose=TRUE){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertFlag(verbose)
   
   out = Cfits_verify_chksum(filename=filename, verbose=verbose)
@@ -391,6 +396,7 @@ Rfits_get_chksum = function(filename='temp.fits'){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   
   out = Cfits_get_chksum(filename=filename)
   names(out) = c('DATASUM', 'CHECKSUM')
@@ -402,6 +408,7 @@ Rfits_nhdu = function(filename='temp.fits'){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   
   return(Cfits_read_nhdu(filename=filename))
 }
@@ -411,6 +418,7 @@ Rfits_nkey = function(filename='temp.fits', ext=1){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   return(Cfits_read_nkey(filename=filename, ext=ext))
 }

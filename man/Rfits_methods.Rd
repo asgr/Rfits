@@ -8,6 +8,11 @@
 \alias{print.Rfits_header}
 \alias{print.Rfits_list}
 \alias{length.Rfits_vector}
+\alias{length.Rfits_image}
+\alias{length.Rfits_cube}
+\alias{length.Rfits_array}
+\alias{length.Rfits_pointer}
+\alias{dim.Rfits_vector}
 \alias{dim.Rfits_image}
 \alias{dim.Rfits_cube}
 \alias{dim.Rfits_array}
@@ -56,6 +61,11 @@
 \method{print}{Rfits_header}(x, ...)
 \method{print}{Rfits_list}(x, ...)
 \method{length}{Rfits_vector}(x)
+\method{length}{Rfits_image}(x)
+\method{length}{Rfits_cube}(x)
+\method{length}{Rfits_array}(x)
+\method{length}{Rfits_pointer}(x)
+\method{dim}{Rfits_vector}(x)
 \method{dim}{Rfits_image}(x)
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)

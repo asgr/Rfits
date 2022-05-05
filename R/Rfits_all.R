@@ -1,6 +1,7 @@
 Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.table=TRUE, anycompress=TRUE, bad=NULL, zap=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = Rfits_gunzip(filename)
   if(is.character(pointer)){
     if(pointer=='auto'){
       size = file.size(filename)/2^20 # to get to MB
@@ -15,7 +16,8 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   assertLogical(header)
   assertFlag(data.table)
   assertFlag(anycompress)
-  checkNumeric(bad, null.ok=TRUE)
+  assertNumeric(bad, null.ok=TRUE)
+  assertCharacter(zap, null.ok=TRUE)
   
   info = Rfits_info(filename)
   
@@ -110,6 +112,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
     data_len = 1
   }
   assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
   assertFlag(flatten)
   assertFlag(overwrite_Main)
 
@@ -118,6 +121,18 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
   
   if(flatten){
     data = .flatten(data)
+  }
+  
+  if(!is.logical(compress)){
+    compress_vec = {}
+    for(i in 1:data_len){
+      if(inherits(data[[i]], 'Rfits_header')){
+        compress_vec = c(compress_vec, FALSE)
+      }else{
+        compress_vec = c(compress_vec, length(data[[i]]) > compress)
+      }
+    }
+    compress = compress_vec
   }
   
   if(length(compress) == 1){
@@ -137,7 +152,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         ext = 1
       }
       
-      if(inherits(data[[i]], c('Rfits_image', 'Rfits_image_pointer', 'array', 'matrix', 'integer', 'numeric'))){
+      if(inherits(data[[i]], c('Rfits_vector','Rfits_image','Rfits_cube','Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
         Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
                           create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE

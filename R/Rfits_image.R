@@ -57,6 +57,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   assertFlag(header)
   assertIntegerish(xlo, null.ok=TRUE)
@@ -415,7 +416,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   if(testFileExists(justfilename) & overwrite_file & create_file){
     file.remove(justfilename)
   }
-  if(inherits(data, what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector'))){
+  if(inherits(data, what=c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
     if(missing(keyvalues)){keyvalues=data$keyvalues}
     if(missing(keycomments)){keycomments=data$keycomments}
     if(missing(keynames)){keynames=data$keynames}

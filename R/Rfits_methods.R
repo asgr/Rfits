@@ -17,6 +17,7 @@ Rfits_point=function(filename='temp.fits', ext=1, header=FALSE, zap=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   assertFlag(header)
   
@@ -224,6 +225,26 @@ print.Rfits_header=function(x, ...){
 }
 
 length.Rfits_vector=function(x){
+  return(length(x$imDat))
+}
+
+length.Rfits_image=function(x){
+  return(length(x$imDat))
+}
+
+length.Rfits_cube=function(x){
+  return(length(x$imDat))
+}
+
+length.Rfits_array=function(x){
+  return(length(x$imDat))
+}
+
+length.Rfits_pointer=function(x){
+  return(prod(x$dim))
+}
+
+dim.Rfits_vector=function(x){
   return(length(x$imDat))
 }
 

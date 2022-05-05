@@ -56,6 +56,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   assertFlag(data.table)
   
@@ -118,6 +119,7 @@ Rfits_read_colnames=function(filename='temp.fits', ext=2){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
+  filename = Rfits_gunzip(filename)
   assertIntegerish(ext, len=1)
   
   colnames=Cfits_read_colname(filename=filename, ext=ext)
