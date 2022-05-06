@@ -29,7 +29,7 @@ Rfits_gunzip_clear = function(filenames='all'){
         if(!is.null(options()$Rfits_gunzip)){
           files_remove = options()$Rfits_gunzip[,2]
           files_remove = files_remove[file.exists(files_remove)]
-          if(length(files_remove) > 1){
+          if(length(files_remove) >= 1){
             file.remove(files_remove)
           }
           options(Rfits_gunzip = NULL)
@@ -37,9 +37,9 @@ Rfits_gunzip_clear = function(filenames='all'){
       }
     }else{
       files_remove = options()$Rfits_gunzip[options()$Rfits_gunzip[,1] %in% filenames,2]
-      if(length(files_remove) > 1){
+      if(length(files_remove) >= 1){
         files_remove = files_remove[file.exists(files_remove)]
-        if(length(files_remove) > 1){
+        if(length(files_remove) >= 1){
           file.remove(files_remove)
         }
       }
@@ -48,13 +48,13 @@ Rfits_gunzip_clear = function(filenames='all'){
   }
 }
 
-Rfits_create_RAMdisk = function(diskname="RAMDisk", sizeGB=1){
+Rfits_create_RAMdisk = function(diskname="RAMdisk", sizeGB=1){
   command = paste0("diskutil erasevolume HFS+ \'",diskname,"\' \`hdiutil attach -nomount ram://",2097152*sizeGB,"\`")
   system(command)
   return(paste0('/Volumes/',diskname))
 }
 
-Rfits_remove_RAMdisk = function(diskname="RAMDisk"){
+Rfits_remove_RAMdisk = function(diskname="RAMdisk"){
   command = paste0("diskutil unmountDisk /Volumes/",diskname)
   system(command)
 }

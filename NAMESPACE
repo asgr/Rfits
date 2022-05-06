@@ -5,6 +5,8 @@ export(Rfits_read)
 export(Rfits_write)
 export(Rfits_gunzip)
 export(Rfits_gunzip_clear)
+export(Rfits_create_RAMdisk)
+export(Rfits_remove_RAMdisk)
 
 export(Rfits_read_table)
 export(Rfits_read_colnames)

@@ -13,8 +13,8 @@ Utility function to smartly gunzip files, since fits.gz is quite common.
 \usage{
 Rfits_gunzip(filename, tempdir = NULL)
 Rfits_gunzip_clear(filenames='all')
-Rfits_create_RAMdisk(diskname = "RAMDisk", sizeGB=1)
-Rfits_remove_RAMdisk(diskname = "RAMDisk")
+Rfits_create_RAMdisk(diskname = "RAMdisk", sizeGB=1)
+Rfits_remove_RAMdisk(diskname = "RAMdisk")
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
