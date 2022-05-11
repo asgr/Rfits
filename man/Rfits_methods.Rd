@@ -19,6 +19,8 @@
 \alias{dim.Rfits_pointer}
 \alias{centre}
 \alias{centre.Rfits_image}
+\alias{center}
+\alias{center.Rfits_image}
 \alias{corners}
 \alias{corners.Rfits_image}
 \alias{pixscale}
@@ -72,6 +74,8 @@
 \method{dim}{Rfits_pointer}(x)
 centre(x, useraw=FALSE) 
 \method{centre}{Rfits_image}(x, useraw=FALSE, ...)
+center(x, useraw=FALSE) 
+\method{center}{Rfits_image}(x, useraw=FALSE, ...)
 corners(x, useraw=FALSE) 
 \method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
 pixscale(x, useraw=FALSE) 

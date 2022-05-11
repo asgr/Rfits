@@ -674,6 +674,12 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
+center = function(x, useraw=FALSE){
+  UseMethod("center", x)
+}
+
+center.Rfits_image = centre.Rfits_image
+
 corners = function(x, useraw=FALSE){
   UseMethod("corners", x)
 }

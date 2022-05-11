@@ -102,6 +102,8 @@ export(plot.Rfits_pointer)
 
 export(centre)
 export(centre.Rfits_image)
+export(center)
+export(center.Rfits_image)
 export(corners)
 export(corners.Rfits_image)
 export(pixscale)
@@ -158,6 +160,7 @@ S3method("lines", Rfits_vector)
 S3method("plot", Rfits_pointer)
 
 S3method("centre", Rfits_image)
+S3method("center", Rfits_image)
 S3method("corners", Rfits_image)
 S3method("pixscale", Rfits_image)
 
