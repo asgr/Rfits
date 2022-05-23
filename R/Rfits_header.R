@@ -326,6 +326,14 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
           }
         }
       }
+    }else{
+      if((! keynames[i] %in% keynames_old) & (! paste0('Z',keynames[i]) %in% keynames_old)){
+        if(missing(keycomments)){
+          Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
+        }else{
+          Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
+        }
+      }
     }
   }
   
