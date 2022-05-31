@@ -204,14 +204,20 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   keyvalues = Rfits_hdr_to_keyvalues(hdr)
   keynames = names(keyvalues)
   
-  loc_HIERARCH = grep('HIERARCH', keynames)
-  if(length(loc_HIERARCH)>0){
-    keynames_goodhead = keynames[-loc_HIERARCH] 
-    pattern_goodhead = paste(c(paste0(format(keynames_goodhead, width=8), '='), 'HIERARCH'), collapse = '|')
-  }else{
-    pattern_goodhead = paste(paste0(format(keynames, width=8), '='), collapse = '|')
+  nloop = ceiling(length(keynames)/1e3)
+  loc_goodhead={}
+  
+  for(i in 1:nloop){
+    temp_keynames = keynames[((i - 1)*1e3 + 1):min(i*1e3, length(keynames))]
+    loc_HIERARCH = grep('HIERARCH', temp_keynames)
+    if(length(loc_HIERARCH)>0){
+      keynames_remHIERARCH = temp_keynames[-loc_HIERARCH] 
+      pattern_goodhead = paste(c(paste0(format(keynames_remHIERARCH, width=8), '='), 'HIERARCH'), collapse = '|')
+    }else{
+      pattern_goodhead = paste(paste0(format(temp_keynames, width=8), '='), collapse = '|')
+    }
+    loc_goodhead = c(loc_goodhead, grep(pattern_goodhead, headertemp))
   }
-  loc_goodhead = grep(pattern_goodhead, headertemp)
   
   headertemp = headertemp[loc_goodhead]
   #comments list
@@ -324,6 +330,14 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
           }else{
             Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
           }
+        }
+      }
+    }else{
+      if((! keynames[i] %in% keynames_old) & (! paste0('Z',keynames[i]) %in% keynames_old)){
+        if(missing(keycomments)){
+          Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment="", ext=ext)
+        }else{
+          Rfits_write_key(filename=filename, keyname = keynames[i], keyvalue = keyvalues[[i]], keycomment = keycomments[[i]], ext=ext)
         }
       }
     }
