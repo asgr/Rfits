@@ -2,7 +2,7 @@ Rfits_gunzip = function(filename, tempdir=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')
-  if(grepl('fits.gz$',filename,fixed=TRUE) | grepl('fit.gz$',filename,fixed=TRUE)){
+  if(grepl('fits.gz$',basename(filename)) | grepl('fit.gz$',basename(filename))){
     if(filename %in% options()$Rfits_gunzip[,1]){
       filename = options()$Rfits_gunzip[options()$Rfits_gunzip[,1] == filename,2]
     }else{
