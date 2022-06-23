@@ -4,6 +4,7 @@ library(Rfits)
 library(testthat)
 library(FITSio)
 library(tdigest)
+library(R.utils)
 
 #ex 1 check that we read in images like readFITS
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -259,7 +260,7 @@ Rfits_write_table(temp_table, file_mix_temp3, create_ext=T, create_file=F)
 temp_mix3 = Rfits_read_all(file_mix_temp3)
 expect_length(temp_mix3, 6L)
 
-#ex39 check ext headers
+#ex39/40 check ext headers
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
 temp_image=Rfits_read_image(file_image)
 file_list_temp = tempfile()
@@ -267,3 +268,12 @@ Rfits_write(list(temp_image, temp_image), filename=file_list_temp)
 temp_list = Rfits_read(file_list_temp)
 expect_identical(unlist(temp_list[[1]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
 expect_identical(unlist(temp_list[[2]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
+
+#ex41/42 check gz
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+file_gz_temp = tempfile(fileext='.fits.gz')
+R.utils::gzip(system.file('extdata', 'image.fits', package = "Rfits"), destname=file_gz_temp, remove=FALSE, overwrite=TRUE)
+temp_image_gz = Rfits_read_image(file_gz_temp)
+expect_identical(temp_image$imDat, temp_image_gz$imDat)
+expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
