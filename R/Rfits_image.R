@@ -101,6 +101,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.null(naxis3)){Ndim = 3}
     if(!is.null(naxis4)){Ndim = 4}
     
+    if(!is.numeric(naxis1)){
+      stop('NAXIS1 is missing- at least this NAXIS required!')
+    }
+    
     if(is.null(naxis1)){
       naxis1 = 1
     }
@@ -202,6 +206,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     
   }else{
+    # Leave the naxis reads- this is the only way to know the naxis if we aren't given a header!
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
       naxis2 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext), silent=TRUE)
