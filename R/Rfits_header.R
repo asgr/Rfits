@@ -67,7 +67,7 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1)
   }else{
     stop('Unrecognised keytype')
   }
-  return(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
+  return(try(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext)))
 }
 
 Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="", ext=1){
@@ -108,7 +108,7 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   }
     
   if(is.character(keyvalue)){typecode=16}
-  Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode)
+  try(Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode))
 }
 
 Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
@@ -119,7 +119,7 @@ Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
   assertCharacter(comment, len=1)
   assertIntegerish(ext, len=1)
   
-  Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext)
+  try(Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext))
 }
 
 Rfits_write_history=function(filename='temp.fits', history="", ext=1){
@@ -130,7 +130,7 @@ Rfits_write_history=function(filename='temp.fits', history="", ext=1){
   assertCharacter(history, len=1)
   assertIntegerish(ext, len=1)
   
-  Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
+  try(Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext))
 }
 
 Rfits_write_date=function(filename='temp.fits', ext=1){
@@ -140,7 +140,7 @@ Rfits_write_date=function(filename='temp.fits', ext=1){
   assertAccess(filename, access='w')
   assertIntegerish(ext, len=1)
   
-  Cfits_write_date(filename=filename, ext=ext)
+  try(Cfits_write_date(filename=filename, ext=ext))
 }
 
 Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
@@ -151,7 +151,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   assertCharacter(keyname, len=1)
   assertIntegerish(ext, len=1)
   
-  Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
+  try(Cfits_delete_key(filename=filename, keyname=keyname, ext=ext))
 }
 
 Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE, zap=NULL){
