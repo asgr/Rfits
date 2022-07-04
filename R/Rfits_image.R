@@ -672,7 +672,7 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, header=header, ...)
+    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
@@ -696,10 +696,10 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, header=header, ...)
-    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, header=header, ...)
-    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, header=header, ...)
-    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, header=header, ...)
+    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     output = rbind(BL, TL, TR, BR)
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
     return(output)
@@ -734,7 +734,7 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(dims[1]/2 + c(-0.5,0.5), dims[2]/2 + c(-0.5,0.5), keyvalues = x$keyvalues, header=header, ...)
+    output = Rwcs::Rwcs_p2s(dims[1]/2 + c(-0.5,0.5), dims[2]/2 + c(-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
     return(2545.584412*sqrt(diff(output[,1])^2 + diff(output[,2])^2)) # 2545.584412 = 3600/sqrt(2)
   }else{
