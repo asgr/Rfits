@@ -93,19 +93,17 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     
     if(ext==1 & (is.null(naxis1))){
-      stop('Missing naxis1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+      message('Missing NAXIS1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
     }
     
-    Ndim = 1
+    Ndim = 0
+    if(!is.null(naxis1)){Ndim = 1}
     if(!is.null(naxis2)){Ndim = 2}
     if(!is.null(naxis3)){Ndim = 3}
     if(!is.null(naxis4)){Ndim = 4}
     
-    if(!is.numeric(naxis1)){
-      stop('NAXIS1 is missing- at least this NAXIS required!')
-    }
-    
     if(is.null(naxis1)){
+      message('NAXIS1 is missing- this is pretty weird!')
       naxis1 = 1
     }
     if(is.null(naxis2)){
@@ -166,18 +164,24 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(subset){
     if(safex$safe & safey$safe & safez$safe & safet$safe){
-      temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
-                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
-      
-      if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-        temp_image = matrix(temp_image, xhi-xlo+1, yhi-ylo+1)
-      }
-      
-      if(naxis3 > 1 & naxis4 == 1){
-        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
-      }
-      if(naxis4 > 1){
-        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+      try({
+        temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                                  lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
+        
+        if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+          temp_image = matrix(temp_image, xhi-xlo+1, yhi-ylo+1)
+        }
+        
+        if(naxis3 > 1 & naxis4 == 1){
+          temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+        }
+        if(naxis4 > 1){
+          temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+        }
+      })
+      if(!is.numeric(temp_image)){
+        message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
+        temp_image = NA
       }
     }
     if(Ndim==1){
@@ -221,7 +225,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
     if(!is.numeric(naxis1)){
-      stop('NAXIS1 is missing- at least this NAXIS required!')
+      message('NAXIS1 is missing- this is pretty weird!')
+      naxis1 = 1
     }
     if(!is.numeric(naxis2)){
       naxis2 = 1
@@ -232,8 +237,14 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis4)){
       naxis4 = 1
     }
-    image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                         naxis4=naxis4, ext=ext, datatype=datatype)
+    try({
+      image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                           naxis4=naxis4, ext=ext, datatype=datatype)
+    })
+    if(!is.numeric(image)){
+      message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
+      image = NA
+    }
   }
   
   if(force_logical & is.integer(image)){
@@ -253,6 +264,9 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     naxis4 = safet$len_tar
   }
   
+  if(naxis1 == 1 & naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+    image = as.vector(image)
+  }
   if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
     image = as.vector(image)
   }
