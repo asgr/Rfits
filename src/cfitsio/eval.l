@@ -70,6 +70,7 @@ static int expr_read( char *buf, int nbytes );
 
 /*****  Definitions  *****/
 
+#define YY_NO_INPUT
 #define YY_NO_UNPUT   /*  Don't include YYUNPUT function  */
 #define YY_NEVER_INTERACTIVE 1
 
