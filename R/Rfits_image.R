@@ -508,7 +508,15 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
       datatype = 21
     }else if(integer=='long' | integer=='32'){
       bitpix = 32
-      datatype = 31
+      datatype = 41
+      if(!missing(keyvalues)){
+        if(!is.null(keyvalues$BZERO)){
+          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+            keyvalues$BZERO = 0
+            message('Changing BZERO to 0 to prevent integer overflow!')
+          }
+        }
+      }
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
     }
@@ -680,7 +688,7 @@ centre = function(x, useraw=FALSE){
 }
 
 centre.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_image')){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
     stop('Object class is not of type Rfits_image!')
   }
   dims = dim(x)
@@ -697,14 +705,17 @@ center = function(x, useraw=FALSE){
   UseMethod("center", x)
 }
 
+#other useful methods:
 center.Rfits_image = centre.Rfits_image
+centre.Rfits_pointer = centre.Rfits_image
+center.Rfits_pointer = centre.Rfits_image
 
 corners = function(x, useraw=FALSE){
   UseMethod("corners", x)
 }
 
 corners.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_image')){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
     stop('Object class is not of type Rfits_image!')
   }
   dims = dim(x)
@@ -721,6 +732,8 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
     message('The Rwcs package is needed to find the corners of a Rfits_image object.')
   }
 }
+
+corners.Rfits_pointer = corners.Rfits_image
 
 pixscale = function(x, useraw=FALSE){
   UseMethod("pixscale", x)
@@ -742,7 +755,7 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
   # }else{
   #   message('The Rwcs package is needed to find the corners of a Rfits_image object.')
   # }
-  if(!inherits(x, 'Rfits_image')){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
     stop('Object class is not of type Rfits_image!')
   }
   dims = dim(x)
@@ -755,6 +768,8 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
   }
 }
+
+pixscale.Rfits_pointer = pixscale.Rfits_image
 
 Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
                               filename='', ext=1, keypass=TRUE){
