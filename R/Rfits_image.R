@@ -769,6 +769,15 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
+  if(inherits(x, 'Rfits_header')){
+    if(is.null(x$keyvalues$NAXIS)){
+      stop('No NAXIS!')
+    }else{
+      if(x$keyvalues$NAXIS < 2){
+        stop('NAXIS: ', x$keyvalues$NAXIS)
+      }
+    }
+  }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -798,6 +807,15 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
+  if(inherits(x, 'Rfits_header')){
+    if(is.null(x$keyvalues$NAXIS)){
+      stop('No NAXIS!')
+    }else{
+      if(x$keyvalues$NAXIS < 2){
+        stop('NAXIS: ', x$keyvalues$NAXIS)
+      }
+    }
+  }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -821,23 +839,17 @@ pixscale = function(x, useraw=FALSE){
 }
 
 pixscale.Rfits_image = function(x, useraw=FALSE, ...){
-  # if(!inherits(x, 'Rfits_image')){
-  #   stop('Object class is not of type Rfits_image!')
-  # }
-  # 
-  # if(requireNamespace("Rwcs", quietly=TRUE)){
-  #   keyvalues = Rwcs::Rwcs_keypass(x$keyvalues)
-  #   CD1_1 = keyvalues$CD1_1
-  #   CD1_2 = keyvalues$CD1_2
-  #   CD2_1 = keyvalues$CD2_1
-  #   CD2_2 = keyvalues$CD2_2
-  #   
-  #   return(3600*(sqrt(CD1_1^2+CD1_2^2)+sqrt(CD2_1^2+CD2_2^2))/2)
-  # }else{
-  #   message('The Rwcs package is needed to find the corners of a Rfits_image object.')
-  # }
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  }
+  if(inherits(x, 'Rfits_header')){
+    if(is.null(x$keyvalues$NAXIS)){
+      stop('No NAXIS!')
+    }else{
+      if(x$keyvalues$NAXIS < 2){
+        stop('NAXIS: ', x$keyvalues$NAXIS)
+      }
+    }
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
