@@ -17,6 +17,7 @@
 \alias{dim.Rfits_cube}
 \alias{dim.Rfits_array}
 \alias{dim.Rfits_pointer}
+\alias{dim.Rfits_header}
 \alias{centre}
 \alias{center}
 \alias{corners}
@@ -29,6 +30,10 @@
 \alias{center.Rfits_pointer}
 \alias{corners.Rfits_pointer}
 \alias{pixscale.Rfits_pointer}
+\alias{centre.Rfits_header}
+\alias{center.Rfits_header}
+\alias{corners.Rfits_header}
+\alias{pixscale.Rfits_header}
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
@@ -76,14 +81,23 @@
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
-centre(x, useraw=FALSE) 
-\method{centre}{Rfits_image}(x, useraw=FALSE, ...)
-center(x, useraw=FALSE) 
-\method{center}{Rfits_image}(x, useraw=FALSE, ...)
-corners(x, useraw=FALSE) 
-\method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
+\method{dim}{Rfits_header}(x)
+centre(x, useraw=FALSE)
+center(x, useraw=FALSE)
+corners(x, useraw=FALSE)
 pixscale(x, useraw=FALSE) 
+\method{centre}{Rfits_image}(x, useraw=FALSE, ...)
+\method{center}{Rfits_image}(x, useraw=FALSE, ...)
+\method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_image}(x, useraw=FALSE,  ...)
+\method{centre}{Rfits_pointer}(x, useraw=FALSE, ...)
+\method{center}{Rfits_pointer}(x, useraw=FALSE, ...)
+\method{corners}{Rfits_pointer}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_pointer}(x, useraw=FALSE,  ...)
+\method{centre}{Rfits_header}(x, useraw=FALSE, ...)
+\method{center}{Rfits_header}(x, useraw=FALSE, ...)
+\method{corners}{Rfits_header}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_header}(x, useraw=FALSE,  ...)
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)

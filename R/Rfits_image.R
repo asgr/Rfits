@@ -562,6 +562,84 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
                   naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=ext)
 }
 
+Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='long'){
+  assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
+  assertFileExists(filename)
+  assertAccess(filename, access='w')
+  
+  if(inherits(data, what=c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+    data = data$imDat
+  }
+  if(is.vector(data)){
+    assertVector(data)
+  }else{
+    assertArray(data)
+  }
+  
+  naxes = dim(data)
+  if(is.null(naxes)){naxes = length(data)}
+  naxis = length(naxes)
+  if(naxis == 1){
+    naxes = c(naxes,1,1,1)
+  }
+  if(naxis == 2){
+    naxes = c(naxes,1,1)
+  }
+  if(naxis == 3){
+    naxes = c(naxes,1)
+  }
+  
+  bitpix = 0
+  
+  if(max(data,na.rm=TRUE)>2^30){
+    integer='long'
+  }
+  
+  if(is.logical(data[1])){
+    bitpix = 8
+    datatype = 11
+  }
+  
+  if(bitpix == 0 & is.integer(data[1])){
+    if(integer=='short' | integer=='int' | integer=='16'){
+      bitpix = 16
+      datatype = 21
+    }else if(integer=='long' | integer=='32'){
+      bitpix = 32
+      datatype = 41
+      if(!missing(keyvalues)){
+        if(!is.null(keyvalues$BZERO)){
+          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+            keyvalues$BZERO = 0
+            message('Changing BZERO to 0 to prevent integer overflow!')
+          }
+        }
+      }
+    }else{
+      stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
+    }
+  }else if(is.integer64(data[1])){
+    bitpix = 64
+    datatype = 81
+  }
+  
+  if(bitpix==0 & is.numeric(data[1])){
+    if(numeric=='single' | numeric=='float' | numeric=='32'){
+      bitpix = -32
+      datatype = 42
+    }else if (numeric=='double' | numeric=='64'){
+      bitpix = -64
+      datatype = 82
+    }else{
+      stop('numeric type must be single/float/32 or double/64')
+    }
+  }
+  
+  Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
+                  naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=as.integer(ext))
+}
+
 Rfits_write_vector = Rfits_write_image
 
 Rfits_write_cube = Rfits_write_image
@@ -688,8 +766,8 @@ centre = function(x, useraw=FALSE){
 }
 
 centre.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -709,14 +787,16 @@ center = function(x, useraw=FALSE){
 center.Rfits_image = centre.Rfits_image
 centre.Rfits_pointer = centre.Rfits_image
 center.Rfits_pointer = centre.Rfits_image
+centre.Rfits_header = centre.Rfits_image
+center.Rfits_header = centre.Rfits_image
 
 corners = function(x, useraw=FALSE){
   UseMethod("corners", x)
 }
 
 corners.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -734,6 +814,7 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
 }
 
 corners.Rfits_pointer = corners.Rfits_image
+corners.Rfits_header = corners.Rfits_image
 
 pixscale = function(x, useraw=FALSE){
   UseMethod("pixscale", x)
@@ -755,8 +836,8 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
   # }else{
   #   message('The Rwcs package is needed to find the corners of a Rfits_image object.')
   # }
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer'))){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
   dims = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -770,6 +851,7 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
 }
 
 pixscale.Rfits_pointer = pixscale.Rfits_image
+pixscale.Rfits_header = pixscale.Rfits_image
 
 Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
                               filename='', ext=1, keypass=TRUE){

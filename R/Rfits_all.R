@@ -33,11 +33,13 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   
   #images
   
-  if(!is.null(info$headers[[1]]$keyvalues$NAXIS1)){
-    if(pointer){
-      data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap)
-    }else{
-      data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap)
+  if(!is.null(info$headers[[1]]$keyvalues$NAXIS)){
+    if(info$headers[[1]]$keyvalues$NAXIS > 0){
+      if(pointer){
+        data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap)
+      }else{
+        data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap)
+      }
     }
   }
   

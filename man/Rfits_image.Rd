@@ -10,6 +10,7 @@
 \alias{Rfits_write_array}
 \alias{Rfits_write_vector}
 \alias{Rfits_create_image}
+\alias{Rfits_write_pix}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Vector Image Cube and Array Readers and Writers
@@ -60,6 +61,8 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
     
 Rfits_create_image(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
     filename = '', ext = 1, keypass = TRUE)
+    
+Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long')
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -175,11 +178,13 @@ When reading, if \option{header}=FALSE then then the output is just the raw imag
 You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent (see Examples).
 }
 \value{
-\code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
+\code{Rfits_read_xxx}: List; read vector/image/cube/array into numeric or integer vector/matrix/array (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
 
-\code{Rfits_write_image} write out image to target FITS extension.
+\code{Rfits_write_xxx} write out vector/image/cube/array to target FITS extension.
 
 \code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
+
+\code{Rfits_write_pix} is a low level method to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

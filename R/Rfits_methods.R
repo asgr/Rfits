@@ -264,6 +264,30 @@ dim.Rfits_pointer=function(x){
   return(x$dim)
 }
 
+dim.Rfits_header=function(x){
+  if(!is.null(x$keyvalues$NAXIS1)){
+    NAXIS1 = x$keyvalues$NAXIS1
+  }else{
+    NAXIS1 = NULL
+  }
+  if(!is.null(x$keyvalues$NAXIS2)){
+    NAXIS2 = x$keyvalues$NAXIS2
+  }else{
+    NAXIS2 = NULL
+  }
+  if(!is.null(x$keyvalues$NAXIS3)){
+    NAXIS3 = x$keyvalues$NAXIS3
+  }else{
+    NAXIS3 = NULL
+  }
+  if(!is.null(x$keyvalues$NAXIS4)){
+    NAXIS4 = x$keyvalues$NAXIS4
+  }else{
+    NAXIS4 = NULL
+  }
+  return(c(NAXIS1, NAXIS2, NAXIS3, NAXIS4))
+}
+
 `[.Rfits_vector` = function(x, i, keepWCS=TRUE){
   
   if(missing(i)){i = c(1,length(x$imDat))}
