@@ -650,11 +650,15 @@ plot.Rfits_image=function(x, useraw=FALSE, ...){
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
-  if(requireNamespace("Rwcs", quietly=TRUE)){
-   if(useraw){header = x$raw}else{header = NULL}
-    Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=header, ...)
+  if(is.null(x$keyvalues$CRVAL1)){
+    magimage(x$imDat, ...)
   }else{
-    message('The Rwcs package is needed to plot a Rfits_image object.')
+    if(requireNamespace("Rwcs", quietly=TRUE)){
+      if(useraw){header = x$raw}else{header = NULL}
+      Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=header, ...)
+    }else{
+      message('The Rwcs package is needed to plot a Rfits_image object.')
+    }
   }
 }
 
@@ -718,18 +722,6 @@ lines.Rfits_vector=function(x, ...){
     xref = xref + x$keyvalues$CRVAL1
   }
   lines(xref, x$imDat, ...)
-}
-
-plot.Rfits_pointer=function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_pointer')){
-    stop('Object class is not of type Rfits_image!')
-  }
-  if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
-    Rwcs::Rwcs_image(x[,,header=FALSE], keyvalues=x$keyvalues, header=header, ...)
-  }else{
-    message('The Rwcs package is needed to plot a Rfits_image object.')
-  }
 }
 
 Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
