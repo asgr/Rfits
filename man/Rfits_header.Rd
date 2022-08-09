@@ -35,7 +35,7 @@ Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
 
 Rfits_info(filename = 'temp.fits', remove_HIERARCH = FALSE)
 
-Rfits_read_key(filename = 'temp.fits', keyname, keytype = 'numeric', ext = 1)
+Rfits_read_key(filename = 'temp.fits', keyname, keytype = 'auto', ext = 1)
 
 Rfits_write_key(filename = 'temp.fits', keyname, keyvalue, keycomment = "",
     ext = 1)
@@ -90,7 +90,7 @@ Character scalar; keyname in FITS header to be updated, added (if not present), 
 Character vector; (not required) keynames in FITS header to be updated or added (if not present). If not supplied then the keynames will be taken from the names of \option{keyvalues}.
 }
   \item{keytype}{
-Character scalar; type of key to be read in, either "numeric" or "string". 
+Character scalar; type of key to be read in, either "numeric", "integer", or "string", "character" or "char". There is also the special option "auto" that tried its best to guess the correct type of the output based on what is returned.
 }
   \item{keyvalue}{
 Scalar; value to be written (updated or added) into header (can be any type, e.g. numeric, integer, string).

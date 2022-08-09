@@ -390,6 +390,12 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
     out[0] = keyvalue;
     //std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
     return(out);
+  }else if ( typecode == TLONG ) {
+    Rcpp::IntegerVector out(1);
+    std::vector<int> keyvalue(1);
+    fits_invoke(read_key, fptr, TLONG, keyname.get_cstring(), keyvalue.data(), comment);
+    std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
+    return(out);
   }
   throw std::runtime_error("unsupported type");
 }

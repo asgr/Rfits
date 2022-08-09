@@ -50,6 +50,7 @@ export(Rfits_encode_chksum)
 export(Rfits_decode_chksum)
 export(Rfits_nhdu)
 export(Rfits_nkey)
+export(Rfits_key_scan)
 
 export(Rfits_read_all_hdf5)
 export(Rfits_write_all_hdf5)
@@ -217,3 +218,4 @@ import("checkmate")
 
 importFrom("utils", "object.size")
 importFrom("graphics", "plot", "lines")
+importFrom("magicaxis", "magimage")

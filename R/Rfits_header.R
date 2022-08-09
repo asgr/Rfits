@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1){
+Rfits_read_key=function(filename='temp.fits', keyname, keytype='auto', ext=1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -60,14 +60,44 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1)
   assertCharacter(keytype, max.len=1)
   assertIntegerish(ext, len=1)
   
+  keytype = tolower(keytype)
+  
   if(keytype=='numeric'){
-    typecode=82
-  }else if(keytype=='string'){
-    typecode=16
+    typecode = 82
+  }else if(keytype=='integer'){
+    typecode = 41
+  }else if(keytype=='string' | keytype=='character' | keytype=='char' | keytype=='auto'){
+    typecode = 16
   }else{
     stop('Unrecognised keytype')
   }
-  return(try(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext)))
+  
+  temp_key = try(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext), silent=TRUE)
+  
+  if(keytype=='auto'){
+    if(inherits(temp_key, "try-error")){
+      return(NA)
+    }
+    suppressWarnings({temp_key_num = as.numeric(temp_key)})
+    if(!is.na(temp_key_num)){
+      suppressWarnings({isint = temp_key_num %% 1 == 0 & abs(temp_key_num) <= .Machine$integer.max})
+      if(isint){
+        return(as.integer(temp_key_num))
+      }else{
+        return(as.numeric(temp_key_num))
+      }
+    }else{
+      if(temp_key == 'T'){
+        return(TRUE)
+      }else if(temp_key == 'F'){
+        return(FALSE)
+      }else{
+        return(temp_key)
+      }
+    }
+  }else{
+    return(temp_key)
+  }
 }
 
 Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="", ext=1){
@@ -585,4 +615,67 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   assertFlag(complement)
   
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
+}
+
+Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, pattern='.fits$',
+                          recursive=TRUE, fileinfo='Stub'){
+  if(missing(filelist)){
+    if(is.null(dirlist)){
+      stop('Missing filelist and dirlist')
+    }
+    filelist = {}
+    for(i in 1:length(dirlist)){
+      filelist = c(filelist,
+                   list.files(dirlist[i], pattern=pattern, full.names=TRUE, recursive=recursive))
+    }
+  }
+  
+  filelist = grep(pattern=pattern, filelist, value=TRUE)
+  filelist = normalizePath(filelist)
+  
+  if(length(extlist) == 1){
+    extlist = rep(extlist, length(filelist))
+  }
+  
+  obs_info = data.frame()
+  
+  for(i in 1:length(filelist)){
+    current_info = list()
+    for(key in keylist){
+      current_info = c(current_info, Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i]))
+    }
+    obs_info = rbind(obs_info, current_info)
+  }
+  
+  file = basename(filelist)
+  stub = gsub('.fits$','',file)
+  path = dirname(filelist)
+  
+  fileinfo = tolower(fileinfo)
+  colname_fileinfo = NULL
+  
+  if('path' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = 'path'
+    obs_info = cbind(path, obs_info)
+  }
+  if('stub' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('stub', colname_fileinfo)
+    obs_info = cbind(stub, obs_info)
+  }
+  if('file' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('file', colname_fileinfo)
+    obs_info = cbind(file, obs_info)
+  }
+  if('full' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('full', colname_fileinfo)
+    obs_info = cbind(filelist, obs_info)
+  }
+  
+  if(is.null(colname_fileinfo)){
+    colnames(obs_info) = keylist
+  }else{
+    colnames(obs_info) = c(colname_fileinfo, keylist)
+  }
+  
+  return(obs_info)
 }
