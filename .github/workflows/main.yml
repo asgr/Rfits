@@ -41,6 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          install.packages('remotes')
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
           remotes::install_github("asgr/Rwcs", ref="master")
