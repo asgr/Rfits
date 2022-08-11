@@ -61,6 +61,9 @@ Aaron Robotham
 \code{\link{Rfits_image_hdf5}}, \code{\link{Rfits_table_hdf5}}
 }
 \examples{
+\dontrun{
+library(hdf5r)
+
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image, header=TRUE)
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
@@ -78,6 +81,7 @@ sum(data[[1]]$imDat - data2[[1]]$imDat)
 
 cols_check = which(sapply(temp_table[1,], is.numeric))
 sum(data[[2]][,..cols_check] - data2[[2]][,..cols_check])
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
