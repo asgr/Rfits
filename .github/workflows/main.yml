@@ -43,6 +43,10 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+      
+      run: |
+          remotes::install_github("asgr/Rwcs", ref="master")
+        shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v2
         with:
