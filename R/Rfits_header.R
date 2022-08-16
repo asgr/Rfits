@@ -523,6 +523,7 @@ Rfits_hdr_to_keyvalues = function(hdr){
 
 Rfits_keyvalues_to_hdr = function(keyvalues){
   assertList(keyvalues)
+  keyvalues = keyvalues[!is.na(keyvalues)]
   temp_out = rep('', 2*length(keyvalues))
   temp_out[seq(1,2*length(keyvalues)-1,by=2)] = names(keyvalues)
   temp_keyvalues = as.character(keyvalues)

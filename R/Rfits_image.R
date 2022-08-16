@@ -493,8 +493,12 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   
   bitpix = 0
   
-  if(max(data,na.rm=TRUE)>2^30){
-    integer='long'
+  if(max(data,na.rm=TRUE) > 2^7){
+    integer = 'short'
+  }
+  
+  if(max(data,na.rm=TRUE) > 2^15){
+    integer = 'long'
   }
 
   if(is.logical(data[1])){
@@ -503,12 +507,15 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   }
   
   if(bitpix == 0 & is.integer(data[1])){
-    if(integer=='short' | integer=='int' | integer=='16'){
+    if(integer=='byte' | integer=='8'){
+      bitpix = 8
+      datatype = 11
+    }else if(integer=='short' | integer=='16'){
       bitpix = 16
       datatype = 21
-    }else if(integer=='long' | integer=='32'){
+    }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
-      datatype = 41
+      datatype = 31
       if(!missing(keyvalues)){
         if(!is.null(keyvalues$BZERO)){
           if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
@@ -546,6 +553,10 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   ext = Cfits_read_nhdu(filename=filename)
   
   if(!missing(keyvalues)){
+    if(is.null(keyvalues$BITPIX)){
+      keynames = c(keynames, 'BITPIX')
+      keycomments$BITPIX = 'number of bits per data pixel'
+    }
     keyvalues$BITPIX = bitpix
     
     if(!missing(comment)){
@@ -592,8 +603,12 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
   
   bitpix = 0
   
-  if(max(data,na.rm=TRUE)>2^30){
-    integer='long'
+  if(max(data,na.rm=TRUE) > 2^7){
+    integer = 'short'
+  }
+  
+  if(max(data,na.rm=TRUE) > 2^15){
+    integer = 'long'
   }
   
   if(is.logical(data[1])){
@@ -602,12 +617,15 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
   }
   
   if(bitpix == 0 & is.integer(data[1])){
-    if(integer=='short' | integer=='int' | integer=='16'){
+    if(integer=='byte' | integer=='8'){
+      bitpix = 8
+      datatype = 11
+    }else if(integer=='short' | integer=='16'){
       bitpix = 16
       datatype = 21
-    }else if(integer=='long' | integer=='32'){
+    }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
-      datatype = 41
+      datatype = 31
       if(!missing(keyvalues)){
         if(!is.null(keyvalues$BZERO)){
           if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
