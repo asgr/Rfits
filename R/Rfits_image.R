@@ -271,13 +271,13 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     image = as.vector(image)
   }
   if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-    image = matrix(image, naxis1, naxis2)
+    dim(image) =c(naxis1, naxis2)
   }
   if(naxis3 > 1 & naxis4 == 1){
-    image = array(image, dim=c(naxis1, naxis2, naxis3))
+    dim(image) =c(naxis1, naxis2, naxis3)
   }
   if(naxis4 > 1){
-    image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
+    dim(image) =c(naxis1, naxis2, naxis3, naxis4)
   }
   
   if(header){
@@ -493,22 +493,31 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   
   bitpix = 0
   
+  int_change = FALSE
+  
   if(integer=='byte' | integer=='8'){
     if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
       integer = 'short'
+      int_change = TRUE
     }
   }
   
   if(integer=='short' | integer=='16'){
     if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
       integer = 'long'
+      int_change = TRUE
     }
   }
   
   if(integer=='long' | integer=='int' | integer=='32'){
     if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
       integer = 'longlong'
+      int_change = TRUE
     }
+  }
+  
+  if(int_change & (is.integer(data) | is.integer64(data))){
+    message('Converted integer type to ',integer,' since data range is too large!')
   }
   
   if(is.logical(data[1])){
@@ -619,22 +628,31 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
   
   bitpix = 0
   
+  int_change = FALSE
+  
   if(integer=='byte' | integer=='8'){
     if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
       integer = 'short'
+      int_change = TRUE
     }
   }
-
+  
   if(integer=='short' | integer=='16'){
     if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
       integer = 'long'
+      int_change = TRUE
     }
   }
   
   if(integer=='long' | integer=='int' | integer=='32'){
     if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
       integer = 'longlong'
+      int_change = TRUE
     }
+  }
+  
+  if(int_change & (is.integer(data) | is.integer64(data))){
+    message('Converted integer type to ',integer,' since data range is too large!')
   }
   
   if(is.logical(data[1])){

@@ -176,6 +176,8 @@ When reading, if \option{header}=FALSE then then the output is just the raw imag
 }
 \note{
 You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedence (see Examples).
+
+In general, you need to be very when working with integer64 types. Such data should read in fine, but you will find some simple operations (like subsetting and some mathemtical operations) might suddenly coerce it to a numeric type. This is because integer64 is not a first-class citizen in \code{R} world (it is a bolted on package), so it can break in unexpected places.
 }
 \value{
 \code{Rfits_read_xxx}: List; read vector/image/cube/array into numeric or integer vector/matrix/array (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
