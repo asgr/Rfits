@@ -493,14 +493,24 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   
   bitpix = 0
   
-  if(max(data,na.rm=TRUE) > 2^7){
-    integer = 'short'
+  if(integer=='byte' | integer=='8'){
+    if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
+      integer = 'short'
+    }
   }
   
-  if(max(data,na.rm=TRUE) > 2^15){
-    integer = 'long'
+  if(integer=='short' | integer=='16'){
+    if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
+      integer = 'long'
+    }
   }
-
+  
+  if(integer=='long' | integer=='int' | integer=='32'){
+    if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
+      integer = 'longlong'
+    }
+  }
+  
   if(is.logical(data[1])){
     bitpix = 8
     datatype = 11
@@ -516,13 +526,19 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
       datatype = 31
-      if(!missing(keyvalues)){
-        if(!is.null(keyvalues$BZERO)){
-          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
-            keyvalues$BZERO = 0
-            message('Changing BZERO to 0 to prevent integer overflow!')
-          }
-        }
+      # if(!missing(keyvalues)){
+      #   if(!is.null(keyvalues$BZERO)){
+      #     if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+      #       keyvalues$BZERO = 0
+      #       message('Changing BZERO to 0 to prevent integer overflow!')
+      #     }
+      #   }
+      # }
+    }else if(integer=='longlong' | integer=='64'){
+      bitpix = 64
+      datatype = 81
+      if(is.integer(data)){
+        data = as.integer64(data)
       }
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
@@ -603,12 +619,22 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
   
   bitpix = 0
   
-  if(max(data,na.rm=TRUE) > 2^7){
-    integer = 'short'
+  if(integer=='byte' | integer=='8'){
+    if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
+      integer = 'short'
+    }
+  }
+
+  if(integer=='short' | integer=='16'){
+    if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
+      integer = 'long'
+    }
   }
   
-  if(max(data,na.rm=TRUE) > 2^15){
-    integer = 'long'
+  if(integer=='long' | integer=='int' | integer=='32'){
+    if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
+      integer = 'longlong'
+    }
   }
   
   if(is.logical(data[1])){
@@ -626,13 +652,19 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
     }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
       datatype = 31
-      if(!missing(keyvalues)){
-        if(!is.null(keyvalues$BZERO)){
-          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
-            keyvalues$BZERO = 0
-            message('Changing BZERO to 0 to prevent integer overflow!')
-          }
-        }
+      # if(!missing(keyvalues)){
+      #   if(!is.null(keyvalues$BZERO)){
+      #     if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+      #       keyvalues$BZERO = 0
+      #       message('Changing BZERO to 0 to prevent integer overflow!')
+      #     }
+      #   }
+      # }
+    }else if(integer=='longlong' | integer=='64'){
+      bitpix = 64
+      datatype = 81
+      if(is.integer(data)){
+        data = as.integer64(data)
       }
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')

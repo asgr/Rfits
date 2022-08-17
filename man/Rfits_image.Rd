@@ -67,7 +67,7 @@ Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long')
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
+Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents. The matrix can also contain 64 bit integers via the \code{bit64} package. Note that \code{R} allows for integer-like behaviour beyond 2^31 (up to around 2^53) via the use of the mantissa (significance) part of the numeric double type. If working with something like a segmentation map that flows over 2^31, you should explictly convert this to a 64 bit integer via the \code{bit64} package before saving.
 }
   \item{image}{
 Numeric vector, matrix, cube, array; data to be made into an internal FITS-like object.  
@@ -100,7 +100,7 @@ Character scalar/vector; (not required) history information associated with with
 Character scalar; the numeric data type to be written out for images. Can be '32' (32 bit), 'single' (32 bit), 'float' (32 bit), '64' (64 bit), 'double' (64 bit).
 }
   \item{integer}{
-Character scalar; the integer data type to be written out for images. Can be '8' (8 bit) 'byte' (8 bit), '16' (16 bit), 'short' (16 bit), 'int' (32 bit), '32' (32 bit), 'long' (32 bit). 
+Character scalar; the integer data type to be written out for images. Can be '8' (8 bit) 'byte' (8 bit), '16' (16 bit), 'short' (16 bit), 'int' (32 bit), '32' (32 bit), 'long' (32 bit), '64' (64 bit), 'longlong' (64 bit). If using '64' or 'longlong' you almost certainly need to have converted your integers in \option{data} to integer64 via the \code{bit64} package first.
 }
   \item{xlo}{
 Integer scalar; low x limit (usually Right Ascension axis) to cut out from \option{image} (1 or larger and less than \option{xhi}).
