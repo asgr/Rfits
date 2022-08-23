@@ -733,114 +733,145 @@ dim.Rfits_header=function(x){
                           tlo=tlo, thi=thi))
 }
 
-`&.Rfits_pointer`=function(e1, e2){
+`&.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] & e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat & e2$imDat
+  }else{
+    e1$imDat =  e1$imDat & e2
+  }
+  return(e1)
 }
 
-`|.Rfits_pointer`=function(e1, e2){
+`|.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] | e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat | e2$imDat
+  }else{
+    e1$imDat =  e1$imDat | e2
+  }
+  return(e1)
 }
 
-`!=.Rfits_pointer`=function(e1, e2){
+`!=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] != e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat != e2$imDat
+  }else{
+    e1$imDat =  e1$imDat != e2
+  }
+  return(e1)
 }
 
-`==.Rfits_pointer`=function(e1, e2){
+`==.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] == e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat == e2$imDat
+  }else{
+    e1$imDat =  e1$imDat == e2
+  }
+  return(e1)
 }
 
-`<.Rfits_pointer`=function(e1, e2){
+`<.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] < e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat < e2$imDat
+  }else{
+    e1$imDat =  e1$imDat < e2
+  }
+  return(e1)
 }
 
-`<=.Rfits_pointer`=function(e1, e2){
+`<=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] <= e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat <= e2$imDat
+  }else{
+    e1$imDat =  e1$imDat <= e2
+  }
+  return(e1)
 }
 
-`>.Rfits_pointer`=function(e1, e2){
+`>.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] > e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat > e2$imDat
+  }else{
+    e1$imDat =  e1$imDat > e2
+  }
+  return(e1)
 }
 
-`>=.Rfits_pointer`=function(e1, e2){
+`>=.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] >= e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat >= e2$imDat
+  }else{
+    e1$imDat =  e1$imDat >= e2
+  }
+  return(e1)
 }
 
-`+.Rfits_pointer`=function(e1, e2){
+`-.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] + e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat - e2$imDat
+  }else{
+    e1$imDat =  e1$imDat - e2
+  }
+  return(e1)
 }
 
-`-.Rfits_pointer`=function(e1, e2){
+`+.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] - e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat + e2$imDat
+  }else{
+    e1$imDat =  e1$imDat + e2
+  }
+  return(e1)
 }
 
-`*.Rfits_pointer`=function(e1, e2){
+`*.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] * e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat * e2$imDat
+  }else{
+    e1$imDat =  e1$imDat * e2
+  }
+  return(e1)
 }
 
-`/.Rfits_pointer`=function(e1, e2){
+`/.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] / e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat / e2$imDat
+  }else{
+    e1$imDat =  e1$imDat / e2
+  }
+  return(e1)
 }
 
-`^.Rfits_pointer`=function(e1, e2){
+`^.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] ^ e2[,header=FALSE]
-}
-
-`%%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %% e2[,header=FALSE]
-}
-
-`%/%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %/% e2[,header=FALSE]
-}
-
-`%*%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %*% e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat ^ e2$imDat
+  }else{
+    e1$imDat =  e1$imDat ^ e2
+  }
+  return(e1)
 }

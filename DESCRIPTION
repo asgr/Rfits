@@ -1,8 +1,8 @@
 Package: Rfits
 Type: Package
 Title: FITS Readers and Writers
-Version: 1.5.5
-Date: 2022-08-17
+Version: 1.5.7
+Date: 2022-08-23
 Authors@R: c(
     person(given='Aaron', family='Robotham', email='aaron.robotham@uwa.edu.au',
         role=c('aut', 'cre'), comment=c(ORCID='0000-0003-0429-3579')),
@@ -11,7 +11,7 @@ Authors@R: c(
 Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
 Description: Read and write FITS images, tables and headers.
 License: LGPL-3
-Imports: Rcpp, bit64, checkmate, magicaxis
+Imports: Rcpp, bit64, checkmate, magicaxis, foreach, doParallel
 Suggests: data.table, testthat, FITSio, Rwcs, tdigest, hdf5r, R.utils
 Encoding: UTF-8
 LazyData: true

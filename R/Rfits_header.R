@@ -619,7 +619,7 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
 }
 
 Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, pattern='.fits$',
-                          recursive=TRUE, fileinfo='Stub'){
+                          recursive=TRUE, fileinfo='Stub', cores=1){
   if(missing(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')
@@ -631,6 +631,8 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, p
     }
   }
   
+  registerDoParallel(cores=cores)
+  
   filelist = grep(pattern=pattern, filelist, value=TRUE)
   filelist = normalizePath(filelist)
   
@@ -640,12 +642,12 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, p
   
   obs_info = data.frame()
   
-  for(i in 1:length(filelist)){
+  obs_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
     current_info = list()
     for(key in keylist){
-      current_info = c(current_info, Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i]))
+      current_info = c(current_info, key=Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i]))
     }
-    obs_info = rbind(obs_info, current_info)
+    return(as.data.frame(current_info))
   }
   
   file = basename(filelist)

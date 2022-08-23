@@ -39,7 +39,7 @@ plot.Rfits_pointer=function(x, useraw=FALSE, ...){
     stop('Object class is not of type Rfits_image!')
   }
   if(is.null(x$keyvalues$CRVAL1)){
-    magimage(x[,,header=FALSE])
+    magimage(x[,,header=FALSE], ...)
   }else{
     if(requireNamespace("Rwcs", quietly=TRUE)){
       if(useraw){header = x$raw}else{header = NULL}

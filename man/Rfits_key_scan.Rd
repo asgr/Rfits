@@ -9,7 +9,7 @@ Scans files or list of directories for keywords in FITS files. This is useful fo
 }
 \usage{
 Rfits_key_scan(filelist, dirlist = NULL, keylist = "SIMPLE", extlist = 1,
-  pattern = ".fits$", recursive = TRUE, fileinfo = "Stub")
+  pattern = ".fits$", recursive = TRUE, fileinfo = "Stub", cores = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -33,6 +33,9 @@ Logical; if using \option{dirlist} should all sub-directories be checked recursi
 }
   \item{fileinfo}{
 Character vector; additional file info to append to the output. Options are 'Full' ('/Full/Path/To/FinalFile.fits'), 'File' ('FinalFile.fits'), 'Stub' ('FinalFile'), 'Path' ('/Full/Path/To/'). If more than one is provided then these appear in the order Full / File / Stub / Path. You can also specify 'All', which will return all four options.
+}
+  \item{cores}{
+Integer scalar; the number of cores to run on.
 }
 }
 \details{

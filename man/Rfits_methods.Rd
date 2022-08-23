@@ -39,24 +39,20 @@
 \alias{[.Rfits_cube}
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
-\alias{&.Rfits_pointer}
-\alias{|.Rfits_pointer}
-\alias{xor.Rfits_pointer}
-\alias{!=.Rfits_pointer}
-\alias{==.Rfits_pointer}
-\alias{<.Rfits_pointer}
-\alias{<=.Rfits_pointer}
-\alias{>.Rfits_pointer}
-\alias{>=.Rfits_pointer}
-\alias{+.Rfits_pointer}
-\alias{-.Rfits_pointer}
-\alias{*.Rfits_pointer}
-\alias{^.Rfits_pointer}
-\alias{/.Rfits_pointer}
-\alias{\%/\%.Rfits_pointer}
-\alias{\%\%.Rfits_pointer}
-\alias{\%*\%.Rfits_pointer}
-\alias{binattr}
+
+\alias{&.Rfits_image}
+\alias{|.Rfits_image}
+\alias{!=.Rfits_image}
+\alias{==.Rfits_image}
+\alias{<.Rfits_image}
+\alias{<=.Rfits_image}
+\alias{>.Rfits_image}
+\alias{>=.Rfits_image}
+\alias{+.Rfits_image}
+\alias{-.Rfits_image}
+\alias{*.Rfits_image}
+\alias{^.Rfits_image}
+\alias{/.Rfits_image}
 \title{
   Operators for Rfits Objects
 }
@@ -103,22 +99,19 @@ pixscale(x, useraw=FALSE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
-\method{&}{Rfits_pointer}(e1, e2)
-\method{|}{Rfits_pointer}(e1, e2)
-\method{!=}{Rfits_pointer}(e1, e2)
-\method{==}{Rfits_pointer}(e1, e2)
-\method{<}{Rfits_pointer}(e1, e2)
-\method{<=}{Rfits_pointer}(e1, e2)
-\method{>}{Rfits_pointer}(e1, e2)
-\method{>=}{Rfits_pointer}(e1, e2)
-\method{+}{Rfits_pointer}(e1, e2)
-\method{-}{Rfits_pointer}(e1, e2)
-\method{*}{Rfits_pointer}(e1, e2)
-\method{^}{Rfits_pointer}(e1, e2)
-\method{/}{Rfits_pointer}(e1, e2)
-\method{\%/\%}{Rfits_pointer}(e1, e2)
-\method{\%\%}{Rfits_pointer}(e1, e2)
-\method{\%*\%}{Rfits_pointer}(e1, e2)
+\method{&}{Rfits_image}(e1, e2)
+\method{|}{Rfits_image}(e1, e2)
+\method{!=}{Rfits_image}(e1, e2)
+\method{==}{Rfits_image}(e1, e2)
+\method{<}{Rfits_image}(e1, e2)
+\method{<=}{Rfits_image}(e1, e2)
+\method{>}{Rfits_image}(e1, e2)
+\method{>=}{Rfits_image}(e1, e2)
+\method{+}{Rfits_image}(e1, e2)
+\method{-}{Rfits_image}(e1, e2)
+\method{*}{Rfits_image}(e1, e2)
+\method{^}{Rfits_image}(e1, e2)
+\method{/}{Rfits_image}(e1, e2)
 }
 \arguments{
   \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'.}
@@ -131,8 +124,8 @@ pixscale(x, useraw=FALSE)
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
   \item{x}{An object of class 'Rfits_pointer'}
-  \item{e1}{An object of class 'Rfits_pointer'}
-  \item{e2}{Anything else}
+  \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
+  \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
   \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{\dots}{Unused, but required}
 }
