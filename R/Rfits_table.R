@@ -85,7 +85,12 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
+    try({
+      output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
+    })
+    if(is.null(output[i][[1]])){
+      output[[count]] = NA
+    }
     count = count + 1
   }
   
