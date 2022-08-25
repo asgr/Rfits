@@ -59,8 +59,28 @@
 \alias{+.Rfits_image}
 \alias{-.Rfits_image}
 \alias{*.Rfits_image}
-\alias{^.Rfits_image}
 \alias{/.Rfits_image}
+\alias{^.Rfits_image}
+\alias{\%\%.Rfits_image}
+\alias{\%*\%.Rfits_image}
+\alias{\%/\%.Rfits_image}
+
+\alias{&.Rfits_pointer}
+\alias{|.Rfits_pointer}
+\alias{!=.Rfits_pointer}
+\alias{==.Rfits_pointer}
+\alias{<.Rfits_pointer}
+\alias{<=.Rfits_pointer}
+\alias{>.Rfits_pointer}
+\alias{>=.Rfits_pointer}
+\alias{+.Rfits_pointer}
+\alias{-.Rfits_pointer}
+\alias{*.Rfits_pointer}
+\alias{/.Rfits_pointer}
+\alias{^.Rfits_pointer}
+\alias{\%\%.Rfits_pointer}
+\alias{\%*\%.Rfits_pointer}
+\alias{\%/\%.Rfits_pointer}
 \title{
   Operators for Rfits Objects
 }
@@ -115,6 +135,7 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
+
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)
 \method{!=}{Rfits_image}(e1, e2)
@@ -126,8 +147,29 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 \method{+}{Rfits_image}(e1, e2)
 \method{-}{Rfits_image}(e1, e2)
 \method{*}{Rfits_image}(e1, e2)
-\method{^}{Rfits_image}(e1, e2)
 \method{/}{Rfits_image}(e1, e2)
+\method{^}{Rfits_image}(e1, e2)
+\method{\%\%}{Rfits_image}(e1, e2)
+\method{\%*\%}{Rfits_image}(e1, e2)
+\method{\%/\%}{Rfits_image}(e1, e2)
+
+\method{&}{Rfits_pointer}(e1, e2)
+\method{|}{Rfits_pointer}(e1, e2)
+\method{!=}{Rfits_pointer}(e1, e2)
+\method{==}{Rfits_pointer}(e1, e2)
+\method{<}{Rfits_pointer}(e1, e2)
+\method{<=}{Rfits_pointer}(e1, e2)
+\method{>}{Rfits_pointer}(e1, e2)
+\method{>=}{Rfits_pointer}(e1, e2)
+\method{+}{Rfits_pointer}(e1, e2)
+\method{-}{Rfits_pointer}(e1, e2)
+\method{*}{Rfits_pointer}(e1, e2)
+\method{/}{Rfits_pointer}(e1, e2)
+\method{^}{Rfits_pointer}(e1, e2)
+\method{\%\%}{Rfits_pointer}(e1, e2)
+\method{\%*\%}{Rfits_pointer}(e1, e2)
+\method{\%/\%}{Rfits_pointer}(e1, e2)
+
 }
 \arguments{
   \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'.}
