@@ -22,18 +22,26 @@
 \alias{center}
 \alias{corners}
 \alias{pixscale}
+\alias{pixarea}
+
 \alias{centre.Rfits_image}
 \alias{center.Rfits_image}
 \alias{corners.Rfits_image}
 \alias{pixscale.Rfits_image}
+\alias{pixarea.Rfits_image}
+
 \alias{centre.Rfits_pointer}
 \alias{center.Rfits_pointer}
 \alias{corners.Rfits_pointer}
 \alias{pixscale.Rfits_pointer}
+\alias{pixarea.Rfits_pointer}
+
 \alias{centre.Rfits_header}
 \alias{center.Rfits_header}
 \alias{corners.Rfits_header}
 \alias{pixscale.Rfits_header}
+\alias{pixarea.Rfits_header}
+
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
@@ -78,22 +86,30 @@
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
 \method{dim}{Rfits_header}(x)
-centre(x, useraw=FALSE)
-center(x, useraw=FALSE)
-corners(x, useraw=FALSE)
-pixscale(x, useraw=FALSE) 
+centre(x, useraw=FALSE, ...)
+center(x, useraw=FALSE, ...)
+corners(x, useraw=FALSE, ...)
+pixscale(x, useraw=FALSE, unit='asec', ...)
+pixarea(x, useraw=FALSE, unit='asec2', ...)
+
 \method{centre}{Rfits_image}(x, useraw=FALSE, ...)
 \method{center}{Rfits_image}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
-\method{pixscale}{Rfits_image}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_image}(x, useraw=FALSE, unit='asec',  ...)
+\method{pixarea}{Rfits_image}(x, useraw=FALSE, unit='asec2',  ...)
+
 \method{centre}{Rfits_pointer}(x, useraw=FALSE, ...)
 \method{center}{Rfits_pointer}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_pointer}(x, useraw=FALSE,  ...)
-\method{pixscale}{Rfits_pointer}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_pointer}(x, useraw=FALSE, unit='asec',  ...)
+\method{pixarea}{Rfits_pointer}(x, useraw=FALSE, unit='asec2',  ...)
+
 \method{centre}{Rfits_header}(x, useraw=FALSE, ...)
 \method{center}{Rfits_header}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_header}(x, useraw=FALSE,  ...)
-\method{pixscale}{Rfits_header}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_header}(x, useraw=FALSE, unit='asec',  ...)
+\method{pixarea}{Rfits_header}(x, useraw=FALSE, unit='asec2',  ...)
+
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
@@ -119,6 +135,7 @@ pixscale(x, useraw=FALSE)
   \item{k}{Integer vector, a contiguous vector of desired k indices to extract}
   \item{m}{Integer vector, a contiguous vector of desired m indices to extract}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
+  \item{unit}{Character scalar; for pixscale must be one of asec / amin / deg / rad, for pixarea must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
   \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}

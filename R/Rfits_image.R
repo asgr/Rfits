@@ -821,7 +821,7 @@ Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TR
   }
 }
 
-centre = function(x, useraw=FALSE){
+centre = function(x, useraw=FALSE, ...){
   UseMethod("centre", x)
 }
 
@@ -848,7 +848,7 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
-center = function(x, useraw=FALSE){
+center = function(x, useraw=FALSE, ...){
   UseMethod("center", x)
 }
 
@@ -859,7 +859,7 @@ center.Rfits_pointer = centre.Rfits_image
 centre.Rfits_header = centre.Rfits_image
 center.Rfits_header = centre.Rfits_image
 
-corners = function(x, useraw=FALSE){
+corners = function(x, useraw=FALSE, ...){
   UseMethod("corners", x)
 }
 
@@ -894,11 +894,11 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
 corners.Rfits_pointer = corners.Rfits_image
 corners.Rfits_header = corners.Rfits_image
 
-pixscale = function(x, useraw=FALSE){
+pixscale = function(x, useraw=FALSE, unit='asec', ...){
   UseMethod("pixscale", x)
 }
 
-pixscale.Rfits_image = function(x, useraw=FALSE, ...){
+pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
   }
@@ -911,12 +911,24 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
       }
     }
   }
-  dims = dim(x)
+  im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(dims[1]/2 + c(-0.5,0.5), dims[2]/2 + c(-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
-    return(2545.584412*sqrt(diff(output[,1])^2 + diff(output[,2])^2)) # 2545.584412 = 3600/sqrt(2)
+    scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[3:4,1])^2 + diff(output[3:4,2])^2) # 0.7071068 = 1/sqrt(2)
+    
+    if(unit=='deg'){
+      return(scale_deg)
+    }else if(unit == 'asec'){
+      return(scale_deg*3600)
+    }else if(unit == 'amin'){
+      return(scale_deg*60)
+    }else if(unit=='rad'){
+      return(scale_deg * (pi/180))
+    }else{
+      message('Not a valid unit, must be one of asec / amin / deg / rad')
+    }
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
   }
@@ -924,6 +936,49 @@ pixscale.Rfits_image = function(x, useraw=FALSE, ...){
 
 pixscale.Rfits_pointer = pixscale.Rfits_image
 pixscale.Rfits_header = pixscale.Rfits_image
+
+pixarea = function(x, useraw=FALSE, unit='asec2', ...){
+  UseMethod("pixarea", x)
+}
+
+pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  }
+  if(inherits(x, 'Rfits_header')){
+    if(is.null(x$keyvalues$NAXIS)){
+      stop('No NAXIS!')
+    }else{
+      if(x$keyvalues$NAXIS < 2){
+        stop('NAXIS: ', x$keyvalues$NAXIS)
+      }
+    }
+  }
+  im_dim = dim(x) #this works on all classes
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    if(useraw){header = x$raw}else{header = NULL}
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
+    area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[3:4,1])^2 + diff(output[3:4,2])^2)
+    
+    if(unit=='deg2'){
+      return(area_deg)
+    }else if(unit == 'asec2'){
+      return(area_deg*3600^2)
+    }else if(unit == 'amin2'){
+      return(area_deg*60^2)
+    }else if(unit=='rad2'){
+      return(area_deg * (pi/180)^2)
+    }else{
+      message('Not a valid unit, must be one of asec2 / amin2 / deg2 / rad2 / str')
+    }
+  }else{
+    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
+  }
+}
+
+pixarea.Rfits_pointer = pixarea.Rfits_image
+pixarea.Rfits_header = pixarea.Rfits_image
 
 Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
                               filename='', ext=1, keypass=TRUE){
