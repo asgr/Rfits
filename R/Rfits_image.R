@@ -967,7 +967,7 @@ pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
       return(area_deg*3600^2)
     }else if(unit == 'amin2'){
       return(area_deg*60^2)
-    }else if(unit=='rad2'){
+    }else if(unit=='rad2' | unit='str'){
       return(area_deg * (pi/180)^2)
     }else{
       message('Not a valid unit, must be one of asec2 / amin2 / deg2 / rad2 / str')
