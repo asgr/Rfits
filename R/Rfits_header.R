@@ -682,3 +682,27 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, p
   
   return(obs_info)
 }
+
+Rfits_extnames = function(filename='temp.fits'){
+  Nhdu = Rfits_nhdu(filename)
+  
+  extnames = {}
+  
+  for(i in 1:Nhdu){
+    temp_extname = Rfits_read_key(filename, keyname = 'EXTNAME', keytype='string', ext=i)
+    if(length(temp_extname) == 0 | inherits(temp_extname, 'try-error')){
+      temp_extname = NA_character_
+    }
+    extnames = c(extnames, temp_extname)
+  }
+  return(extnames)
+}
+
+Rfits_extname_to_ext = function(filename='temp.fits', extname=''){
+  extnames = Rfits_extnames(filename)
+  loc = which(extnames == extname)
+  if(length(loc) == 0){
+    loc = NA
+  }
+  return(loc)
+}

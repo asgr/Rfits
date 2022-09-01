@@ -18,6 +18,8 @@
 \alias{Rfits_nhdu}
 \alias{Rfits_nkey}
 \alias{Rfits_read_header_raw}
+\alias{Rfits_extnames}
+\alias{Rfits_extname_to_ext}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Header Readers and Writers
@@ -64,7 +66,9 @@ Rfits_nkey(filename = 'temp.fits', ext = 1)
 
 Rfits_read_header_raw(filename = 'temp.fits', ext = 1)
 
+Rfits_extnames(filename)
 
+Rfits_extname_to_ext(filename, extname='')
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -127,6 +131,9 @@ Either numeric or character scalar; values to be encoded/decoded respectively (o
 }
   \item{complement}{
 Logical; should the checksums be complemented (only for advanced users).  
+}
+  \item{extname}{
+Character scalar; the extension name of interest.  
 }
 }
 \details{
@@ -203,8 +210,11 @@ Integer scalar; total number of keys in the header.
 
 \code{Rfits_read_header_raw} fully concatenated header output with full padding. This is really for later passing into \code{Rwcs} functions that can accept such headers, \code{Rfits} does not use this otherwise.
 
+\code{Rfits_extnames} character vector of all the extension names present in the target fits file. Literally the string contained in EXTNAME. This will have the value of NA if EXTNAME is entirely missing from a particular extention.
 
+\code{Rfits_extname_to_ext} integer vector of the extension location/s for a particular filename / extname combination. This is useful when extensions might vary in location. Note it will provide all extension locations in multiple matches are found.
 }
+
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }

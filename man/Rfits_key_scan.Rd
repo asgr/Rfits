@@ -32,7 +32,7 @@ Scalar character; regular expression to filter \option{filelist} by. The default
 Logical; if using \option{dirlist} should all sub-directories be checked recursively?
 }
   \item{fileinfo}{
-Character vector; additional file info to append to the output. Options are 'Full' ('/Full/Path/To/FinalFile.fits'), 'File' ('FinalFile.fits'), 'Stub' ('FinalFile'), 'Path' ('/Full/Path/To/'). If more than one is provided then these appear in the order Full / File / Stub / Path. You can also specify 'All', which will return all four options.
+Character vector; additional file info to append to the output. Options are 'Full' ('/Full/Path/To/FinalFile.fits'), 'File' ('FinalFile.fits'), 'Stub' ('FinalFile'), 'Path' ('/Full/Path/To/'). If more than one is provided then these appear in the order Full / File / Stub / Path. You can also specify 'All', which will return all four options. Setting to NULL will mean no file information is prepended.
 }
   \item{cores}{
 Integer scalar; the number of cores to run on.
