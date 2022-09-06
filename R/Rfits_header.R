@@ -58,6 +58,7 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='auto', ext=1){
   filename = Rfits_gunzip(filename)
   assertCharacter(keyname, len=1)
   assertCharacter(keytype, max.len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   keytype = tolower(keytype)
@@ -108,6 +109,7 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   assertCharacter(keyname, len=1)
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
   assertCharacter(keycomment, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   typecode=0
@@ -147,6 +149,7 @@ Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(comment, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   try(Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext))
@@ -158,6 +161,7 @@ Rfits_write_history=function(filename='temp.fits', history="", ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(history, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)[1]}
   assertIntegerish(ext, len=1)
   
   try(Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext))
@@ -168,6 +172,7 @@ Rfits_write_date=function(filename='temp.fits', ext=1){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   try(Cfits_write_date(filename=filename, ext=ext))
@@ -179,6 +184,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   try(Cfits_delete_key(filename=filename, keyname=keyname, ext=ext))
@@ -190,6 +196,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   assertFlag(remove_HIERARCH)
   
@@ -287,6 +294,7 @@ Rfits_read_header_raw=function(filename='temp.fits', ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   return(Cfits_read_header_raw(filename=filename, ext=ext))
 }
@@ -336,6 +344,7 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   if(! missing(history)){
     assertCharacter(history, null.ok = TRUE)
   }
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
@@ -463,6 +472,7 @@ Rfits_nkey = function(filename='temp.fits', ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   return(Cfits_read_nkey(filename=filename, ext=ext))
 }

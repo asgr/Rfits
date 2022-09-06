@@ -3,6 +3,7 @@ Rfits_point = function(filename='temp.fits', ext=1, header=FALSE, zap=NULL){
   filename = path.expand(filename)
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   assertFlag(header)
   

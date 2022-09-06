@@ -942,65 +942,129 @@ dim.Rfits_header=function(x){
 }
 
 `&.Rfits_pointer`=function(e1, e2){
-  return(e1[,] & e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] & e2[,])
+  }else{
+    return(e1[,] & e2)
+  }
 }
 
 `|.Rfits_pointer`=function(e1, e2){
-  return(e1[,] | e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] | e2[,])
+  }else{
+    return(e1[,] | e2)
+  }
 }
 
 `!=.Rfits_pointer`=function(e1, e2){
-  return(e1[,] != e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] != e2[,])
+  }else{
+    return(e1[,] != e2)
+  }
 }
 
 `==.Rfits_pointer`=function(e1, e2){
-  return(e1[,] == e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] == e2[,])
+  }else{
+    return(e1[,] == e2)
+  }
 }
 
 `<.Rfits_pointer`=function(e1, e2){
-  return(e1[,] < e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] < e2[,])
+  }else{
+    return(e1[,] < e2)
+  }
 }
 
 `<=.Rfits_pointer`=function(e1, e2){
-  return(e1[,] <= e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] <= e2[,])
+  }else{
+    return(e1[,] <= e2)
+  }
 }
 
 `>.Rfits_pointer`=function(e1, e2){
-  return(e1[,] > e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] > e2[,])
+  }else{
+    return(e1[,] > e2)
+  }
 }
 
 `>=.Rfits_pointer`=function(e1, e2){
-  return(e1[,] >= e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] >= e2[,])
+  }else{
+    return(e1[,] >= e2)
+  }
 }
 
 `+.Rfits_pointer`=function(e1, e2){
-  return(e1[,] + e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] + e2[,])
+  }else{
+    return(e1[,] + e2)
+  }
 }
 
 `-.Rfits_pointer`=function(e1, e2){
-  return(e1[,] - e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] - e2[,])
+  }else{
+    return(e1[,] - e2)
+  }
 }
 
 `*.Rfits_pointer`=function(e1, e2){
-  return(e1[,] * e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] * e2[,])
+  }else{
+    return(e1[,] * e2)
+  }
 }
 
 `/.Rfits_pointer`=function(e1, e2){
-  return(e1[,] / e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] / e2[,])
+  }else{
+    return(e1[,] / e2)
+  }
 }
 
 `^.Rfits_pointer`=function(e1, e2){
-  return(e1[,] ^ e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] ^ e2[,])
+  }else{
+    return(e1[,] ^ e2)
+  }
 }
 
 `%%.Rfits_pointer`=function(e1, e2){
-  return(e1[,] %% e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %% e2[,])
+  }else{
+    return(e1[,] %% e2)
+  }
 }
 
 `%*%.Rfits_pointer`=function(e1, e2){
-  return(e1[,] %*% e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %*% e2[,])
+  }else{
+    return(e1[,] %*% e2)
+  }
 }
 
 `%/%.Rfits_pointer`=function(e1, e2){
-  return(e1[,] %/% e2)
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %/% e2[,])
+  }else{
+    return(e1[,] %/% e2)
+  }
 }
