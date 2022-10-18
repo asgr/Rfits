@@ -305,7 +305,9 @@ dim.Rfits_header=function(x){
     x$keycomments$XCUTHI = 'High image x range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar))
@@ -400,7 +402,11 @@ dim.Rfits_header=function(x){
     x$keycomments$YCUTHI = 'High image y range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
+    x$keynames['YCUTLO'] = 'YCUTLO'
+    x$keynames['YCUTHI'] = 'YCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar))
@@ -501,7 +507,13 @@ dim.Rfits_header=function(x){
     x$keycomments$ZCUTHI = 'High image z range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
+    x$keynames['YCUTLO'] = 'YCUTLO'
+    x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames['ZCUTLO'] = 'ZCUTLO'
+    x$keynames['ZCUTHI'] = 'ZCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar))
@@ -627,7 +639,15 @@ dim.Rfits_header=function(x){
     x$keycomments$TCUTHI = 'High image t range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI', 'TCUTLO', 'TCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI', 'TCUTLO', 'TCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
+    x$keynames['YCUTLO'] = 'YCUTLO'
+    x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames['ZCUTLO'] = 'ZCUTLO'
+    x$keynames['ZCUTHI'] = 'ZCUTHI'
+    x$keynames['TCUTLO'] = 'TCUTLO'
+    x$keynames['TCUTHI'] = 'TCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar, ' / t= ', safedim_m$lo_tar,':',safedim_m$hi_tar))
