@@ -536,14 +536,14 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
     }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
       datatype = 31
-      # if(!missing(keyvalues)){
-      #   if(!is.null(keyvalues$BZERO)){
-      #     if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
-      #       keyvalues$BZERO = 0
-      #       message('Changing BZERO to 0 to prevent integer overflow!')
-      #     }
-      #   }
-      # }
+      if(!missing(keyvalues)){
+        if(!is.null(keyvalues$BZERO)){
+          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+            keyvalues$BZERO = 0
+            message('Changing BZERO to 0 to prevent integer overflow!')
+          }
+        }
+      }
     }else if(integer=='longlong' | integer=='64'){
       bitpix = 64
       datatype = 81
