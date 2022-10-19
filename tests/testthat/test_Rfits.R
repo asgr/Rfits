@@ -5,6 +5,7 @@ library(testthat)
 library(FITSio)
 library(tdigest)
 library(R.utils)
+library(bit64)
 
 #ex 1 check that we read in images like readFITS
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -277,3 +278,10 @@ R.utils::gzip(system.file('extdata', 'image.fits', package = "Rfits"), destname=
 temp_image_gz = Rfits_read_image(file_gz_temp)
 expect_identical(temp_image$imDat, temp_image_gz$imDat)
 expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
+
+#ex43/44/45/46 check some methods
+
+expect_identical(dim(temp_vector), 3722L)
+expect_identical(dim(temp_image), c(356L, 356L))
+expect_identical(dim(temp_cube), c(50L, 50L, 4L))
+expect_identical(dim(temp_array2), c(10L, 10L, 10L, 10L))

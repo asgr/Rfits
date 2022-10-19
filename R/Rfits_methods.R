@@ -229,28 +229,7 @@ dim.Rfits_pointer=function(x){
 }
 
 dim.Rfits_header=function(x){
-  if(x$keyvalues$ZIMAGE == FALSE){
-    if(!is.null(x$keyvalues$NAXIS1)){
-      NAXIS1 = x$keyvalues$NAXIS1
-    }else{
-      NAXIS1 = NULL
-    }
-    if(!is.null(x$keyvalues$NAXIS2)){
-      NAXIS2 = x$keyvalues$NAXIS2
-    }else{
-      NAXIS2 = NULL
-    }
-    if(!is.null(x$keyvalues$NAXIS3)){
-      NAXIS3 = x$keyvalues$NAXIS3
-    }else{
-      NAXIS3 = NULL
-    }
-    if(!is.null(x$keyvalues$NAXIS4)){
-      NAXIS4 = x$keyvalues$NAXIS4
-    }else{
-      NAXIS4 = NULL
-    }
-  }else{
+  if(isTRUE(x$keyvalues$ZIMAGE)){
     if(!is.null(x$keyvalues$ZNAXIS1)){
       NAXIS1 = x$keyvalues$ZNAXIS1
     }else{
@@ -268,6 +247,27 @@ dim.Rfits_header=function(x){
     }
     if(!is.null(x$keyvalues$ZNAXIS4)){
       NAXIS4 = x$keyvalues$ZNAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }else{
+    if(!is.null(x$keyvalues$NAXIS1)){
+      NAXIS1 = x$keyvalues$NAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS2)){
+      NAXIS2 = x$keyvalues$NAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS3)){
+      NAXIS3 = x$keyvalues$NAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS4)){
+      NAXIS4 = x$keyvalues$NAXIS4
     }else{
       NAXIS4 = NULL
     }
