@@ -915,9 +915,9 @@ pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
-    scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[3:4,1])^2 + diff(output[3:4,2])^2) # 0.7071068 = 1/sqrt(2)
+    scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2) # 0.7071068 = 1/sqrt(2)
     
     if(unit=='deg'){
       return(scale_deg)
@@ -958,9 +958,9 @@ pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
-    area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[3:4,1])^2 + diff(output[3:4,2])^2)
+    area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
     
     if(unit=='deg2'){
       return(area_deg)
