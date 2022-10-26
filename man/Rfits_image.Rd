@@ -59,8 +59,8 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
   bscale = 1, compress = FALSE, bad_compress = 0L)
     
-Rfits_create_image(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
-    filename = '', ext = 1, keypass = TRUE)
+Rfits_create_image(image, keyvalues = NULL, keycomments = NULL, comment = NULL,
+  history = NULL, filename = '', ext = 1, keypass = TRUE)
     
 Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long')
 }

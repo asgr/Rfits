@@ -981,12 +981,29 @@ pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
 pixarea.Rfits_pointer = pixarea.Rfits_image
 pixarea.Rfits_header = pixarea.Rfits_image
 
-Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
+Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment = NULL, history = NULL,
                               filename='', ext=1, keypass=TRUE){
   
   if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
     keyvalues = Rwcs::Rwcs_keypass(keyvalues)
   }
+  
+  if(is.null(keyvalues$NAXIS1)){
+    keyvalues$NAXIS1 = dim(image)[1]
+  }else{
+    if(keyvalues$NAXIS1 != dim(image)[1]){
+      keyvalues$NAXIS1 = dim(image)[1]
+    }
+  }
+  
+  if(is.null(keyvalues$NAXIS2)){
+    keyvalues$NAXIS2 = dim(image)[2]
+  }else{
+    if(keyvalues$NAXIS2 != dim(image)[2]){
+      keyvalues$NAXIS2 = dim(image)[2]
+    }
+  }
+  
   hdr = Rfits_keyvalues_to_hdr(keyvalues)
   header = Rfits_keyvalues_to_header(keyvalues, keycomments=keycomments, comment=comment, history=history)
   raw = Rfits_header_to_raw(header)

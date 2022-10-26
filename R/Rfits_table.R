@@ -89,7 +89,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     try({
       output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
     })
-    if(is.null(output[i][[1]])){
+    if(is.null(output[count][[1]])){
       output[[count]] = NA
     }
     count = count + 1
