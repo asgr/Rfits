@@ -189,40 +189,41 @@ print.Rfits_header=function(x, ...){
 }
 
 length.Rfits_vector=function(x){
-  return(length(x$imDat))
+  return(dim(x))
 }
 
 length.Rfits_image=function(x){
+  if(is.null(dim(x))){
+    return(NULL)
+  }else{
+    return(prod(dim(x)))
+  }
+}
+
+length.Rfits_cube = length.Rfits_image
+
+length.Rfits_array = length.Rfits_image
+
+length.Rfits_pointer = length.Rfits_image
+
+length.Rfits_header = length.Rfits_image
+
+Rfits_length = function(filename, ext=1){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(length(temp_header))
+}
+
+dim.Rfits_vector = function(x){
   return(length(x$imDat))
 }
 
-length.Rfits_cube=function(x){
-  return(length(x$imDat))
-}
-
-length.Rfits_array=function(x){
-  return(length(x$imDat))
-}
-
-length.Rfits_pointer=function(x){
-  return(prod(x$dim))
-}
-
-dim.Rfits_vector=function(x){
-  return(length(x$imDat))
-}
-
-dim.Rfits_image=function(x){
+dim.Rfits_image = function(x){
   return(dim(x$imDat))
 }
 
-dim.Rfits_cube=function(x){
-  return(dim(x$imDat))
-}
+dim.Rfits_cube = dim.Rfits_image
 
-dim.Rfits_array=function(x){
-  return(dim(x$imDat))
-}
+dim.Rfits_array = dim.Rfits_image
 
 dim.Rfits_pointer=function(x){
   return(x$dim)
@@ -273,6 +274,11 @@ dim.Rfits_header=function(x){
     }
   }
   return(c(NAXIS1, NAXIS2, NAXIS3, NAXIS4))
+}
+
+Rfits_dim = function(filename, ext=1){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(dim(temp_header))
 }
 
 `[.Rfits_vector` = function(x, i, keepWCS=TRUE){

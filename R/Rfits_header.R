@@ -337,7 +337,7 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   if(missing(keynames)){
     keynames = names(keyvalues)
   }
-  assertCharacter(keynames, max.len=length(keyvalues))
+  assertCharacter(keynames, len=length(keyvalues))
   if(! missing(comment)){
     assertCharacter(comment, null.ok = TRUE)
   }
@@ -628,8 +628,11 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
 }
 
-Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, pattern='.fits$',
-                          recursive=TRUE, fileinfo='Stub', cores=1){
+Rfits_key_scan = function(filelist, dirlist=NULL, keylist=NULL, extlist=1, pattern='.fits$',
+                          recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
+                          get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE,
+                          get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
+                          keypass=FALSE, zap=NULL){
   if(missing(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')
@@ -650,14 +653,115 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, p
     extlist = rep(extlist, length(filelist))
   }
   
-  obs_info = data.frame()
-  
-  obs_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
-    current_info = list()
-    for(key in keylist){
-      current_info = c(current_info, key=Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i]))
+  if(length(keylist) > 0){
+    obs_info = data.frame()
+    
+    obs_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+      current_info = list()
+      for(key in keylist){
+        current_info = c(current_info,
+          key = Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i])
+        )
+      }
+      return(as.data.frame(current_info))
     }
-    return(as.data.frame(current_info))
+    
+    colnames(obs_info) = keylist
+  }else{
+    obs_info = NULL
+  }
+  
+  if(get_all){
+    get_length = TRUE
+    get_dim = TRUE
+    get_centre = TRUE
+    get_corners = TRUE
+    get_pixscale = TRUE
+    get_pixarea = TRUE
+  }
+  
+  if(any(get_length, get_dim, get_centre, get_corners, get_pixscale, get_pixarea)){
+    method_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+      
+      suppressMessages({
+        temp_header = Rfits_read_header(filename=filelist[i], ext=extlist[i], remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        
+        current_info = list()
+        
+        if(get_length){
+          temp_length = length(temp_header)
+          if(is.null(temp_length)){
+            temp_length = NA
+          }
+          current_info = c(current_info, length = temp_length)
+        }
+        
+        if(get_dim){
+          temp_dim = dim(temp_header)
+          if(is.null(temp_dim[1])){
+            temp_dim = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           dim_1 = temp_dim[1],
+                           dim_2 = temp_dim[2],
+                           dim_3 = temp_dim[3],
+                           dim_4 = temp_dim[4]
+                           )
+        }
+        
+        if(get_centre){
+          temp_cen = centre(temp_header)
+          if(is.na(temp_cen[1])){
+            temp_cen = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           centre_RA = temp_cen[1], centre_Dec = temp_cen[2]
+                           )
+        }
+        
+        if(get_corners){
+          temp_cor = corners(temp_header)
+          if(is.na(temp_cor[1])){
+            temp_cor = matrix(NA, 4,2)
+          }
+          current_info = c(current_info,
+                           corner_BL_RA = temp_cor[1,1], corner_BL_Dec = temp_cor[1,2],
+                           corner_TL_RA = temp_cor[2,1], corner_TL_Dec = temp_cor[2,2],
+                           corner_TR_RA = temp_cor[3,1], corner_TR_Dec = temp_cor[3,2],
+                           corner_BR_RA = temp_cor[4,1], corner_BR_Dec = temp_cor[4,2]
+                           )
+        }
+        
+        if(get_pixscale){
+          temp_pixscale = pixscale(temp_header)
+          current_info = c(current_info, pixscale = temp_pixscale)
+        }
+        
+        if(get_pixarea){
+          temp_pixarea = pixarea(temp_header)
+          current_info = c(current_info, pixarea = temp_pixarea)
+        }
+        return(as.data.frame(current_info))
+      })
+    }
+    
+    method_info = as.data.frame(method_info)
+  }else{
+    method_info = NULL
+  }
+  
+  output_info = NULL
+  
+  if(!is.null(obs_info)){
+    output_info = obs_info
+  }
+  
+  if(!is.null(method_info)){
+    if(is.null(output_info)){
+      output_info = method_info
+    }else{
+      output_info = cbind(output_info, method_info)
+    }
   }
   
   file = basename(filelist)
@@ -667,30 +771,52 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist='SIMPLE', extlist=1, p
   fileinfo = tolower(fileinfo)
   colname_fileinfo = NULL
   
+  if(keep_ext){
+    colname_fileinfo = c('ext', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(extlist)
+    }else{
+      output_info = cbind(extlist, output_info)
+    }
+  }
   if('path' %in% fileinfo | 'all' %in% fileinfo){
-    colname_fileinfo = 'path'
-    obs_info = cbind(path, obs_info)
+    colname_fileinfo = c('path', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(path)
+    }else{
+      output_info = cbind(path, output_info)
+    }
   }
   if('stub' %in% fileinfo | 'all' %in% fileinfo){
     colname_fileinfo = c('stub', colname_fileinfo)
-    obs_info = cbind(stub, obs_info)
+    if(is.null(output_info)){
+      output_info = as.data.frame(stub)
+    }else{
+      output_info = cbind(stub, output_info)
+    }
   }
   if('file' %in% fileinfo | 'all' %in% fileinfo){
     colname_fileinfo = c('file', colname_fileinfo)
-    obs_info = cbind(file, obs_info)
+    if(is.null(output_info)){
+      output_info = as.data.frame(file)
+    }else{
+      output_info = cbind(file, output_info)
+    }
   }
   if('full' %in% fileinfo | 'all' %in% fileinfo){
     colname_fileinfo = c('full', colname_fileinfo)
-    obs_info = cbind(filelist, obs_info)
+    if(is.null(output_info)){
+      output_info = as.data.frame(filelist)
+    }else{
+      output_info = cbind(filelist, output_info)
+    }
   }
   
-  if(is.null(colname_fileinfo)){
-    colnames(obs_info) = keylist
-  }else{
-    colnames(obs_info) = c(colname_fileinfo, keylist)
+  if(!is.null(colname_fileinfo)){
+    colnames(output_info)[1:length(colname_fileinfo)] = colname_fileinfo
   }
   
-  return(obs_info)
+  return(output_info)
 }
 
 Rfits_extnames = function(filename='temp.fits'){

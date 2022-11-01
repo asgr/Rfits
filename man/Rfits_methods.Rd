@@ -7,17 +7,21 @@
 \alias{print.Rfits_pointer}
 \alias{print.Rfits_header}
 \alias{print.Rfits_list}
+
 \alias{length.Rfits_vector}
 \alias{length.Rfits_image}
 \alias{length.Rfits_cube}
 \alias{length.Rfits_array}
 \alias{length.Rfits_pointer}
+\alias{length.Rfits_header}
+
 \alias{dim.Rfits_vector}
 \alias{dim.Rfits_image}
 \alias{dim.Rfits_cube}
 \alias{dim.Rfits_array}
 \alias{dim.Rfits_pointer}
 \alias{dim.Rfits_header}
+
 \alias{centre}
 \alias{center}
 \alias{corners}
@@ -41,6 +45,14 @@
 \alias{corners.Rfits_header}
 \alias{pixscale.Rfits_header}
 \alias{pixarea.Rfits_header}
+
+\alias{Rfits_length}
+\alias{Rfits_dim}
+\alias{Rfits_centre}
+\alias{Rfits_center}
+\alias{Rfits_corners}
+\alias{Rfits_pixscale}
+\alias{Rfits_pixarea}
 
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
@@ -100,12 +112,14 @@
 \method{length}{Rfits_cube}(x)
 \method{length}{Rfits_array}(x)
 \method{length}{Rfits_pointer}(x)
+\method{length}{Rfits_header}(x)
 \method{dim}{Rfits_vector}(x)
 \method{dim}{Rfits_image}(x)
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
 \method{dim}{Rfits_header}(x)
+
 centre(x, useraw=FALSE, ...)
 center(x, useraw=FALSE, ...)
 corners(x, useraw=FALSE, ...)
@@ -129,6 +143,14 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 \method{corners}{Rfits_header}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_header}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_header}(x, useraw=FALSE, unit='asec2',  ...)
+
+Rfits_length(filename, ext=1)
+Rfits_dim(filename, ext=1)
+Rfits_centre(filename, ext=1, useraw=FALSE, ...)
+Rfits_center(filename, ext=1, useraw=FALSE, ...)
+Rfits_corners(filename, ext=1, useraw=FALSE, ...)
+Rfits_pixscale(filename, ext=1, useraw=FALSE, unit='asec', ...)
+Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 
 \method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
@@ -172,6 +194,7 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 
 }
 \arguments{
+  \item{filename}{Character scalar; path to FITS file to operate the method on.}
   \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'.}
   \item{j}{Integer vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.}
   \item{k}{Integer vector, a contiguous vector of desired k indices to extract}
@@ -186,9 +209,17 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
   \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
   \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
   \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
+  \item{ext}{Integer scalar; the extension to operate the method on.}
   \item{\dots}{Unused, but required}
 }
 \value{
+  \item{length}{Integer scalar; these methods return the total number of elements present in the target object (so pixels in an image, spaxels in a cube, cells in a table etc.)}
+  \item{dim}{Integer vector; these methods return the dimensions present in the target object.}
+  \item{centre / center}{Numeric vector; these methods return the coordinates at the centre of the spatial dimensions (NA if not an image / cube / array.}
+  \item{corners}{Numeric matrix; these methods return the coordinates at the corners of the spatial dimensions (NA if not an image / cube / array. Rows are TL / BL / TR / BR (top to bottom).}
+  \item{pixscale}{Integer scalar; these methods return the pixel scale of the spatial dimensions in the specified units.}
+  \item{pixarea}{Integer scalar; these methods return the pixel area of the spatial dimensions in the specified units.}
+  
   \code{\link{&}}, \code{\link{|}}, \code{\link{xor}}, \code{\link{!=}}, \code{\link{==}}, 
   \code{\link{<}}, \code{\link{<=}}, \code{\link{>}}, \code{\link{>=}} return a logical vector \cr
   \code{\link{^}} and \code{\link{/}} return a double vector\cr
