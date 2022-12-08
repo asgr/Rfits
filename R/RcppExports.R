@@ -90,7 +90,7 @@ Cfits_read_img_subset <- function(filename, ext = 1L, datatype = -32L, fpixel0 =
 }
 
 Cfits_write_img_subset <- function(filename, data, ext = 1L, datatype = -32L, naxis = 2L, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L) {
-    .Call(`_Rfits_Cfits_write_img_subset`, filename, data, ext, datatype, naxis, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3)
+    invisible(.Call(`_Rfits_Cfits_write_img_subset`, filename, data, ext, datatype, naxis, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3))
 }
 
 Cfits_write_chksum <- function(filename) {

@@ -743,7 +743,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
 }
 
 // [[Rcpp::export]]
-SEXP Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int datatype = -32, int naxis=2,
+void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int datatype = -32, int naxis=2,
                            long fpixel0=1, long fpixel1=1, long fpixel2=1, long fpixel3=1,
                            long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1
                              

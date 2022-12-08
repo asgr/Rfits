@@ -317,10 +317,9 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_write_img_subset
-SEXP Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext, int datatype, int naxis, long fpixel0, long fpixel1, long fpixel2, long fpixel3, long lpixel0, long lpixel1, long lpixel2, long lpixel3);
+void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext, int datatype, int naxis, long fpixel0, long fpixel1, long fpixel2, long fpixel3, long lpixel0, long lpixel1, long lpixel2, long lpixel3);
 RcppExport SEXP _Rfits_Cfits_write_img_subset(SEXP filenameSEXP, SEXP dataSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP naxisSEXP, SEXP fpixel0SEXP, SEXP fpixel1SEXP, SEXP fpixel2SEXP, SEXP fpixel3SEXP, SEXP lpixel0SEXP, SEXP lpixel1SEXP, SEXP lpixel2SEXP, SEXP lpixel3SEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
@@ -335,8 +334,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< long >::type lpixel1(lpixel1SEXP);
     Rcpp::traits::input_parameter< long >::type lpixel2(lpixel2SEXP);
     Rcpp::traits::input_parameter< long >::type lpixel3(lpixel3SEXP);
-    rcpp_result_gen = Rcpp::wrap(Cfits_write_img_subset(filename, data, ext, datatype, naxis, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3));
-    return rcpp_result_gen;
+    Cfits_write_img_subset(filename, data, ext, datatype, naxis, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3);
+    return R_NilValue;
 END_RCPP
 }
 // Cfits_write_chksum
