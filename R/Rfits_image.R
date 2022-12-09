@@ -52,7 +52,7 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL){
+                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -125,6 +125,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(zhi)){zhi=naxis3}else{subset=TRUE}
     if(is.null(tlo)){tlo=1}else{subset=TRUE}
     if(is.null(thi)){thi=naxis4}else{subset=TRUE}
+    
     if(subset){
       safex = .safedim(1,naxis1,xlo,xhi)
       safey = .safedim(1,naxis2,ylo,yhi)
@@ -163,23 +164,28 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(subset){
+  if(subset | sparse > 1L){
     if(safex$safe & safey$safe & safez$safe & safet$safe){
       try({
-        temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
-                                  lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
+        temp_image = Cfits_read_img_subset(filename=filename, ext=ext, datatype=datatype,
+                                           fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                                           lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi,
+                                           sparse=sparse)
         
         if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-          temp_image = matrix(temp_image, xhi-xlo+1, yhi-ylo+1)
+          temp_image = matrix(temp_image, floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse)
         }
         
         if(naxis3 > 1 & naxis4 == 1){
-          temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
+          temp_image = array(temp_image, dim=c(floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse, floor(zhi-zlo+1L)/sparse))
         }
         if(naxis4 > 1){
-          temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+          temp_image = array(temp_image, dim=c(floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse, floor(zhi-zlo+1L)/sparse, floor(thi-tlo+1L)/sparse))
         }
       })
+      if(sparse > 1L){
+        return(temp_image)
+      }
       if(!is.numeric(temp_image)){
         message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
         temp_image = NA
@@ -239,8 +245,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       naxis4 = 1
     }
     try({
-      image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                           naxis4=naxis4, ext=ext, datatype=datatype)
+      image = Cfits_read_img(filename=filename, ext=ext, datatype=datatype,
+                             naxis1=naxis1, naxis2=naxis2, naxis3=naxis3, naxis4=naxis4)
     })
     if(!is.numeric(image)){
       message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
@@ -416,7 +422,7 @@ Rfits_read_vector = Rfits_read_image
 Rfits_read_cube = Rfits_read_image
 
 Rfits_read_array = Rfits_read_image
-
+  
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
@@ -595,11 +601,41 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
                        keycomments=keycomments, keynames=keynames,
                        comment=comment, history=history, ext=ext)
   }
-  Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-                  naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=ext)
+  Cfits_write_pix(filename=filename, data=data, ext=ext, datatype=datatype,
+                  naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4])
 }
 
-Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='long'){
+Rfits_blank_image = function(filename, ext=1, create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE,
+                             bitpix=-32, naxis=2, naxis1=100, naxis2=100, naxis3=1, naxis4=1){
+  assertFlag(create_ext)
+  assertFlag(create_file)
+  assertFlag(overwrite_file)
+  assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
+  justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
+  if(create_file){
+    assertPathForOutput(justfilename, overwrite=TRUE)
+  }else{
+    assertFileExists(justfilename)
+    assertAccess(justfilename, access='w')
+  }
+  if(testFileExists(justfilename) & overwrite_file & create_file){
+    file.remove(justfilename)
+  }
+  assertIntegerish(ext, len=1)
+  assertIntegerish(naxis, len=1)
+  assertIntegerish(naxis1, len=1)
+  assertIntegerish(naxis2, len=1)
+  assertIntegerish(naxis3, len=1)
+  assertIntegerish(naxis4, len=1)
+  
+  Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                     naxis4=naxis4, ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+  return(invisible(list(filename=filename, ext=ext, naxis=naxis, naxes=c(naxis1, naxis2, naxis3, naxis4)[1:naxis])))
+}
+
+Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='long',
+                           xlo=1L, ylo=1L, zlo=1L, tlo=1L){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertFileExists(filename)
@@ -614,17 +650,105 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
     assertArray(data)
   }
   
-  naxes = dim(data)
-  if(is.null(naxes)){naxes = length(data)}
-  naxis = length(naxes)
+  dim_data = dim(data)
+  
+  if(is.null(dim_data)){dim_data = length(data)}
+  naxis = length(dim_data)
+  if(naxis >= 1){
+    naxes = c(dim_data[1],1,1,1)
+    xhi = xlo + naxes[1] - 1
+  }
+  if(naxis >= 2){
+    naxes = c(dim_data[1:2],1,1)
+    yhi = ylo + naxes[2] - 1
+  }else{
+    yhi = 1
+  }
+  if(naxis >= 3){
+    naxes = c(dim_data[1:3],1)
+    zhi = zlo + naxes[3] - 1
+  }else{
+    zhi = 1
+  }
+  if(naxis == 4){
+    naxes = dim_data
+    thi = tlo + naxes[4] - 1
+  }else{
+    thi = 1
+  }
+  
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  dim_fits = dim(temp_header)
+  
   if(naxis == 1){
-    naxes = c(naxes,1,1,1)
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    
+    if(safe_x$safe){
+      data = data[safe_x$tar]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ',dim_fits)
+      return(NULL)
+    }
   }
   if(naxis == 2){
-    naxes = c(naxes,1,1)
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    
+    if(safe_x$safe & safe_y$safe){
+      data = data[safe_x$tar, safe_y$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2])
+      return(NULL)
+    }
   }
   if(naxis == 3){
-    naxes = c(naxes,1)
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3])
+      return(NULL)
+    }
+  }
+  if(naxis == 4){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    safe_t = .safedim(1L, dim_fits[4], tlo, thi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe & safe_t$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, safe_t$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+      tlo = min(safe_t$orig)
+      thi = max(safe_t$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3], ' ',  dim_fits[4])
+      return(NULL)
+    }
   }
   
   bitpix = 0
@@ -705,9 +829,17 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
     }
   }
   
-  Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-                  naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=as.integer(ext))
+  Cfits_write_img_subset(filename=filename, data=data, ext=ext, datatype=datatype, naxis=naxis,
+                         fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                         lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi)
 }
+
+# // [[Rcpp::export]]
+# SEXP Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int datatype = -32, int naxis=2,
+#                             long fpixel0=1, long fpixel1=1, long fpixel2=1, long fpixel3=1,
+#                             long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1
+#                             
+# ){
 
 Rfits_write_vector = Rfits_write_image
 
@@ -1045,7 +1177,7 @@ Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
   return(pixarea(temp_header, useraw=useraw, unit=unit, ...))
 }
 
-Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment = NULL, history = NULL,
+Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
                               filename='', ext=1, keypass=TRUE){
   
   if(requireNamespace("Rwcs", quietly=TRUE) & keypass){

@@ -96,7 +96,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   }
   
   if(data.table){
-    output = data.table::as.data.table(output)
+    data.table::setDT(output)
     
   }else{
     output = as.data.frame(output)

@@ -11,6 +11,7 @@
 \alias{Rfits_write_vector}
 \alias{Rfits_create_image}
 \alias{Rfits_write_pix}
+\alias{Rfits_blank_image}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Vector Image Cube and Array Readers and Writers
@@ -21,23 +22,23 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -62,7 +63,12 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
 Rfits_create_image(image, keyvalues = NULL, keycomments = NULL, comment = NULL,
   history = NULL, filename = '', ext = 1, keypass = TRUE)
     
-Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long')
+Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long', xlo = 1L,
+  ylo = 1L, zlo = 1L, tlo = 1L)
+
+Rfits_blank_image(filename, ext = 1, create_ext = TRUE, create_file = TRUE,
+  overwrite_file=TRUE, bitpix = -32, naxis = 2, naxis1 = 100, naxis2 = 100, naxis3 = 1,
+  naxis4 = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -141,6 +147,9 @@ Logical; if you have the Rwcs package installed, then you can execute an extra k
   \item{zap}{
 Character vector; optional unique strings to zap out of the header. These elements are passed through \code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords.
 }
+  \item{sparse}{
+Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension. This can be useful for having a quick look at the data from a large image (since it is quick to read in). Note currently this is just for quick views of the pixels, and only the raw matrix will be returned with no header (since correct transformations of the WCS are not done, and in fact with distortions etc this is practically impossible to implement in a robust manner so I will probably never try to fully implement this feature).  
+}
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
@@ -161,6 +170,24 @@ Logical scalar or character scalar; a different mechanism for telling Rfits to c
 }
   \item{bad_compress}{
 Numeric scalar; non-numeric replacement value to use when compression is being done. CFITSIO does not work well with any of the usual R non-numeric values (NA, NaN, Inf etc) when compressing since it makes bad guesses at how to correctly re-scale the image for compression. This flag offers a simple numeric value to replace all non-numeric elements with when compression is requested (so it is not applied for uncompressed image writing).
+}
+  \item{bitpix}{
+Integer scalar; the bitpix for the blank image (8/16/32/64 for integer, and -32/-64 for float).  
+}
+  \item{naxis}{
+Integer scalar; number of dimensions for the blank image.
+}
+  \item{naxis1}{
+Integer scalar; pixels in dimension 1 for the blank image.
+}
+  \item{naxis2}{
+Integer scalar; pixels in dimension 2 for the blank image.
+}
+  \item{naxis3}{
+Integer scalar; pixels in dimension 3 for the blank image.
+}
+  \item{naxis4}{
+Integer scalar; pixels in dimension 4 for the blank image.
 }
 }
 \details{
@@ -186,7 +213,9 @@ In general, you need to be very when working with integer64 types. Such data sho
 
 \code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
 
-\code{Rfits_write_pix} is a low level method to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally).
+\code{Rfits_write_pix} is a low level function to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk.
+
+\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk. For convenience returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
