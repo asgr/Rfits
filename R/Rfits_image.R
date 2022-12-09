@@ -635,8 +635,7 @@ Rfits_blank_image = function(filename, ext=1, create_ext=TRUE, create_file=TRUE,
 }
 
 Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='long',
-                           xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, zlo=NULL, zhi=NULL,
-                           tlo=NULL, thi=NULL){
+                           xlo=1L, ylo=1L, zlo=1L, tlo=1L){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertFileExists(filename)
@@ -651,34 +650,105 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
     assertArray(data)
   }
   
-  temp_dim = dim(data)
-  if(is.null(temp_dim)){temp_dim = length(data)}
-  naxis = length(temp_dim)
+  dim_data = dim(data)
+  
+  if(is.null(dim_data)){dim_data = length(data)}
+  naxis = length(dim_data)
   if(naxis >= 1){
-    naxes = c(temp_dim[1],1,1,1)
-    if(is.null(xlo)){xlo=1L}
-    if(is.null(xhi)){xhi=xlo+naxes[1]-1}
+    naxes = c(dim_data[1],1,1,1)
+    xhi = xlo + naxes[1] - 1
   }
   if(naxis >= 2){
-    naxes = c(temp_dim[1:2],1,1)
-    if(is.null(ylo)){ylo=1L}
-    if(is.null(yhi)){yhi=ylo+naxes[2]-1}
+    naxes = c(dim_data[1:2],1,1)
+    yhi = ylo + naxes[2] - 1
   }else{
-    ylo=yhi=1
+    yhi = 1
   }
   if(naxis >= 3){
-    naxes = c(temp_dim[1:3],1)
-    if(is.null(zlo)){zlo=1L}
-    if(is.null(zhi)){zhi=zlo+naxes[3]-1}
+    naxes = c(dim_data[1:3],1)
+    zhi = zlo + naxes[3] - 1
   }else{
-    zlo=zhi=1
+    zhi = 1
   }
   if(naxis == 4){
-    naxes = temp_dim
-    if(is.null(tlo)){tlo=1L}
-    if(is.null(thi)){thi=tlo+naxes[4]-1}
+    naxes = dim_data
+    thi = tlo + naxes[4] - 1
   }else{
-    tlo=thi=1
+    thi = 1
+  }
+  
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  dim_fits = dim(temp_header)
+  
+  if(naxis == 1){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    
+    if(safe_x$safe){
+      data = data[safe_x$tar]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ',dim_fits)
+      return(NULL)
+    }
+  }
+  if(naxis == 2){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    
+    if(safe_x$safe & safe_y$safe){
+      data = data[safe_x$tar, safe_y$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2])
+      return(NULL)
+    }
+  }
+  if(naxis == 3){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3])
+      return(NULL)
+    }
+  }
+  if(naxis == 4){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    safe_t = .safedim(1L, dim_fits[4], tlo, thi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe & safe_t$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, safe_t$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+      tlo = min(safe_t$orig)
+      thi = max(safe_t$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3], ' ',  dim_fits[4])
+      return(NULL)
+    }
   }
   
   bitpix = 0

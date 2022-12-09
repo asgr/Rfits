@@ -481,7 +481,7 @@ void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long
     fits_invoke(create_file, fptr, filename.get_cstring());
     fits_invoke(create_hdu, fptr);
   }else{
-    fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+    fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
     if(create_ext == 1){
       int nhdu;
       fits_invoke(get_num_hdus, fptr, &nhdu);
@@ -750,9 +750,9 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
 ){
   int anynull, nullvals = 0, hdutype, ii, nelements;
   
-  Rcpp::Rcout << filename.get_cstring() <<"\n";
-  Rcpp::Rcout << datatype <<"\n";
-  Rcpp::Rcout << naxis <<"\n";
+  // Rcpp::Rcout << filename.get_cstring() <<"\n";
+  // Rcpp::Rcout << datatype <<"\n";
+  // Rcpp::Rcout << naxis <<"\n";
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
@@ -763,10 +763,10 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   long fpixel_array[] = {fpixel0, fpixel1, fpixel2, fpixel3};
   long *fpixel = (naxis == 1) ? fpixel_vector : (naxis == 2) ? fpixel_image : (naxis == 3 ? fpixel_cube : fpixel_array);
   
-  Rcpp::Rcout << fpixel0 <<"\n";
-  Rcpp::Rcout << fpixel1 <<"\n";
-  Rcpp::Rcout << fpixel2 <<"\n";
-  Rcpp::Rcout << fpixel3 <<"\n";
+  // Rcpp::Rcout << fpixel0 <<"\n";
+  // Rcpp::Rcout << fpixel1 <<"\n";
+  // Rcpp::Rcout << fpixel2 <<"\n";
+  // Rcpp::Rcout << fpixel3 <<"\n";
   
   long lpixel_vector[] = {lpixel0};
   long lpixel_image[] = {lpixel0, lpixel1};
@@ -774,10 +774,10 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   long lpixel_array[] = {lpixel0, lpixel1, lpixel2, lpixel3};
   long *lpixel = (naxis == 1) ? lpixel_vector : (naxis == 2) ? lpixel_image : (naxis == 3 ? lpixel_cube : lpixel_array);
   
-  Rcpp::Rcout << lpixel0 <<"\n";
-  Rcpp::Rcout << lpixel1 <<"\n";
-  Rcpp::Rcout << lpixel2 <<"\n";
-  Rcpp::Rcout << lpixel3 <<"\n";
+  // Rcpp::Rcout << lpixel0 <<"\n";
+  // Rcpp::Rcout << lpixel1 <<"\n";
+  // Rcpp::Rcout << lpixel2 <<"\n";
+  // Rcpp::Rcout << lpixel3 <<"\n";
   
   int naxis1 = (lpixel[0] - fpixel[0] + 1);
   int naxis2 = (lpixel[1] - fpixel[1] + 1);
@@ -797,7 +797,7 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
     nelements = naxis1 * naxis2 * naxis3 * naxis4;
   }
   
-  Rcpp::Rcout << nelements <<"\n";
+  // Rcpp::Rcout << nelements <<"\n";
   
   //below need to work for integers and doubles:
   if(datatype == TBYTE){

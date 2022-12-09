@@ -262,8 +262,8 @@ temp_mix3 = Rfits_read_all(file_mix_temp3)
 expect_length(temp_mix3, 6L)
 
 #ex39/40 check ext headers
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 file_list_temp = tempfile()
 Rfits_write(list(temp_image, temp_image), filename=file_list_temp)
 temp_list = Rfits_read(file_list_temp)
@@ -285,3 +285,26 @@ expect_identical(dim(temp_vector), 3722L)
 expect_identical(dim(temp_image), c(356L, 356L))
 expect_identical(dim(temp_cube), c(50L, 50L, 4L))
 expect_identical(dim(temp_array2), c(10L, 10L, 10L, 10L))
+
+#ex47 write a subset to a current FITS file
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+
+temp_mat = matrix(1:9,3,3)
+
+Rfits_write_pix(temp_mat, file_image_temp, xlo=10, ylo=20)
+
+temp_image2 = Rfits_read_image(file_image_temp)
+expect_equal(temp_mat, temp_image2$imDat[10:12,20:22])
+
+#ex48 create blank image and write a subset to it
+file_image_temp = tempfile()
+Rfits_blank_image(file_image_temp, bitpix=32)
+
+temp_mat = matrix(1:9,3,3)
+
+Rfits_write_pix(temp_mat, file_image_temp, xlo=50, ylo=60)
+temp_image2 = Rfits_read_image(file_image_temp)
+expect_identical(temp_mat, temp_image2$imDat[50:52,60:62])
