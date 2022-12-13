@@ -782,6 +782,23 @@ Rfits_dim = function(filename, ext=1){
                           tlo=tlo, thi=thi))
 }
 
+`[<-.Rfits_pointer` = function(x, i, j, value){
+  if(x$allow_write == FALSE){
+    stop('allow_write = FALSE!')
+  }
+  if(x$type != 'image'){
+    stop('type must be image!')
+  }
+  if(dim(value)[1] != diff(range(i)) + 1L){
+    stop('dim x of replacement does not match subset selection!')
+  }
+  if(dim(value)[2] != diff(range(j)) + 1L){
+    stop('dim y of replacement does not match subset selection!')
+  }
+  Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
+  return(Rfits_point(filename=x$filename, ext=x$ext, header=x$header, zap=x$zap, allow_write=x$allow_write))
+}
+
 `&.Rfits_image`=function(e1, e2){
   if (missing(e2)) 
     return(e1)
