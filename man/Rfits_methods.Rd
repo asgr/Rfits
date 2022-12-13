@@ -159,7 +159,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
-\method{[}{Rfits_pointer}(x, i, j) <- value
+\method{[}{Rfits_pointer}(x, i, j, k, m) <- value
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)

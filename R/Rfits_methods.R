@@ -782,20 +782,79 @@ Rfits_dim = function(filename, ext=1){
                           tlo=tlo, thi=thi))
 }
 
-`[<-.Rfits_pointer` = function(x, i, j, value){
+`[<-.Rfits_pointer` = function(x, i, j, k, m, value){
   if(x$allow_write == FALSE){
     stop('allow_write = FALSE!')
   }
-  if(x$type != 'image'){
-    stop('type must be image!')
+  
+  dims = x$dim
+  
+  if(length(dim(value)) > length(dims)){
+    stop('Replacement object has more dimensions than target FITS!')
   }
-  if(dim(value)[1] != diff(range(i)) + 1L){
-    stop('dim x of replacement does not match subset selection!')
+  
+  if(!missing(i)){
+    if(dim(value)[1] != diff(range(i)) + 1L){
+      stop('dim x (1) of replacement does not match subset selection!')
+    }
+    Npix = diff(range(i)) + 1L
+  }else{
+    if(length(dims) >= 1){
+      i = 1:dims[1]
+      Npix = diff(range(i)) + 1L
+    }
   }
-  if(dim(value)[2] != diff(range(j)) + 1L){
-    stop('dim y of replacement does not match subset selection!')
+  if(!missing(j)){
+    if(dim(value)[2] != diff(range(j)) + 1L){
+      stop('dim y (2) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(j)) + 1L)
+  }else{
+    if(length(dims) >= 2){
+      j = 1:dims[2]
+      Npix = Npix*(diff(range(j)) + 1L)
+    }
   }
-  Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
+  if(!missing(k)){
+    if(dim(value)[3] != diff(range(k)) + 1L){
+      stop('dim z (3) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(k)) + 1L)
+  }else{
+    if(length(dims) >= 3){
+      k = 1:dims[3]
+      Npix = Npix*(diff(range(k)) + 1L)
+    }
+  }
+  if(!missing(m)){
+    if(dim(value)[4] != diff(range(m)) + 1L){
+      stop('dim t (4) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(m)) + 1L)
+  }else{
+    if(length(dims) == 4){
+      m = 1:dims[4]
+      Npix = Npix*(diff(range(m)) + 1L)
+    }
+  }
+  
+  if(length(value) != Npix){
+    stop('Number of replacement pixels mismatches number of subset pixels!')
+  }
+  
+  if(x$type == 'vector'){
+    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE))
+  }
+  if(x$type == 'image'){
+    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
+  }
+  if(x$type == 'cube'){
+    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE))
+  }
+  if(x$type == 'array'){
+    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE), tlo=min(m, na.rm=TRUE))
+  }
+  
   return(Rfits_point(filename=x$filename, ext=x$ext, header=x$header, zap=x$zap, allow_write=x$allow_write))
 }
 
