@@ -60,6 +60,8 @@
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
 
+\alias{[<-.Rfits_pointer}
+
 \alias{&.Rfits_image}
 \alias{|.Rfits_image}
 \alias{!=.Rfits_image}
@@ -157,6 +159,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
+\method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)
@@ -206,9 +209,11 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
   \item{x}{An object of class 'Rfits_pointer'}
+  \item{value}{The replacement data to write to disk.}
   \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
   \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
   \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
+  \item{allow_write}{Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{ext}{Integer scalar; the extension to operate the method on.}
   \item{\dots}{Unused, but required}
 }

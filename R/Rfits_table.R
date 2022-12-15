@@ -266,13 +266,20 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       }
     }
   }
+  
   for(i in 1:ncol){
     if(verbose){
       message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
     }
-    table[[i]][is.na(table[[i]])] = NA_replace
-    table[[i]][is.nan(table[[i]])] = NaN_replace
-    table[[i]][is.infinite(table[[i]])] = Inf_replace
+    if(anyNA(table[[i]])){
+      table[[i]][is.na(table[[i]])] = NA_replace
+    }
+    if(anyNaN(table[[i]])){
+      table[[i]][is.nan(table[[i]])] = NaN_replace
+    }
+    if(anyInfinite(table[[i]])){
+      table[[i]][is.infinite(table[[i]])] = Inf_replace
+    }
     Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
 }
