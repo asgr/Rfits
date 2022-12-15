@@ -782,8 +782,8 @@ Rfits_dim = function(filename, ext=1){
                           tlo=tlo, thi=thi))
 }
 
-`[<-.Rfits_pointer` = function(x, i, j, k, m, value){
-  if(x$allow_write == FALSE){
+`[<-.Rfits_pointer` = function(x, i, j, k, m, allow_write=x$allow_write, value){
+  if(allow_write == FALSE){
     stop('allow_write = FALSE!')
   }
   
