@@ -603,6 +603,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   }
   Cfits_write_pix(filename=filename, data=data, ext=ext, datatype=datatype,
                   naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4])
+  return(invisible(list(filename=filename, ext=ext, naxis=naxis, naxes=c(naxes[1], naxes[2], naxes[3], naxes[4])[1:naxis])))
 }
 
 Rfits_blank_image = function(filename, ext=1, create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE,

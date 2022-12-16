@@ -209,13 +209,13 @@ In general, you need to be very when working with integer64 types. Such data sho
 \value{
 \code{Rfits_read_xxx}: List; read vector/image/cube/array into numeric or integer vector/matrix/array (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
 
-\code{Rfits_write_xxx} write out vector/image/cube/array to target FITS extension.
+\code{Rfits_write_xxx} write out vector/image/cube/array to target FITS extension. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 
 \code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
 
 \code{Rfits_write_pix} is a low level function to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk.
 
-\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk. For convenience returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
+\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}

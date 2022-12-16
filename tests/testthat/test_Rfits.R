@@ -1,4 +1,3 @@
-context("Check Rfits table/image read/write")
 #load packages
 library(Rfits)
 library(testthat)
@@ -6,6 +5,8 @@ library(FITSio)
 library(tdigest)
 library(R.utils)
 library(bit64)
+
+context("Check Rfits table/image read/write")
 
 #ex 1 check that we read in images like readFITS
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -31,7 +32,7 @@ Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, 
 try(Rfits_read_image(file_image_temp, ext=3), silent=TRUE)
 #carry on writing
 temp=try(Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, create_ext=T))
-expect(class(temp)=='NULL', "Could not write new extension!")
+expect(temp$ext==4, "Did not write to extension 2!")
 
 #ex 5 check keyvalues are identical
 expect_identical(temp_image$keyvalues, temp_image2$keyvalues) 
