@@ -12,7 +12,7 @@ Rfits_key_scan(filelist, dirlist = NULL, keylist = NULL, extlist = 1,
   pattern = ".fits$", recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
   get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
   get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
-  keypass = FALSE, zap = NULL)
+  keypass = FALSE, zap = NULL, data.table = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -73,6 +73,9 @@ Logical; if you have the Rwcs package installed, then you can execute an extra k
   \item{zap}{
 Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords. (Only relevant for \option{get_XXX} methods).
 }
+  \item{data.table}{
+Logical; should a \code{data.table} be returned?
+}
 }
 \details{
 This uses \code{\link{Rfits_read_key}} to scan the files with the \option{keytype} = 'auto' setting to sensibly convert the values. Usually this works well.
@@ -91,7 +94,8 @@ Aaron Robotham
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 file_cube = system.file('extdata', 'cube.fits', package = "Rfits")
   
-Rfits_key_scan(filelist = c(file_image, file_cube),
+temp_scan = Rfits_key_scan(filelist = c(file_image, file_cube),
   keylist=c('NAXIS1', 'CRVAL1', 'EQUINOX', 'CUNIT1'))
-}
 
+print(temp_scan)
+}

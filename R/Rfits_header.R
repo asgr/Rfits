@@ -93,7 +93,11 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='auto', ext=1){
       }else if(temp_key == 'F'){
         return(FALSE)
       }else{
-        return(temp_key)
+        if(temp_key == 'NA'){
+          return(NA)
+        }else{
+          return(temp_key) #should be a character by now
+        }
       }
     }
   }else{
@@ -138,8 +142,14 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
       keyname = paste0('HIERARCH  ', keyname)
     }
   }
-    
-  if(is.character(keyvalue)){typecode=16}
+  
+  if(is.na(keyvalue)){
+    keyvalue = 'NA'
+  }
+  
+  if(is.character(keyvalue)){
+    typecode=16
+  }
   try(Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode))
 }
 
@@ -632,7 +642,7 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist=NULL, extlist=1, patte
                           recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
                           get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
-                          keypass=FALSE, zap=NULL){
+                          keypass=FALSE, zap=NULL, data.table=TRUE){
   if(missing(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')
@@ -816,7 +826,11 @@ Rfits_key_scan = function(filelist, dirlist=NULL, keylist=NULL, extlist=1, patte
     colnames(output_info)[1:length(colname_fileinfo)] = colname_fileinfo
   }
   
-  return(output_info)
+  if(data.table){
+    data.table::setDT(output_info)
+  }
+  
+  return(invisible(output_info))
 }
 
 Rfits_extnames = function(filename='temp.fits'){
