@@ -368,8 +368,8 @@ Rfits_dim = function(filename, ext=1){
     }
   }
   
-  if(length(box) == 1){box = c(box,box)}
   if(length(i) == 1 & length(j) == 1){
+    if(length(box) == 1){box = c(box,box)}
     i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
     j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
   }
@@ -738,11 +738,12 @@ Rfits_dim = function(filename, ext=1){
   
   if(Ndim == 2){
     if(length(box) == 1){box = c(box,box)}
-    if(!missing(i)){
-      if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
-    }
-    if(!missing(j)){
-      if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+    if(!missing(i) & !missing(j)){
+      if(length(i) == 1 & length(j) == 1){
+        if(length(box) == 1){box = c(box,box)}
+        i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+        j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+      }
     }
   }
   
