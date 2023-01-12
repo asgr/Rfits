@@ -369,8 +369,10 @@ Rfits_dim = function(filename, ext=1){
   }
   
   if(length(box) == 1){box = c(box,box)}
-  if(length(i) == 1){i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))}
-  if(length(j) == 1){j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))}
+  if(length(i) == 1 & length(j) == 1){
+    i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+    j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+  }
   
   safedim_i = .safedim(1L, dim(x$imDat)[1], min(i), max(i))
   safedim_j = .safedim(1L, dim(x$imDat)[2], min(j), max(j))
