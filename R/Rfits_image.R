@@ -432,6 +432,9 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  if(grepl('[compress', filename, fixed=TRUE)){
+    compress = TRUE
+  }
   justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   if(create_file){
     assertPathForOutput(justfilename, overwrite=TRUE)
