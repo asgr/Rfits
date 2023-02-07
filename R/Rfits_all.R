@@ -196,3 +196,38 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
 }
 
 Rfits_write = Rfits_write_all
+
+Rfits_make_list = function(filelist, dirlist=NULL, extlist=1, pattern='.fits$',
+                           recursive=TRUE, header=TRUE, pointer=TRUE, cores=4, ...){
+  if(missing(filelist)){
+    if(is.null(dirlist)){
+      stop('Missing filelist and dirlist')
+    }
+    filelist = {}
+    for(i in 1:length(dirlist)){
+      filelist = c(filelist,
+                   list.files(dirlist[i], pattern=pattern, full.names=TRUE, recursive=recursive))
+    }
+  }
+  
+  registerDoParallel(cores=cores)
+  
+  filelist = grep(pattern=pattern, filelist, value=TRUE)
+  filelist = normalizePath(filelist)
+  
+  if(length(extlist) == 1){
+    extlist = rep(extlist, length(filelist))
+  }
+  
+  data = foreach(i=1:length(filelist))%dopar%{
+    if(pointer){
+      return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+    }else{
+      return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+    }
+  }
+  
+  class(data) = 'Rfits_list'
+  attributes(data)$filename = filelist
+  return(data)
+}

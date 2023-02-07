@@ -1,4 +1,4 @@
-Rfits_read_all_hdf5=function(filename='temp.h5', header=TRUE, data.table=TRUE){
+Rfits_read_all_hdf5 = function(filename='temp.h5', header=TRUE, data.table=TRUE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertLogical(header)
@@ -44,7 +44,7 @@ Rfits_read_all_hdf5=function(filename='temp.h5', header=TRUE, data.table=TRUE){
 
 Rfits_read_hdf5 = Rfits_read_all_hdf5
 
-Rfits_write_all_hdf5=function(data, filename='temp.h5', flatten=FALSE, list_sub=NULL){
+Rfits_write_all_hdf5 = function(data, filename='temp.h5', flatten=FALSE, list_sub=NULL){
   if(is.list(data)){
     data_len = length(data)
   }else{

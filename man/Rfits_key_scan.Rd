@@ -8,7 +8,7 @@ Key Word Scanner
 Scans files or list of directories for keywords in FITS files. This is useful for e.g. finding all CRVAL1/2 of large sets of observations (if looking for a particular region of sky, say).
 }
 \usage{
-Rfits_key_scan(filelist, dirlist = NULL, keylist = NULL, extlist = 1,
+Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
   pattern = ".fits$", recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
   get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
   get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,

@@ -111,6 +111,12 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
+  if(is.null(keyvalue)){
+    if(identical(parent.frame(n=1), globalenv())){
+      message('keyvalue for', keyname, ' is NULL. Nothing written.')
+    }
+    return(invisible(FALSE))
+  }
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
   assertCharacter(keycomment, len=1)
   if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
@@ -151,6 +157,7 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
     typecode=16
   }
   try(Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode))
+  return(invisible(TRUE))
 }
 
 Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
@@ -537,6 +544,7 @@ Rfits_hdr_to_keyvalues = function(hdr){
   }
   keyvalues[hdr[c(F,T)] == 'T'] = TRUE
   keyvalues[hdr[c(F,T)] == 'F'] = FALSE
+  keyvalues[hdr[c(F,T)] == 'NA'] = NA
   names(keyvalues) = keynames
   return(keyvalues)
 }
@@ -638,16 +646,15 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
 }
 
-Rfits_key_scan = function(filelist, dirlist=NULL, keylist=NULL, extlist=1, pattern='.fits$',
+Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern='.fits$',
                           recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
                           get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
                           keypass=FALSE, zap=NULL, data.table=TRUE){
-  if(missing(filelist)){
+  if(is.null(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')
     }
-    filelist = {}
     for(i in 1:length(dirlist)){
       filelist = c(filelist,
                    list.files(dirlist[i], pattern=pattern, full.names=TRUE, recursive=recursive))
