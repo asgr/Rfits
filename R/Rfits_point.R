@@ -1,4 +1,4 @@
-Rfits_point = function(filename='temp.fits', ext=1, header=FALSE, zap=NULL, allow_write=FALSE){
+Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow_write=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')

@@ -126,7 +126,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(tlo)){tlo=1}else{subset=TRUE}
     if(is.null(thi)){thi=naxis4}else{subset=TRUE}
     
-    if(subset){
+    if(subset | sparse > 1L){
       safex = .safedim(1,naxis1,xlo,xhi)
       safey = .safedim(1,naxis2,ylo,yhi)
       safez = .safedim(1,naxis3,zlo,zhi)
@@ -173,14 +173,14 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                                            sparse=sparse)
         
         if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-          temp_image = matrix(temp_image, floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse)
+          temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
         }
         
         if(naxis3 > 1 & naxis4 == 1){
-          temp_image = array(temp_image, dim=c(floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse, floor(zhi-zlo+1L)/sparse))
+          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L))
         }
         if(naxis4 > 1){
-          temp_image = array(temp_image, dim=c(floor(xhi-xlo+1L)/sparse, floor(yhi-ylo+1L)/sparse, floor(zhi-zlo+1L)/sparse, floor(thi-tlo+1L)/sparse))
+          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
         }
       })
       if(sparse > 1L){

@@ -24,7 +24,7 @@ Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = 
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
   compress = FALSE, bad_compress = 0, list_sub = NULL)
   
-Rfits_make_list(filelist, dirlist = NULL, extlist = 1, pattern = '.fits$',
+Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = '.fits$',
   recursive = TRUE, header = TRUE, pointer = TRUE, cores = 4, ...)
 }
 %- maybe also 'usage' for other objects documented here.
