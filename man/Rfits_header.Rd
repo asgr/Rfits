@@ -228,8 +228,8 @@ Rodrigo Tobar
 }
 \examples{
 #Read full image
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 
 #View header info
 temp_image$keyvalues$NAXIS1
@@ -237,9 +237,9 @@ temp_image$keyvalues$CTYPE1
 
 #Read just the header
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
-temp_table_header_ext1=Rfits_read_header(file_table, ext = 1) #Meta table data
-temp_table_header_ext2=Rfits_read_header(file_table, ext = 2) #Column info
-temp_image_header=Rfits_read_header(file_image, ext = 1) #Meta image data
+temp_table_header_ext1 = Rfits_read_header(file_table, ext = 1) #Meta table data
+temp_table_header_ext2 = Rfits_read_header(file_table, ext = 2) #Column info
+temp_image_header = Rfits_read_header(file_image, ext = 1) #Meta image data
 temp_image_header$keyvalues$NAXIS1
 temp_image_header$keyvalues$CTYPE1
 

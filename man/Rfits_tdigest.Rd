@@ -54,7 +54,7 @@ median(temp_image$imDat)
 td=tdigest(temp_image$imDat, compression=1e3) #larger compression is better!
 td[0.5]
 
-temp_point=Rfits_point(file_image)
+temp_point=Rfits_point(file_image, header=FALSE)
 td2=Rfits_tdigest(temp_point)
 td2[0.5]
 

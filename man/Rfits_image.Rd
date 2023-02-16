@@ -229,6 +229,8 @@ Rodrigo Tobar
 \code{\link{Rfits_table}}, \code{\link{Rfits_header}}, \code{FITSio}, \code{astro}
 }
 \examples{
+library(Rwcs)
+library(magicaxis)
 #Read full image
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
@@ -242,12 +244,11 @@ print(temp_image)
 dim(temp_image)
 
 #Take a look
-library(magicaxis)
-magimageWCS(temp_image)
+plot(temp_image)
 
 #And again with just a subset
 temp_image_sub = Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
-magimageWCS(temp_image_sub)
+plot(temp_image_sub)
 
 #check write and read consistency
 file_image_temp = tempfile()

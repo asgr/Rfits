@@ -126,5 +126,5 @@ print(temp_header) #Notice the formatting includes blank spaces out to 80 charac
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\concept{header }% use one of  RShowDoc("KEYWORDS")
+\concept{ header }% use one of  RShowDoc("KEYWORDS")
 

@@ -52,7 +52,7 @@ Aaron Robotham
 }
 \examples{
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
-temp_image = Rfits_point(file_image)
+temp_image = Rfits_point(file_image, header=FALSE) # just the matrix part
 
 temp_image[1:5,1:5]
 

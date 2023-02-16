@@ -866,3 +866,51 @@ Rfits_extname_to_ext = function(filename='temp.fits', extname=''){
   }
   return(loc)
 }
+
+Rfits_key_match = function(keyvalues_test, keyvalues_ref, check = 'both', ignore = 'NULL',
+                          verbose = FALSE){
+  keynames_test = names(keyvalues_test)
+  keynames_ref = names(keyvalues_ref)
+  
+  if(check[1] == 'both'){
+    keynames_check = keynames_ref[keynames_ref %in% keynames_test]
+  }else if(check[1] == 'ref'){
+    keynames_check = keynames_ref
+  }else if(check[1] == 'test'){
+    keynames_check = keynames_test
+  }else if(check[1] == 'all'){
+    keynames_check = unique(keynames_test, keyvalues_ref)
+  }else{
+    keynames_check = check
+  }
+  
+  if(!is.null(ignore)){
+    keynames_check = keynames_check[!keynames_check %in% ignore]
+  }
+  
+  i = NULL
+  
+  test_out = foreach(i = 1:length(keynames_check), .combine='c')%do%{
+    isTRUE(keyvalues_test[[keynames_check[i]]] == keyvalues_ref[[keynames_check[i]]])
+  }
+  
+  if(verbose){
+    if(any(test_out)){
+      message('Equal: ', paste(keynames_check[test_out], collapse = ' '))
+    }
+    
+    if(any(!test_out)){
+      message('Diff: ', paste(keynames_check[!test_out], collapse = ' '))
+    }
+    
+    if(!all(keynames_check %in% keynames_test)){
+      message('Missing in test: ', paste(keynames_check[!(keynames_check %in% keynames_test)], collapse = ' '))
+    }
+    
+    if(!all(keynames_check %in% keynames_ref)){
+      message('Missing in ref: ', paste(keynames_check[!(keynames_check %in% keynames_ref)], collapse = ' '))
+    }
+  }
+  
+  return(all(test_out))
+}
