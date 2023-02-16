@@ -9,7 +9,7 @@ Scans files or list of directories for keywords in FITS files. This is useful fo
 }
 \usage{
 Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
-  pattern = ".fits$", recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
+  pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
   get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
   get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
   keypass = FALSE, zap = NULL, data.table = TRUE)
@@ -29,7 +29,7 @@ Character vector; vector of keywords to scan the files for.
 Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}
 }
   \item{pattern}{
-Scalar character; regular expression to filter \option{filelist} by. The default limits to files ending ".fits", which is usually what you want. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$"
+Scalar character; regular expression to filter \option{filelist} by. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$". Note an extra check that all files are FITS files (a pattern of ".fits$") will be made whether requested or not.
 }
   \item{recursive}{
 Logical; if using \option{dirlist} should all sub-directories be checked recursively?
@@ -74,14 +74,14 @@ Logical; if you have the Rwcs package installed, then you can execute an extra k
 Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords. (Only relevant for \option{get_XXX} methods).
 }
   \item{data.table}{
-Logical; should a \code{data.table} be returned?
+Logical; should a \code{data.table} be returned? Otherwise a data.frame is returned.
 }
 }
 \details{
 This uses \code{\link{Rfits_read_key}} to scan the files with the \option{keytype} = 'auto' setting to sensibly convert the values. Usually this works well.
 }
 \value{
-Data.frame containing one row for each filtered \option{filelist} input, and the columns of \option{fileinfo} requested followed by the specified \option{keylist}. If a keyword is missing that entry will be NA.
+Data.frame/data.table (depending on \option{data.table}) containing one row for each filtered \option{filelist} input, and the columns of \option{fileinfo} requested followed by the specified \option{keylist}. If a keyword is missing that entry will be NA.
 }
 \author{
 Aaron Robotham

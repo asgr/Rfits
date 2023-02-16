@@ -646,7 +646,7 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
 }
 
-Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern='.fits$',
+Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
                           recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
                           get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
@@ -657,13 +657,16 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     }
     for(i in 1:length(dirlist)){
       filelist = c(filelist,
-                   list.files(dirlist[i], pattern=pattern, full.names=TRUE, recursive=recursive))
+                   list.files(dirlist[i], full.names=TRUE, recursive=recursive))
     }
   }
   
   registerDoParallel(cores=cores)
   
-  filelist = grep(pattern=pattern, filelist, value=TRUE)
+  if(!is.null(pattern)){
+    filelist = grep(pattern=pattern, filelist, value=TRUE)
+  }
+  filelist = grep(pattern='.fits$', filelist, value=TRUE)
   filelist = normalizePath(filelist)
   
   if(length(extlist) == 1){
