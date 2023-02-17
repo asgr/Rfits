@@ -184,7 +184,36 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         }
       })
       if(sparse > 1L){
-        return(temp_image)
+        if(Ndim == 1){
+          hdr$keyvalues$NAXIS1 = length(temp_image)
+        }else{
+          hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
+        }
+        hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L) / sparse
+        
+        if(Ndim >= 2){
+          hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
+          hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L) / sparse
+        }
+        
+        if(Ndim >= 3){
+          hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
+          hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L) / sparse
+        }
+        
+        if(Ndim >= 4){
+          hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
+          hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L) / sparse
+        }
+        
+        hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
+        hdr$keyvalues$CD1_2 = hdr$keyvalues$CD1_2 * sparse
+        hdr$keyvalues$CD2_1 = hdr$keyvalues$CD2_1 * sparse
+        hdr$keyvalues$CD2_2 = hdr$keyvalues$CD2_2 * sparse
+        
+        output = Rfits_create_image(temp_image, keyvalues = hdr$keyvalues)
+        
+        return(output)
       }
       if(!is.numeric(temp_image)){
         message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')

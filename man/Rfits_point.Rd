@@ -9,7 +9,8 @@ FITS File Pointer
 Creates a pointer to an on-disk FITS image file, which can then be used like a Matrix.
 }
 \usage{
-Rfits_point(filename, ext = 1, header = TRUE, zap = NULL, allow_write = FALSE)
+Rfits_point(filename, ext = 1, header = TRUE, zap = NULL, allow_write = FALSE,
+  sparse = 1L)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -27,6 +28,9 @@ Character vector; optional unique strings to zap out of the header. These elemen
 }
   \item{allow_write}{
 Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. The default is FALSE (for safety) since you can potentially do some extreme/permanent data-altering operations with this set to TRUE. SO BE CAREFUL!
+}
+  \item{sparse}{
+Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
 }
 }
 \details{

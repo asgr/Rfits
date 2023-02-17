@@ -197,7 +197,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
 
 Rfits_write = Rfits_write_all
 
-Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern='.fits$',
+Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
                            recursive=TRUE, header=TRUE, pointer=TRUE, cores=4, ...){
   if(is.null(filelist)){
     if(is.null(dirlist)){
@@ -206,23 +206,30 @@ Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern='.fit
     filelist = {}
     for(i in 1:length(dirlist)){
       filelist = c(filelist,
-                   list.files(dirlist[i], pattern=pattern, full.names=TRUE, recursive=recursive))
+                   list.files(dirlist[i], full.names=TRUE, recursive=recursive))
     }
   }
   
   registerDoParallel(cores=cores)
   
-  filelist = grep(pattern=pattern, filelist, value=TRUE)
   filelist = normalizePath(filelist)
+  if(!is.null(pattern)){
+    for(i in pattern){
+      filelist = grep(pattern=i, filelist, value=TRUE)
+    }
+  }
+  filelist = grep(pattern='.fits$', filelist, value=TRUE)
   
   if(length(extlist) == 1){
     extlist = rep(extlist, length(filelist))
   }
   
-  data = foreach(i=1:length(filelist))%dopar%{
-    if(pointer){
+  if(pointer){
+    data = foreach(i=1:length(filelist))%dopar%{
       return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
-    }else{
+    }
+  }else{
+    data = foreach(i=1:length(filelist))%dopar%{
       return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
     }
   }

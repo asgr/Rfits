@@ -663,11 +663,13 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
   
   registerDoParallel(cores=cores)
   
+  filelist = normalizePath(filelist)
   if(!is.null(pattern)){
-    filelist = grep(pattern=pattern, filelist, value=TRUE)
+    for(i in pattern){
+      filelist = grep(pattern=i, filelist, value=TRUE)
+    }
   }
   filelist = grep(pattern='.fits$', filelist, value=TRUE)
-  filelist = normalizePath(filelist)
   
   if(length(extlist) == 1){
     extlist = rep(extlist, length(filelist))

@@ -158,7 +158,8 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
 \method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
-\method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header)
+\method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header,
+  sparse=x$sparse)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 
 \method{&}{Rfits_image}(e1, e2)
@@ -213,6 +214,8 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
   \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
   \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
+  \item{sparse}{Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
+  }
   \item{allow_write}{Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{ext}{Integer scalar; the extension to operate the method on.}
   \item{\dots}{Unused, but required}

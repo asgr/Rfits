@@ -694,7 +694,7 @@ Rfits_dim = function(filename, ext=1){
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse){
   
   if(!missing(i)){
     if(length(i)==2 & missing(j)){
@@ -782,7 +782,7 @@ Rfits_dim = function(filename, ext=1){
   
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                          tlo=tlo, thi=thi))
+                          tlo=tlo, thi=thi, sparse=sparse))
 }
 
 `[<-.Rfits_pointer` = function(x, i, j, k, m, allow_write=x$allow_write, value){

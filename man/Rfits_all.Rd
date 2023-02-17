@@ -24,7 +24,7 @@ Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = 
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
   compress = FALSE, bad_compress = 0, list_sub = NULL)
   
-Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = '.fits$',
+Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = NULL,
   recursive = TRUE, header = TRUE, pointer = TRUE, cores = 4, ...)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -78,7 +78,7 @@ Character vector; vector of full paths of directories to analyse.
 Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}
 }
   \item{pattern}{
-Scalar character; regular expression to filter \option{filelist} by. The default limits to files ending ".fits", which is usually what you want. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$" (which I can never remember!)
+Character vector; regular expressions to filter \option{filelist} by. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$". Note an extra check that all files are FITS files (a pattern of ".fits$") will be made whether requested or not. Note you should nearly always use a leading and trailing '*' search because the pattern match is made on the full file path string, i.e. glob2rx('u*.fits') = '^u.*\\\\.fits$' would fail on '/path/to/file/u_GAMA.fits' (because of the '/path/to/file/' before 'u_GAMA.fits'), but glob2rx('*u*.fits') = '^.*u.*\\\\.fits$' would work as expected.
 }
   \item{recursive}{
 Logical; if using \option{dirlist} should all sub-directories be checked recursively?
