@@ -189,21 +189,21 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         }else{
           hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
         }
-        hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L) / sparse
+        hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L)/sparse + (sparse - 1L)/sparse/2 #last part is for first pixel offset
         
         if(Ndim >= 2){
           hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
-          hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L) / sparse
+          hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar + 1L)/sparse + (sparse - 1L)/sparse/2
         }
         
         if(Ndim >= 3){
           hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
-          hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L) / sparse
+          hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar + 1L)/sparse + (sparse - 1L)/sparse/2
         }
         
         if(Ndim >= 4){
           hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
-          hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L) / sparse
+          hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar + 1L)/sparse + (sparse - 1L)/sparse/2
         }
         
         hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
@@ -245,6 +245,10 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
     }
     
+    naxis1 = safex$len_tar
+    naxis2 = safey$len_tar
+    naxis3 = safez$len_tar
+    naxis4 = safet$len_tar
   }else{
     # Leave the naxis reads- this is the only way to know the naxis if we aren't given a header!
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
@@ -291,13 +295,6 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(any(!is.finite(image))){
       image[!is.finite(image)] = bad
     }
-  }
-  
-  if(subset){
-    naxis1 = safex$len_tar
-    naxis2 = safey$len_tar
-    naxis3 = safez$len_tar
-    naxis4 = safet$len_tar
   }
   
   if(naxis1 == 1 & naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
