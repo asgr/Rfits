@@ -288,6 +288,10 @@ Rfits_write_image(temp_image$imDat, file_image_temp, compress=TRUE)
 file.size(file_image_temp) #about a factor 5 compressed
 temp_image3 = Rfits_read_image(file_image_temp, ext=2)
 magimage(temp_image3$imDat)
+
+#Sparse sample reading (notice the WCS is modified as needed)
+plot(Rfits_read_image(file_image, sparse=4))
+plot(Rfits_read_image(file_image, sparse=8))
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

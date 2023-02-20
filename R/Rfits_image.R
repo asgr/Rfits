@@ -78,7 +78,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   subset=FALSE
   
-  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | header){
+  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | sparse > 1 | header){
     
     hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
     
@@ -129,7 +129,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(tlo)){tlo=1}else{subset=TRUE}
     if(is.null(thi)){thi=naxis4}else{subset=TRUE}
     
-    if(subset | sparse > 1L){
+    if(subset | sparse > 1){
       safex = .safedim(1,naxis1,xlo,xhi)
       safey = .safedim(1,naxis2,ylo,yhi)
       safez = .safedim(1,naxis3,zlo,zhi)
@@ -167,13 +167,17 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(subset | sparse > 1L){
+  if(subset | sparse > 1){
     if(safex$safe & safey$safe & safez$safe & safet$safe){
       try({
         temp_image = Cfits_read_img_subset(filename=filename, ext=ext, datatype=datatype,
                                            fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                                            lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi,
                                            sparse=sparse)
+        
+        if(sparse > 1){
+          temp_image = temp_image*sparse^2
+        }
         
         if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
           temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
@@ -186,38 +190,42 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
           temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
         }
       })
-      if(sparse > 1L){
-        if(Ndim == 1){
-          hdr$keyvalues$NAXIS1 = length(temp_image)
+      if(sparse > 1){
+        if(header){
+          if(Ndim == 1){
+            hdr$keyvalues$NAXIS1 = length(temp_image)
+          }else{
+            hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
+          }
+          # hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L)/sparse + (sparse - 1L)/sparse
+          hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar)/sparse + 1
+          
+          if(Ndim >= 2){
+            hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
+            hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar)/sparse + 1
+          }
+          
+          if(Ndim >= 3){
+            hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
+            hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar)/sparse + 1
+          }
+          
+          if(Ndim >= 4){
+            hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
+            hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar)/sparse + 1
+          }
+          
+          hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
+          hdr$keyvalues$CD1_2 = hdr$keyvalues$CD1_2 * sparse
+          hdr$keyvalues$CD2_1 = hdr$keyvalues$CD2_1 * sparse
+          hdr$keyvalues$CD2_2 = hdr$keyvalues$CD2_2 * sparse
+          
+          output = Rfits_create_image(temp_image, keyvalues = hdr$keyvalues) #scale by sparse^2 to get fluxes roughly right
+          
+          return(output)
         }else{
-          hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
+          return(temp_image)
         }
-        # hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L)/sparse + (sparse - 1L)/sparse
-        hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar)/sparse + 1
-        
-        if(Ndim >= 2){
-          hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
-          hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar)/sparse + 1
-        }
-        
-        if(Ndim >= 3){
-          hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
-          hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar)/sparse + 1
-        }
-        
-        if(Ndim >= 4){
-          hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
-          hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar)/sparse + 1
-        }
-        
-        hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
-        hdr$keyvalues$CD1_2 = hdr$keyvalues$CD1_2 * sparse
-        hdr$keyvalues$CD2_1 = hdr$keyvalues$CD2_1 * sparse
-        hdr$keyvalues$CD2_2 = hdr$keyvalues$CD2_2 * sparse
-        
-        output = Rfits_create_image(temp_image*sparse^2, keyvalues = hdr$keyvalues) #scale by sparse^2 to get fluxes roughly right
-        
-        return(output)
       }
       if(!is.numeric(temp_image)){
         message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
