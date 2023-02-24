@@ -212,13 +212,14 @@ td=tdigest(temp_image$imDat, compression=1e3)
 expect_equal(median(temp_image$imDat), td[0.5], tolerance=2e-3)
 
 #ex 33 pure header
-temp_head=list(
-  SIMPLE=TRUE,
-  BITPIX=16L,
-  NAXIS=0L,
-  EXTEND=TRUE,
-  RANDOM='Hello'
+temp_head = list(
+  SIMPLE = TRUE,
+  BITPIX = 16L,
+  NAXIS = 0L,
+  EXTEND = TRUE,
+  RANDOM = 'Hello'
 )
+class(temp_head) = 'Rfits_keylist'
 file_head_temp = tempfile()
 Rfits_write_header(file_head_temp, keyvalues=temp_head, create_file=T, create_ext=T)
 temp_head2 = Rfits_read_header(file_head_temp)

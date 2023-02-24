@@ -257,6 +257,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   #keyword list
   keyvalues = Rfits_hdr_to_keyvalues(hdr)
   keynames = names(keyvalues)
+  class(keyvalues) = 'Rfits_keylist'
   
   nloop = ceiling(length(keynames)/1e3)
   loc_goodhead={}

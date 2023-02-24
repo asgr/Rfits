@@ -124,9 +124,15 @@ print.Rfits_pointer=function(x , ...){
 }
 
 print.Rfits_header=function(x, ...){
-  cat(x$header[1:8], sep='\n')
+  cat(x$header[1:min(8,length(x$header))], sep='\n')
   cat("...", sep='\n')
   cat('Key N:',length(x$keyvalues),'\n')
+}
+
+print.Rfits_keylist=function(x, ...){
+  cat(x[1:min(8,length(x))], sep='\n')
+  cat("...", sep='\n')
+  cat('Key N:',length(x),'\n')
 }
 
 print.Rfits_list=function(x , ...){
@@ -184,45 +190,39 @@ print.Rfits_list=function(x , ...){
   print(summarytable)
 }
 
-print.Rfits_header=function(x, ...){
-  cat(x$header[1:min(8,length(x$header))], sep='\n')
-}
-
 length.Rfits_vector=function(x){
   return(dim(x))
 }
 
 length.Rfits_image=function(x){
   if(is.null(dim(x))){
-    return(NULL)
+    return(length(x$imDat))
   }else{
     return(prod(dim(x)))
   }
 }
 
 length.Rfits_cube = length.Rfits_image
-
 length.Rfits_array = length.Rfits_image
-
 length.Rfits_pointer = length.Rfits_image
-
 length.Rfits_header = length.Rfits_image
+#length.Rfits_keylist = length.Rfits_image I think length might be confusing (probably just want to now the number of entries)
 
 Rfits_length = function(filename, ext=1){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
   return(length(temp_header))
 }
 
-dim.Rfits_vector = function(x){
-  return(length(x$imDat))
-}
-
 dim.Rfits_image = function(x){
-  return(dim(x$imDat))
+  if(inherits(x$imDat, 'array')){
+    return(dim(x$imDat))
+  }else{
+    return(length(x$imDat))
+  }
 }
 
+dim.Rfits_vector = dim.Rfits_image
 dim.Rfits_cube = dim.Rfits_image
-
 dim.Rfits_array = dim.Rfits_image
 
 dim.Rfits_pointer=function(x){
@@ -269,6 +269,53 @@ dim.Rfits_header=function(x){
     }
     if(!is.null(x$keyvalues$NAXIS4)){
       NAXIS4 = x$keyvalues$NAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }
+  return(c(NAXIS1, NAXIS2, NAXIS3, NAXIS4))
+}
+
+dim.Rfits_keylist=function(x){
+  if(isTRUE(x$ZIMAGE)){
+    if(!is.null(x$ZNAXIS1)){
+      NAXIS1 = x$ZNAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$ZNAXIS2)){
+      NAXIS2 = x$ZNAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$ZNAXIS3)){
+      NAXIS3 = x$ZNAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$ZNAXIS4)){
+      NAXIS4 = x$ZNAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }else{
+    if(!is.null(x$NAXIS1)){
+      NAXIS1 = x$NAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$NAXIS2)){
+      NAXIS2 = x$NAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$NAXIS3)){
+      NAXIS3 = x$NAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$NAXIS4)){
+      NAXIS4 = x$NAXIS4
     }else{
       NAXIS4 = NULL
     }

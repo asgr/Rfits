@@ -1001,22 +1001,28 @@ centre = function(x, useraw=FALSE, ...){
 }
 
 centre.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
-    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
   
-  if(inherits(x, 'Rfits_header')){
-    if(is.null(x$keyvalues$NAXIS) & is.null(x$keyvalues$ZNAXIS)){
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
       message('No NAXIS! Probably not an image, returning NA.')
       return(NA)
     }else{
-      if(!is.null(x$keyvalues$ZNAXIS)){
-        if(x$keyvalues$ZNAXIS < 2){
-          message('ZNAXIS: ', x$keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
           return(NA)
         }
-      }else if(x$keyvalues$NAXIS < 2){
-        message('NAXIS: ', x$keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
         return(NA)
       }
     }
@@ -1025,7 +1031,7 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
@@ -1042,6 +1048,8 @@ centre.Rfits_pointer = centre.Rfits_image
 center.Rfits_pointer = centre.Rfits_image
 centre.Rfits_header = centre.Rfits_image
 center.Rfits_header = centre.Rfits_image
+centre.Rfits_keylist = centre.Rfits_image
+center.Rfits_keylist = centre.Rfits_image
 
 Rfits_centre = function(filename, ext=1, useraw=FALSE, ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
@@ -1055,22 +1063,28 @@ corners = function(x, useraw=FALSE, ...){
 }
 
 corners.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
-    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
   
-  if(inherits(x, 'Rfits_header')){
-    if(is.null(x$keyvalues$NAXIS) & is.null(x$keyvalues$ZNAXIS)){
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
       message('No NAXIS! Probably not an image, returning NA.')
       return(NA)
     }else{
-      if(!is.null(x$keyvalues$ZNAXIS)){
-        if(x$keyvalues$ZNAXIS < 2){
-          message('ZNAXIS: ', x$keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
           return(NA)
         }
-      }else if(x$keyvalues$NAXIS < 2){
-        message('NAXIS: ', x$keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
         return(NA)
       }
     }
@@ -1079,10 +1093,10 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
   im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
-    TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = x$keyvalues, header=header, pixcen='R', ...)
-    TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = x$keyvalues, header=header, pixcen='R', ...)
-    BR = Rwcs::Rwcs_p2s(im_dim[1], 0, keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
+    TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
+    TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
+    BR = Rwcs::Rwcs_p2s(im_dim[1], 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     output = rbind(BL, TL, TR, BR)
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
     return(output)
@@ -1093,6 +1107,7 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
 
 corners.Rfits_pointer = corners.Rfits_image
 corners.Rfits_header = corners.Rfits_image
+corners.Rfits_keylist = corners.Rfits_image
 
 Rfits_corners = function(filename, ext=1, useraw=FALSE, ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
@@ -1104,22 +1119,28 @@ pixscale = function(x, useraw=FALSE, unit='asec', ...){
 }
 
 pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
-    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
   
-  if(inherits(x, 'Rfits_header')){
-    if(is.null(x$keyvalues$NAXIS) & is.null(x$keyvalues$ZNAXIS)){
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
       message('No NAXIS! Probably not an image, returning NA.')
       return(NA)
     }else{
-      if(!is.null(x$keyvalues$ZNAXIS)){
-        if(x$keyvalues$ZNAXIS < 2){
-          message('ZNAXIS: ', x$keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
           return(NA)
         }
-      }else if(x$keyvalues$NAXIS < 2){
-        message('NAXIS: ', x$keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
         return(NA)
       }
     }
@@ -1128,7 +1149,7 @@ pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
@@ -1153,6 +1174,7 @@ pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
 
 pixscale.Rfits_pointer = pixscale.Rfits_image
 pixscale.Rfits_header = pixscale.Rfits_image
+pixscale.Rfits_keylist = pixscale.Rfits_image
 
 Rfits_pixscale = function(filename, ext=1, useraw=FALSE, unit='asec', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
@@ -1164,22 +1186,28 @@ pixarea = function(x, useraw=FALSE, unit='asec2', ...){
 }
 
 pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
-  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header'))){
-    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
+  }
+  
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
   }
   
   if(inherits(x, 'Rfits_header')){
-    if(is.null(x$keyvalues$NAXIS) & is.null(x$keyvalues$ZNAXIS)){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
       message('No NAXIS! Probably not an image, returning NA.')
       return(NA)
     }else{
-      if(!is.null(x$keyvalues$ZNAXIS)){
-        if(x$keyvalues$ZNAXIS < 2){
-          message('ZNAXIS: ', x$keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
           return(NA)
         }
-      }else if(x$keyvalues$NAXIS < 2){
-        message('NAXIS: ', x$keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
         return(NA)
       }
     }
@@ -1188,7 +1216,7 @@ pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = x$keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
@@ -1213,6 +1241,7 @@ pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
 
 pixarea.Rfits_pointer = pixarea.Rfits_image
 pixarea.Rfits_header = pixarea.Rfits_image
+pixarea.Rfits_keylist = pixarea.Rfits_image
 
 Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
@@ -1221,6 +1250,8 @@ Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
 
 Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
                               filename='', ext=1, keypass=TRUE){
+  assertList(keyvalues)
+  class(keyvalues) = 'keylist'
   
   if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
     keyvalues = Rwcs::Rwcs_keypass(keyvalues)

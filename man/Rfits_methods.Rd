@@ -6,6 +6,7 @@
 \alias{print.Rfits_array}
 \alias{print.Rfits_pointer}
 \alias{print.Rfits_header}
+\alias{print.Rfits_keylist}
 \alias{print.Rfits_list}
 
 \alias{length.Rfits_vector}
@@ -14,6 +15,7 @@
 \alias{length.Rfits_array}
 \alias{length.Rfits_pointer}
 \alias{length.Rfits_header}
+%\alias{length.Rfits_keylist}
 
 \alias{dim.Rfits_vector}
 \alias{dim.Rfits_image}
@@ -21,6 +23,7 @@
 \alias{dim.Rfits_array}
 \alias{dim.Rfits_pointer}
 \alias{dim.Rfits_header}
+\alias{dim.Rfits_keylist}
 
 \alias{centre}
 \alias{center}
@@ -45,6 +48,12 @@
 \alias{corners.Rfits_header}
 \alias{pixscale.Rfits_header}
 \alias{pixarea.Rfits_header}
+
+\alias{centre.Rfits_keylist}
+\alias{center.Rfits_keylist}
+\alias{corners.Rfits_keylist}
+\alias{pixscale.Rfits_keylist}
+\alias{pixarea.Rfits_keylist}
 
 \alias{Rfits_length}
 \alias{Rfits_dim}
@@ -108,6 +117,7 @@
 \method{print}{Rfits_array}(x,  ...)
 \method{print}{Rfits_pointer}(x,  ...)
 \method{print}{Rfits_header}(x, ...)
+\method{print}{Rfits_keylist}(x, ...)
 \method{print}{Rfits_list}(x, ...)
 \method{length}{Rfits_vector}(x)
 \method{length}{Rfits_image}(x)
@@ -115,12 +125,14 @@
 \method{length}{Rfits_array}(x)
 \method{length}{Rfits_pointer}(x)
 \method{length}{Rfits_header}(x)
+%\method{length}{Rfits_keylist}(x)
 \method{dim}{Rfits_vector}(x)
 \method{dim}{Rfits_image}(x)
 \method{dim}{Rfits_cube}(x)
 \method{dim}{Rfits_array}(x)
 \method{dim}{Rfits_pointer}(x)
 \method{dim}{Rfits_header}(x)
+\method{dim}{Rfits_keylist}(x)
 
 centre(x, useraw=FALSE, ...)
 center(x, useraw=FALSE, ...)
@@ -145,6 +157,12 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 \method{corners}{Rfits_header}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_header}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_header}(x, useraw=FALSE, unit='asec2',  ...)
+
+\method{centre}{Rfits_keylist}(x, useraw=FALSE, ...)
+\method{center}{Rfits_keylist}(x, useraw=FALSE, ...)
+\method{corners}{Rfits_keylist}(x, useraw=FALSE,  ...)
+\method{pixscale}{Rfits_keylist}(x, useraw=FALSE, unit='asec',  ...)
+\method{pixarea}{Rfits_keylist}(x, useraw=FALSE, unit='asec2',  ...)
 
 Rfits_length(filename, ext=1)
 Rfits_dim(filename, ext=1)
