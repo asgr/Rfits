@@ -299,7 +299,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(is.numeric(image)){
+  if(is.numeric(image) & (datatype == -16 | datatype == -32)){
     if(anyNA(image)){
       image[is.nan(image)] = NA
     }
