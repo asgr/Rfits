@@ -129,15 +129,18 @@ print.Rfits_header=function(x, ...){
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
-print.Rfits_keylist=function(x, ...){
-  cat(x[1:min(8,length(x))], sep='\n')
-  cat("...", sep='\n')
-  cat('Key N:',length(x),'\n')
-}
+# print.Rfits_keylist=function(x, ...){
+#   cat(x[1:min(8,length(x))], sep='\n')
+#   cat("...", sep='\n')
+#   cat('Key N:',length(x),'\n')
+# }
 
 print.Rfits_list=function(x , ...){
   
   ext_name = names(x)
+  if(is.null(ext_name)){
+    ext_name = rep(NA, length(x))
+  }
   ext_dim = {}
   ext_class = {}
   ext_mode = {}

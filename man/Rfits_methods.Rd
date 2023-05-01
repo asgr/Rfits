@@ -6,7 +6,7 @@
 \alias{print.Rfits_array}
 \alias{print.Rfits_pointer}
 \alias{print.Rfits_header}
-\alias{print.Rfits_keylist}
+%\alias{print.Rfits_keylist}
 \alias{print.Rfits_list}
 
 \alias{length.Rfits_vector}
@@ -117,7 +117,7 @@
 \method{print}{Rfits_array}(x,  ...)
 \method{print}{Rfits_pointer}(x,  ...)
 \method{print}{Rfits_header}(x, ...)
-\method{print}{Rfits_keylist}(x, ...)
+%\method{print}{Rfits_keylist}(x, ...)
 \method{print}{Rfits_list}(x, ...)
 \method{length}{Rfits_vector}(x)
 \method{length}{Rfits_image}(x)

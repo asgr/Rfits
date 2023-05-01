@@ -299,6 +299,12 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
+  if(is.numeric(image)){
+    if(anyNA(image)){
+      image[is.nan(image)] = NA
+    }
+  }
+  
   if(force_logical & is.integer(image)){
     image = as.logical(image)
   }
@@ -309,20 +315,29 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(naxis1 == 1 & naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  # if(naxis1 == 1 & naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  #   image = as.vector(image)
+  # }else if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  #   image = as.vector(image)
+  # }else if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+  #   dim(image) =c(naxis1, naxis2)
+  # }else if(naxis3 > 1 & naxis4 == 1){
+  #   dim(image) =c(naxis1, naxis2, naxis3)
+  # }else if(naxis4 > 1){
+  #   dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+  # }else{
+  #   stop('Cannot determine the dimensions of the image!')
+  # }
+  if(Ndim == 1){
     image = as.vector(image)
-  }
-  if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
-    image = as.vector(image)
-  }
-  if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+  }else if(Ndim == 2){
     dim(image) =c(naxis1, naxis2)
-  }
-  if(naxis3 > 1 & naxis4 == 1){
+  }else if(Ndim == 3){
     dim(image) =c(naxis1, naxis2, naxis3)
-  }
-  if(naxis4 > 1){
+  }else if(Ndim == 4){
     dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+  }else{
+    stop('Cannot determine the dimensions of the image, or more than 4!')
   }
   
   if(header){

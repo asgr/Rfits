@@ -500,7 +500,7 @@ void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long
 void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= -32,
                      int naxis=2, long naxis1=100 , long naxis2=100, long naxis3=1, long naxis4=1)
 {
-  int hdutype, ii;
+  int hdutype, ii, nullvals = 0;
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
   
   long fpixel_vector[] = {1};
@@ -511,7 +511,7 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  
+
   //below need to work for integers and doubles:
   if(datatype == TBYTE){
     // char *data_b = (char *)malloc(nelements * sizeof(char));
@@ -563,13 +563,13 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(nelements);
-    fits_invoke(read_img, fptr, TFLOAT, 1, nelements, &nullvals, pixels.data(), &anynull);
+    fits_invoke(read_img, fptr, TFLOAT, 1, nelements, nullptr, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     std::vector<double> pixels(nelements);
-    fits_invoke(read_img, fptr, TDOUBLE, 1, nelements, &nullvals, pixels.data(), &anynull);
+    fits_invoke(read_img, fptr, TDOUBLE, 1, nelements, nullptr, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);

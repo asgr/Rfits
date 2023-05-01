@@ -122,7 +122,7 @@ S3method("print", Rfits_array)
 S3method("print", Rfits_vector)
 S3method("print", Rfits_pointer)
 S3method("print", Rfits_header)
-S3method("print", Rfits_keylist)
+#S3method("print", Rfits_keylist)
 S3method("print", Rfits_list)
 
 S3method("length", Rfits_vector)
