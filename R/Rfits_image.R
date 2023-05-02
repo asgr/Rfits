@@ -279,15 +279,23 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(!is.numeric(naxis1)){
       message('NAXIS1 is missing- this is pretty weird!')
       naxis1 = 1
+    }else{
+      Ndim = 1L
     }
     if(!is.numeric(naxis2)){
       naxis2 = 1
+    }else{
+      Ndim = 2L
     }
     if(!is.numeric(naxis3)){
       naxis3 = 1
+    }else{
+      Ndim = 3L
     }
     if(!is.numeric(naxis4)){
       naxis4 = 1
+    }else{
+      Ndim = 4L
     }
     try({
       image = Cfits_read_img(filename=filename, ext=ext, datatype=datatype,
