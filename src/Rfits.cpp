@@ -588,7 +588,7 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
-    std::vector<long> pixels(nelements);
+    std::vector<uint32_t> pixels(nelements);
     fits_invoke(read_img, fptr, TLONG, 1, nelements, &nullvals, pixels.data(), &anynull);
     Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
@@ -750,7 +750,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
-    std::vector<long> pixels(nelements);
+    std::vector<uint32_t> pixels(nelements);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
     Rcpp::IntegerVector pixel_matrix(nelements);
