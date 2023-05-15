@@ -213,9 +213,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
     long nullval = 0;
     std::vector<long> col(nrow);
     fits_invoke(read_col, fptr, TINT32BIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+    return ensure_lossless_32bit_int(col);
   }
   else if ( typecode == TSHORT ) {
     short nullval = -128;
