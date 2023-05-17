@@ -175,6 +175,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                                            lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi,
                                            sparse=sparse)
         
+        check64 = inherits(temp_image, 'integer64')
+        
         if(sparse > 1){
           temp_image = temp_image*sparse^2
         }
@@ -188,6 +190,9 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         }
         if(naxis4 > 1){
           temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
+        }
+        if(check64){
+          attributes(temp_image)$class = "integer64"
         }
       })
       if(sparse > 1){

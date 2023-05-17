@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <limits>
 #include <utility>
 #include <vector>
 #include <Rcpp.h>
@@ -94,6 +95,24 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
                  }
   );
   return c_strings;
+}
+
+static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
+{
+    // R's integers are signed, so if any value is >= 2^31
+    // we return the whole array as a bit64 array
+    // (i.e., a double array with class "integer64").
+    auto doesnt_fit_in_r_int = std::any_of(values.begin(), values.end(), [](long value) { return value > std::numeric_limits<int32_t>::max(); });
+    if (doesnt_fit_in_r_int) {
+      Rcpp::NumericVector output(values.size());
+      std::memcpy(&(output[0]), &(values[0]), values.size() * sizeof(double));
+      output.attr("class") = "integer64";
+      return output;
+    }
+    // otherwise they fit into R's signed integer vector
+    Rcpp::IntegerVector output(values.size());
+    std::copy(values.begin(), values.end(), output.begin());
+    return output;
 }
 
 // [[Rcpp::export]]
@@ -194,9 +213,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
     long nullval = 0;
     std::vector<long> col(nrow);
     fits_invoke(read_col, fptr, TINT32BIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+    return ensure_lossless_32bit_int(col);
   }
   else if ( typecode == TSHORT ) {
     short nullval = -128;
@@ -590,9 +607,7 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(nelements);
     fits_invoke(read_img, fptr, TLONG, 1, nelements, &nullvals, pixels.data(), &anynull);
-    Rcpp::IntegerVector pixel_matrix(naxis1 * naxis2 * naxis3 * naxis4);
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-    return(pixel_matrix);
+    return ensure_lossless_32bit_int(pixels);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(nelements);
     fits_invoke(read_img, fptr, TLONGLONG, 1, nelements, &nullvals, pixels.data(), &anynull);
@@ -753,9 +768,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     std::vector<long> pixels(nelements);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
                   &nullvals, pixels.data(), &anynull);
-    Rcpp::IntegerVector pixel_matrix(nelements);
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-    return(pixel_matrix);
+    return ensure_lossless_32bit_int(pixels);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(nelements);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,

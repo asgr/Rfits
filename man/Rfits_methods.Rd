@@ -227,7 +227,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
-  \item{x}{An object of class 'Rfits_pointer'}
+  \item{x}{An object of a relevant class.}
   \item{value}{The replacement data to write to disk.}
   \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
   \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
