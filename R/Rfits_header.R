@@ -649,7 +649,7 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
 
 Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
                           recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
-                          get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE,
+                          get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
                           keypass=FALSE, zap=NULL, data.table=TRUE){
   if(is.null(filelist)){
@@ -699,6 +699,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     get_dim = TRUE
     get_centre = TRUE
     get_corners = TRUE
+    get_extremes = TRUE
     get_pixscale = TRUE
     get_pixarea = TRUE
   }
@@ -753,6 +754,17 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
                            corner_TR_RA = temp_cor[3,1], corner_TR_Dec = temp_cor[3,2],
                            corner_BR_RA = temp_cor[4,1], corner_BR_Dec = temp_cor[4,2]
                            )
+        }
+        
+        if(get_extremes){
+          temp_ext = corners(temp_header)
+          if(is.na(temp_cor[1])){
+            temp_ext = matrix(NA, 4,2)
+          }
+          current_info = c(current_info,
+                           min_RA = min(temp_cor[,1]), min_Dec = min(temp_cor[,2]),
+                           max_RA = max(temp_cor[,1]), max_Dec = max(temp_cor[,2])
+          )
         }
         
         if(get_pixscale){

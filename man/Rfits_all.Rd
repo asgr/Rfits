@@ -25,7 +25,7 @@ Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE
   compress = FALSE, bad_compress = 0, list_sub = NULL)
   
 Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = NULL,
-  recursive = TRUE, header = TRUE, pointer = TRUE, cores = 4, ...)
+  recursive = TRUE, header = TRUE, pointer = TRUE, cores = 1, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -87,7 +87,7 @@ Logical; if using \option{dirlist} should all sub-directories be checked recursi
 Integer scalar; the number of cores to run on.
 }
   \item{\dots}{
-Further arugments to pass to \code{\link{Rfits_read_image}} (when \option{pointer} = FALSE) or \code{\link{Rfits_point}} (when \option{pointer} = TRUE). Note these arguments will be inherited by all files loaded into the 'Rfits_list'.
+Further arguments to pass to \code{\link{Rfits_read_image}} (when \option{pointer} = FALSE) or \code{\link{Rfits_point}} (when \option{pointer} = TRUE). Note these arguments will be inherited by all files loaded into the 'Rfits_list'.
 }
 }
 \details{

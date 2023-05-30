@@ -461,10 +461,11 @@ Rfits_dim = function(filename, ext=1){
     
     #New keynames being added
     #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
-    x$keynames['XCUTLO'] = 'XCUTLO'
-    x$keynames['XCUTHI'] = 'XCUTHI'
-    x$keynames['YCUTLO'] = 'YCUTLO'
-    x$keynames['YCUTHI'] = 'YCUTHI'
+    #x$keynames['XCUTLO'] = 'XCUTLO'
+    #x$keynames['XCUTHI'] = 'XCUTHI'
+    #x$keynames['YCUTLO'] = 'YCUTLO'
+    #x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames = names(x$keyvalues)
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar))

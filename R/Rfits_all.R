@@ -198,7 +198,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
 Rfits_write = Rfits_write_all
 
 Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
-                           recursive=TRUE, header=TRUE, pointer=TRUE, cores=4, ...){
+                           recursive=TRUE, header=TRUE, pointer=TRUE, cores=1, ...){
   if(is.null(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')

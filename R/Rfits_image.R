@@ -100,24 +100,36 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       message('Missing NAXIS1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
     }
     
-    Ndim = 0
-    if(!is.null(naxis1)){Ndim = 1}
-    if(!is.null(naxis2)){Ndim = 2}
-    if(!is.null(naxis3)){Ndim = 3}
-    if(!is.null(naxis4)){Ndim = 4}
+    Ndim = hdr$keyvalues$NAXIS
+    
+    if(is.null(Ndim)){
+      if(!is.null(naxis1)){Ndim = 1L}
+      if(!is.null(naxis2)){Ndim = 2L}
+      if(!is.null(naxis3)){Ndim = 3L}
+      if(!is.null(naxis4)){Ndim = 4L}
+    }
     
     if(is.null(naxis1)){
-      message('NAXIS1 is missing- this is pretty weird!')
+      message('NAXIS1 is missing: this is pretty weird!')
       naxis1 = 1
     }
     if(is.null(naxis2)){
       naxis2 = 1
+      if(Ndim == 2){
+        message('NAXIS2 is missing, but NAXIS=2: this is pretty weird!')
+      }
     }
     if(is.null(naxis3)){
       naxis3 = 1
+      if(Ndim == 3){
+        message('NAXIS3 is missing, but NAXIS=3: this is pretty weird!')
+      }
     }
     if(is.null(naxis4)){
       naxis4 = 1
+      if(Ndim == 4){
+        message('NAXIS4 is missing, but NAXIS=4: this is pretty weird!')
+      }
     }
     
     if(is.null(xlo)){xlo=1}else{subset=TRUE}
@@ -468,13 +480,13 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   WCSref = WCSref
                   )
 
-    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+    if(Ndim == 1){
       class(output) = c('Rfits_vector', class(output))
-    }else if(naxis3 == 1 & naxis4 == 1){
+    }else if(Ndim == 2){
       class(output) = c('Rfits_image', class(output))
-    }else if(naxis3 > 1 & naxis4 == 1){
+    }else if(Ndim == 3){
       class(output) = c('Rfits_cube', class(output))
-    }else if(naxis4 > 1){
+    }else if(Ndim == 4){
       class(output) = c('Rfits_array', class(output))
     }
     return(invisible(output))

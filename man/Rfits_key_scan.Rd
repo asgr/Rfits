@@ -11,8 +11,8 @@ Scans files or list of directories for keywords in FITS files. This is useful fo
 Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
   pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
   get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
-  get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
-  keypass = FALSE, zap = NULL, data.table = TRUE)
+  get_extremes = FALSE, get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE,
+  remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL, data.table = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -54,6 +54,9 @@ Logical, should target central coordinates be extracted? (See \code{\link{Rfits_
 }
   \item{get_corners}{
 Logical, should target corner coordinates be extracted? (See \code{\link{Rfits_methods}}).
+}
+  \item{get_extremes}{
+Logical, should the minimum and maximum RA/Dec of the corners coordinates be extracted?. Note depending on the WCS this might not be trivial from the output corners, since both the min/max x/y pixels can be the min/max RA/Dec.
 }
   \item{get_pixscale}{
 Logical, should target pixel scale be extracted? (See \code{\link{Rfits_methods}}).
