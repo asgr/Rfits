@@ -395,6 +395,30 @@ Rfits_dim = function(filename, ext=1){
 `[.Rfits_image` = function(x, i, j, box=201, type='pix', keepWCS=TRUE){
   
   if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = dim(x)[1]
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = dim(x)[1]
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(i)){
     if(length(i)==2 & missing(j)){
       if(i[2]-i[1] !=1){
         j = as.numeric(i[2])
@@ -505,6 +529,42 @@ Rfits_dim = function(filename, ext=1){
 
 `[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE, collapse=TRUE){
   
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = dim(x)[1]
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = dim(x)[2]
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(k)){
+    express = as.character(substitute(k))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(k))[3]){
+        start = express[2]
+        end = dim(x)[3]
+        k = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}
   if(missing(k)){k = c(1,dim(x$imDat)[3])}
@@ -612,6 +672,54 @@ Rfits_dim = function(filename, ext=1){
 }
 
 `[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE){
+  
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = dim(x)[1]
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = dim(x)[2]
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(k)){
+    express = as.character(substitute(k))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(k))[3]){
+        start = express[2]
+        end = dim(x)[3]
+        k = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(m)){
+    express = as.character(substitute(m))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(m))[3]){
+        start = express[2]
+        end = dim(x)[4]
+        m = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
   
   if(missing(i)){i = c(1,dim(x$imDat)[1])}
   if(missing(j)){j = c(1,dim(x$imDat)[2])}

@@ -217,10 +217,10 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 }
 \arguments{
   \item{filename}{Character scalar; path to FITS file to operate the method on.}
-  \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'.}
-  \item{j}{Integer vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.}
-  \item{k}{Integer vector, a contiguous vector of desired k indices to extract}
-  \item{m}{Integer vector, a contiguous vector of desired m indices to extract}
+  \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{j}{Integer vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{k}{Integer vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{m}{Integer vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{unit}{Character scalar; for pixscale must be one of asec / amin / deg / rad, for pixarea must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
@@ -276,7 +276,7 @@ plot(temp_image[352.2917,-31.82667,box=51,type='coord'])
 }
 
 #Same with a pointer:
-temp_point=Rfits_point(file_image)
+temp_point = Rfits_point(file_image)
 \dontrun{
 plot(temp_point[352.2917,-31.82667,box=51,type='coord',header=TRUE])
 }
@@ -296,6 +296,9 @@ temp_cube[26:30,26:30,1:2] #convenient
 #And we can print and check dim easily
 print(temp_cube)
 dim(temp_cube)
+
+#For convenience we can access the end dimension limit without explictly checking:
+temp_cube[46:end,46:end,3:end]$imDat #The dim is 50x50x4, so this creates a 5x5x2 array
 }
 \keyword{ classes }
 \keyword{ manip }

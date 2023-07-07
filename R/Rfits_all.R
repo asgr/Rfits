@@ -154,7 +154,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         ext = 1
       }
       
-      if(inherits(data[[i]], c('Rfits_vector','Rfits_image','Rfits_cube','Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
+      if(inherits(data[[i]], c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
         Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
                           create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE
@@ -168,6 +168,11 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
                            comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
                            create_file=create_file, overwrite_file=overwrite_file)
+        create_file = FALSE
+        overwrite_file = FALSE
+      }else if(inherits(data[[i]], 'Rfits_pointer')){
+        Rfits_write_image(data=data[[i]][,], filename=filename, ext=ext,
+                          create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE
         overwrite_file = FALSE
       }else{
