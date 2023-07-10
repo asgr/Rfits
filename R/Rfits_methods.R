@@ -1045,25 +1045,25 @@ Rfits_dim = function(filename, ext=1){
     for(row in 1:dim(i)[1]){
       if(x$type == 'vector'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1])
-        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=1,
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=1,
                                        fpixel0=i[row,1], fpixel1=1, fpixel2=1, fpixel3=1,
                                        lpixel0=i[row,1], lpixel1=1, lpixel2=1, lpixel3=1)
       }
       if(x$type == 'image'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2])
-        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=2,
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=2,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=1, fpixel3=1,
                                        lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=1, lpixel3=1)
       }
       if(x$type == 'cube'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3])
-        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=1,
                                        lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=1)
       }
       if(x$type == 'array'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3], tlo=i[row,4])
-        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
                                        lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4])
       }
