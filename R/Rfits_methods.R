@@ -956,10 +956,17 @@ Rfits_dim = function(filename, ext=1){
   }
   
   if(!missing(i)){
-    if(dim(value)[1] != diff(range(i)) + 1L){
-      stop('dim x (1) of replacement does not match subset selection!')
+    if(is.vector(i)){
+      if(dim(value)[1] != diff(range(i)) + 1L){
+        stop('dim x (1) of replacement does not match subset selection!')
+      }
+      Npix = diff(range(i)) + 1L
+    }else if(is.matrix(i)){
+      if(length(value) != dim(i)[1]){
+        stop('Number of replacement locations does not match values!')
+      }
+      Npix = dim(i)[1]
     }
-    Npix = diff(range(i)) + 1L
   }else{
     if(length(dims) >= 1){
       i = 1:dims[1]
@@ -972,7 +979,7 @@ Rfits_dim = function(filename, ext=1){
     }
     Npix = Npix*(diff(range(j)) + 1L)
   }else{
-    if(length(dims) >= 2){
+    if(length(dims) >= 2 & is.vector(i)){
       j = 1:dims[2]
       Npix = Npix*(diff(range(j)) + 1L)
     }
@@ -983,7 +990,7 @@ Rfits_dim = function(filename, ext=1){
     }
     Npix = Npix*(diff(range(k)) + 1L)
   }else{
-    if(length(dims) >= 3){
+    if(length(dims) >= 3 & is.vector(i)){
       k = 1:dims[3]
       Npix = Npix*(diff(range(k)) + 1L)
     }
@@ -994,7 +1001,7 @@ Rfits_dim = function(filename, ext=1){
     }
     Npix = Npix*(diff(range(m)) + 1L)
   }else{
-    if(length(dims) == 4){
+    if(length(dims) == 4 & is.vector(i)){
       m = 1:dims[4]
       Npix = Npix*(diff(range(m)) + 1L)
     }
@@ -1004,17 +1011,63 @@ Rfits_dim = function(filename, ext=1){
     stop('Number of replacement pixels mismatches number of subset pixels!')
   }
   
-  if(x$type == 'vector'){
-    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE))
-  }
-  if(x$type == 'image'){
-    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
-  }
-  if(x$type == 'cube'){
-    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE))
-  }
-  if(x$type == 'array'){
-    Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE), tlo=min(m, na.rm=TRUE))
+  if(is.vector(i)){
+    if(x$type == 'vector'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE))
+    }
+    if(x$type == 'image'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
+    }
+    if(x$type == 'cube'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE))
+    }
+    if(x$type == 'array'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE), tlo=min(m, na.rm=TRUE))
+    }
+  }else if(is.matrix(i)){
+    
+    datatype = 0
+    
+    if(is.logical(value[1])){
+      datatype = 11
+    }
+    
+    if(datatype == 0 & is.integer(value[1])){
+      datatype = 31
+    }else if(is.integer64(value[1])){
+      datatype = 81
+    }
+    
+    if(datatype==0 & is.numeric(value[1])){
+      datatype = 82
+    }
+    
+    for(row in 1:dim(i)[1]){
+      if(x$type == 'vector'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1])
+        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=1,
+                                       fpixel0=i[row,1], fpixel1=1, fpixel2=1, fpixel3=1,
+                                       lpixel0=i[row,1], lpixel1=1, lpixel2=1, lpixel3=1)
+      }
+      if(x$type == 'image'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2])
+        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=2,
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=1, fpixel3=1,
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=1, lpixel3=1)
+      }
+      if(x$type == 'cube'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3])
+        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=1,
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=1)
+      }
+      if(x$type == 'array'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3], tlo=i[row,4])
+        Rfits:::Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4])
+      }
+    }
   }
   
   return(Rfits_point(filename=x$filename, ext=x$ext, header=x$header, zap=x$zap, allow_write=x$allow_write))

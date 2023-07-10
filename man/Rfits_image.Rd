@@ -63,8 +63,7 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
 Rfits_create_image(image, keyvalues = NULL, keycomments = NULL, comment = NULL,
   history = NULL, filename = '', ext = 1, keypass = TRUE)
     
-Rfits_write_pix(data, filename, ext = 1, numeric = 'single', integer = 'long', xlo = 1L,
-  ylo = 1L, zlo = 1L, tlo = 1L)
+Rfits_write_pix(data, filename, ext = 1, xlo = 1L, ylo = 1L, zlo = 1L, tlo = 1L)
 
 Rfits_blank_image(filename, ext = 1, create_ext = TRUE, create_file = TRUE,
   overwrite_file=TRUE, bitpix = -32, naxis = 2, naxis1 = 100, naxis2 = 100, naxis3 = 1,
