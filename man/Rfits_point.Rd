@@ -60,6 +60,7 @@ temp_image = Rfits_point(file_image, header=FALSE) # just the matrix part
 
 temp_image[1:5,1:5]
 
+temp_image[cbind(1:5,1:5)] #notice this just strips out the diagonal elements
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

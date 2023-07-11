@@ -856,10 +856,12 @@ Rfits_dim = function(filename, ext=1){
 `[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse){
   
   if(!missing(i)){
-    if(length(i)==2 & missing(j)){
-      if(i[2]-i[1] != 1){
-        j = ceiling(i[2])
-        i = ceiling(i[1])
+    if(is.vector(i)){
+      if(length(i)==2 & missing(j)){
+        if(i[2]-i[1] != 1){
+          j = ceiling(i[2])
+          i = ceiling(i[1])
+        }
       }
     }
   }
@@ -898,18 +900,22 @@ Rfits_dim = function(filename, ext=1){
   if(Ndim == 2){
     if(length(box) == 1){box = c(box,box)}
     if(!missing(i) & !missing(j)){
-      if(length(i) == 1 & length(j) == 1){
-        if(length(box) == 1){box = c(box,box)}
-        i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
-        j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+      if(is.vector(i)){
+        if(length(i) == 1 & length(j) == 1){
+          if(length(box) == 1){box = c(box,box)}
+          i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+          j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+        }
       }
     }
   }
   
   if(!missing(i)){
-    if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
-    xlo = ceiling(min(i))
-    xhi = ceiling(max(i))
+    if(is.vector(i)){
+      if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
+      xlo = ceiling(min(i))
+      xhi = ceiling(max(i))
+    }
   }else{
     xlo = NULL
     xhi = NULL
@@ -937,6 +943,33 @@ Rfits_dim = function(filename, ext=1){
   }else{
     tlo = NULL
     thi = NULL
+  }
+  
+  if(!missing(i)){
+    if(is.matrix(i)){
+      output = foreach(row = 1:dim(i)[1], .combine='c')%do%{
+        if(dim(i)[2] == 1){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                            fpixel0=i[row,1],
+                            lpixel0=i[row,1]))
+        }else if(dim(i)[2] == 2){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2]))
+        }else if(dim(i)[2] == 3){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3]))
+        }else if(dim(i)[2] == 4){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4]))
+        }else{
+          stop('Data type not recognised!')
+        }
+      }
+      return(output)
+    }
   }
   
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
@@ -1046,26 +1079,25 @@ Rfits_dim = function(filename, ext=1){
       if(x$type == 'vector'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1])
         Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=1,
-                                       fpixel0=i[row,1], fpixel1=1, fpixel2=1, fpixel3=1,
-                                       lpixel0=i[row,1], lpixel1=1, lpixel2=1, lpixel3=1)
-      }
-      if(x$type == 'image'){
+                                       fpixel0=i[row,1],
+                                       lpixel0=i[row,1])
+      }else if(x$type == 'image'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2])
         Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=2,
-                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=1, fpixel3=1,
-                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=1, lpixel3=1)
-      }
-      if(x$type == 'cube'){
+                                       fpixel0=i[row,1], fpixel1=i[row,2],
+                                       lpixel0=i[row,1], lpixel1=i[row,2])
+      }else if(x$type == 'cube'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3])
         Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
-                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=1,
-                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=1)
-      }
-      if(x$type == 'array'){
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3],
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3])
+      }else if(x$type == 'array'){
         #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3], tlo=i[row,4])
         Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
                                        lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4])
+      }else{
+        stop('Data type not recognised!')
       }
     }
   }
