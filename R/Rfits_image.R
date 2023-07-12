@@ -82,22 +82,39 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     
     hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
     
+    #Have to check for NAXIS1 directly, because I've come across images missing NAXIS :-(
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
-      naxis1=hdr$keyvalues$ZNAXIS1
-      naxis2=hdr$keyvalues$ZNAXIS2
-      naxis3=hdr$keyvalues$ZNAXIS3
-      naxis4=hdr$keyvalues$ZNAXIS4
-      datatype=hdr$keyvalues$ZBITPIX
+      naxis1 = hdr$keyvalues$ZNAXIS1
     }else{
-      naxis1=hdr$keyvalues$NAXIS1
-      naxis2=hdr$keyvalues$NAXIS2
-      naxis3=hdr$keyvalues$NAXIS3
-      naxis4=hdr$keyvalues$NAXIS4
-      datatype=hdr$keyvalues$BITPIX
+      naxis1 = hdr$keyvalues$NAXIS1
     }
     
-    if(ext==1 & (is.null(naxis1))){
-      message('Missing NAXIS1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+    if(ext==1 & is.null(naxis1)){
+      message('Missing NAXIS1, usually this means the first image is after ext = 1')
+      if(isTRUE(hdr$keyvalues$NAXIS == 0L) & isTRUE(hdr$keyvalues$EXTEND)){
+        message('Trying ext = 2')
+        ext = 2
+        hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        if(isTRUE(hdr$keyvalues$NAXIS > 0L)){
+          message('New NAXIS > 0, continuing with ext = 2')
+        }else{
+          stop('Well that did not work either...')
+        }
+      }
+    }
+    
+    if(isTRUE(hdr$keyvalues$ZIMAGE)){
+      naxis1 = hdr$keyvalues$ZNAXIS1
+      naxis2 = hdr$keyvalues$ZNAXIS2
+      naxis3 = hdr$keyvalues$ZNAXIS3
+      naxis4 = hdr$keyvalues$ZNAXIS4
+      datatype = hdr$keyvalues$ZBITPIX
+    }else{
+      naxis1 = hdr$keyvalues$NAXIS1
+      naxis2 = hdr$keyvalues$NAXIS2
+      naxis3 = hdr$keyvalues$NAXIS3
+      naxis4 = hdr$keyvalues$NAXIS4
+      datatype = hdr$keyvalues$BITPIX
     }
     
     Ndim = hdr$keyvalues$NAXIS
