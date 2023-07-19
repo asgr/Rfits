@@ -82,22 +82,39 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     
     hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
     
+    #Have to check for NAXIS1 directly, because I've come across images missing NAXIS :-(
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
-      naxis1=hdr$keyvalues$ZNAXIS1
-      naxis2=hdr$keyvalues$ZNAXIS2
-      naxis3=hdr$keyvalues$ZNAXIS3
-      naxis4=hdr$keyvalues$ZNAXIS4
-      datatype=hdr$keyvalues$ZBITPIX
+      naxis1 = hdr$keyvalues$ZNAXIS1
     }else{
-      naxis1=hdr$keyvalues$NAXIS1
-      naxis2=hdr$keyvalues$NAXIS2
-      naxis3=hdr$keyvalues$NAXIS3
-      naxis4=hdr$keyvalues$NAXIS4
-      datatype=hdr$keyvalues$BITPIX
+      naxis1 = hdr$keyvalues$NAXIS1
     }
     
-    if(ext==1 & (is.null(naxis1))){
-      message('Missing NAXIS1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+    if(ext==1 & is.null(naxis1)){
+      message('Missing NAXIS1, usually this means the first image is after ext = 1')
+      if(isTRUE(hdr$keyvalues$NAXIS == 0L) & isTRUE(hdr$keyvalues$EXTEND)){
+        message('Trying ext = 2')
+        ext = 2
+        hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        if(isTRUE(hdr$keyvalues$NAXIS > 0L)){
+          message('New NAXIS > 0, continuing with ext = 2')
+        }else{
+          stop('Well that did not work either...')
+        }
+      }
+    }
+    
+    if(isTRUE(hdr$keyvalues$ZIMAGE)){
+      naxis1 = hdr$keyvalues$ZNAXIS1
+      naxis2 = hdr$keyvalues$ZNAXIS2
+      naxis3 = hdr$keyvalues$ZNAXIS3
+      naxis4 = hdr$keyvalues$ZNAXIS4
+      datatype = hdr$keyvalues$ZBITPIX
+    }else{
+      naxis1 = hdr$keyvalues$NAXIS1
+      naxis2 = hdr$keyvalues$NAXIS2
+      naxis3 = hdr$keyvalues$NAXIS3
+      naxis4 = hdr$keyvalues$NAXIS4
+      datatype = hdr$keyvalues$BITPIX
     }
     
     Ndim = hdr$keyvalues$NAXIS
@@ -716,8 +733,7 @@ Rfits_blank_image = function(filename, ext=1, create_ext=TRUE, create_file=TRUE,
   return(invisible(list(filename=filename, ext=ext, naxis=naxis, naxes=c(naxis1, naxis2, naxis3, naxis4)[1:naxis])))
 }
 
-Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='long',
-                           xlo=1L, ylo=1L, zlo=1L, tlo=1L){
+Rfits_write_pix = function(data, filename, ext=1, xlo=1L, ylo=1L, zlo=1L, tlo=1L){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertFileExists(filename)
@@ -833,95 +849,53 @@ Rfits_write_pix = function(data, filename, ext=1, numeric='single', integer='lon
     }
   }
   
-  bitpix = 0
+  # int_change = FALSE
+  # 
+  # if(integer=='byte' | integer=='8'){
+  #   if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
+  #     integer = 'short'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(integer=='short' | integer=='16'){
+  #   if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
+  #     integer = 'long'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(integer=='long' | integer=='int' | integer=='32'){
+  #   if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
+  #     integer = 'longlong'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(int_change & (is.integer(data) | is.integer64(data))){
+  #   message('Converted integer type to ',integer,' since data range is too large!')
+  # }
   
-  int_change = FALSE
-  
-  if(integer=='byte' | integer=='8'){
-    if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
-      integer = 'short'
-      int_change = TRUE
-    }
-  }
-  
-  if(integer=='short' | integer=='16'){
-    if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
-      integer = 'long'
-      int_change = TRUE
-    }
-  }
-  
-  if(integer=='long' | integer=='int' | integer=='32'){
-    if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
-      integer = 'longlong'
-      int_change = TRUE
-    }
-  }
-  
-  if(int_change & (is.integer(data) | is.integer64(data))){
-    message('Converted integer type to ',integer,' since data range is too large!')
-  }
+  datatype = 0
   
   if(is.logical(data[1])){
-    bitpix = 8
     datatype = 11
   }
   
-  if(bitpix == 0 & is.integer(data[1])){
-    if(integer=='byte' | integer=='8'){
-      bitpix = 8
-      datatype = 11
-    }else if(integer=='short' | integer=='16'){
-      bitpix = 16
-      datatype = 21
-    }else if(integer=='long' | integer=='int' | integer=='32'){
-      bitpix = 32
-      datatype = 31
-      # if(!missing(keyvalues)){
-      #   if(!is.null(keyvalues$BZERO)){
-      #     if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
-      #       keyvalues$BZERO = 0
-      #       message('Changing BZERO to 0 to prevent integer overflow!')
-      #     }
-      #   }
-      # }
-    }else if(integer=='longlong' | integer=='64'){
-      bitpix = 64
-      datatype = 81
-      if(is.integer(data)){
-        data = as.integer64(data)
-      }
-    }else{
-      stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
-    }
+  if(datatype == 0 & is.integer(data[1])){
+    datatype = 31
   }else if(is.integer64(data[1])){
-    bitpix = 64
     datatype = 81
   }
   
-  if(bitpix==0 & is.numeric(data[1])){
-    if(numeric=='single' | numeric=='float' | numeric=='32'){
-      bitpix = -32
-      datatype = 42
-    }else if (numeric=='double' | numeric=='64'){
-      bitpix = -64
-      datatype = 82
-    }else{
-      stop('numeric type must be single/float/32 or double/64')
-    }
+  if(datatype==0 & is.numeric(data[1])){
+    datatype = 82
   }
   
   Cfits_write_img_subset(filename=filename, data=data, ext=ext, datatype=datatype, naxis=naxis,
                          fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                          lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi)
 }
-
-# // [[Rcpp::export]]
-# SEXP Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int datatype = -32, int naxis=2,
-#                             long fpixel0=1, long fpixel1=1, long fpixel2=1, long fpixel3=1,
-#                             long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1
-#                             
-# ){
 
 Rfits_write_vector = Rfits_write_image
 

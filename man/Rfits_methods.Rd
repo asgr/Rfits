@@ -217,10 +217,10 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 }
 \arguments{
   \item{filename}{Character scalar; path to FITS file to operate the method on.}
-  \item{i}{Integer vector, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{j}{Integer vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{k}{Integer vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{m}{Integer vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{i}{Integer/numeric vector/matrix, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted. If \option{i} is a matrix then it allows non-contiguous random access with Rfits_pointer objects (see \code{\link{Rfits_point}}).}
+  \item{j}{Integer/numeric vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{k}{Integer/numeric vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
+  \item{m}{Integer/numeric vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{unit}{Character scalar; for pixscale must be one of asec / amin / deg / rad, for pixarea must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
   \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
@@ -255,7 +255,9 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \author{
 Aaron Robotham
 }
-\seealso{\code{\link{Rfits_image}}}
+\seealso{
+\code{\link{Rfits_image}}, \code{\link{Rfits_point}}
+}
 \examples{
 #Read full image
 file_image=system.file('extdata', 'image.fits', package = "Rfits")
