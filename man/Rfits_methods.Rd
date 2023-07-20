@@ -172,12 +172,12 @@ Rfits_corners(filename, ext=1, useraw=FALSE, ...)
 Rfits_pixscale(filename, ext=1, useraw=FALSE, unit='asec', ...)
 Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 
-\method{[}{Rfits_vector}(x, i, keepWCS=TRUE)
-\method{[}{Rfits_image}(x, i, j, box=201, type='pix', keepWCS=TRUE)
-\method{[}{Rfits_cube}(x, i, j, k, keepWCS=TRUE, collapse=TRUE)
-\method{[}{Rfits_array}(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE)
+\method{[}{Rfits_vector}(x, i, header=TRUE)
+\method{[}{Rfits_image}(x, i, j, box=201, type='pix', header=TRUE)
+\method{[}{Rfits_cube}(x, i, j, k, header=TRUE, collapse=TRUE)
+\method{[}{Rfits_array}(x, i, j, k, m, header=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header,
-  sparse=x$sparse)
+  sparse=x$sparse, scale_sparse=x$scale_sparse)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 
 \method{&}{Rfits_image}(e1, e2)
@@ -223,7 +223,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{m}{Integer/numeric vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{unit}{Character scalar; for pixscale must be one of asec / amin / deg / rad, for pixarea must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
-  \item{keepWCS}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output.}
+  \item{header}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
   \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
@@ -231,9 +231,11 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{value}{The replacement data to write to disk.}
   \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
   \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
-  \item{header}{Logical; should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{sparse}{Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
   }
+  \item{scale_sparse}{
+Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
+}
   \item{allow_write}{Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{ext}{Integer scalar; the extension to operate the method on.}
   \item{\dots}{Unused, but required}
@@ -266,7 +268,7 @@ temp_image=Rfits_read_image(file_image)
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
 temp_image[1:5,1:5]$imDat #extracts the image and header, then just shows $imDat
-temp_image[1:5,1:5,keepWCS=FALSE] #same as above
+temp_image[1:5,1:5,header=FALSE] #same as above
 
 #If we want the header too, this is the default:
 temp_image[1:5,1:5]

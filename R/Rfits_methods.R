@@ -331,7 +331,7 @@ Rfits_dim = function(filename, ext=1){
   return(dim(temp_header))
 }
 
-`[.Rfits_vector` = function(x, i, keepWCS=TRUE){
+`[.Rfits_vector` = function(x, i, header=TRUE){
   
   if(missing(i)){i = c(1,length(x$imDat))}
   
@@ -342,7 +342,7 @@ Rfits_dim = function(filename, ext=1){
     tar[safedim_i$tar] = x$imDat[safedim_i$orig]
   }
     
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
     }else{
@@ -392,7 +392,7 @@ Rfits_dim = function(filename, ext=1){
   }
 }
 
-`[.Rfits_image` = function(x, i, j, box=201, type='pix', keepWCS=TRUE){
+`[.Rfits_image` = function(x, i, j, box=201, type='pix', header=TRUE){
   
   if(!missing(i)){
     express = as.character(substitute(i))
@@ -456,7 +456,7 @@ Rfits_dim = function(filename, ext=1){
     tar[safedim_i$tar,safedim_j$tar] = x$imDat[safedim_i$orig,safedim_j$orig]
   }
 
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -527,7 +527,7 @@ Rfits_dim = function(filename, ext=1){
   }
 }
 
-`[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE, collapse=TRUE){
+`[.Rfits_cube` = function(x, i, j, k, header=TRUE, collapse=TRUE){
   
   if(!missing(i)){
     express = as.character(substitute(i))
@@ -578,7 +578,7 @@ Rfits_dim = function(filename, ext=1){
     tar[safedim_i$tar,safedim_j$tar,safedim_k$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig]
   }
   
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -671,7 +671,7 @@ Rfits_dim = function(filename, ext=1){
   }
 }
 
-`[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE){
+`[.Rfits_array` = function(x, i, j, k, m, header=TRUE, collapse=TRUE){
   
   if(!missing(i)){
     express = as.character(substitute(i))
@@ -736,7 +736,7 @@ Rfits_dim = function(filename, ext=1){
     tar[safedim_i$tar,safedim_j$tar,safedim_k$tar,safedim_m$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig,safedim_m$orig]
   }
   
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -853,7 +853,7 @@ Rfits_dim = function(filename, ext=1){
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse){
   
   if(!missing(i)){
     if(is.vector(i)){
@@ -974,7 +974,7 @@ Rfits_dim = function(filename, ext=1){
   
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                          tlo=tlo, thi=thi, sparse=sparse))
+                          tlo=tlo, thi=thi, sparse=sparse, scale_sparse=scale_sparse))
 }
 
 `[<-.Rfits_pointer` = function(x, i, j, k, m, allow_write=x$allow_write, value){

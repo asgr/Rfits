@@ -23,22 +23,22 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -149,6 +149,9 @@ Character vector; optional unique strings to zap out of the header. These elemen
   \item{sparse}{
 Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension. This can be useful for having a quick look at the data from a large image (since it is quick to read in). Note currently this is just for quick views of the pixels with a fairly rough WCS conversion, so do not treat with critical accuracy.
 }
+  \item{scale_sparse}{
+Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
+}
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
@@ -236,7 +239,7 @@ temp_image = Rfits_read_image(file_image)
 
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
-temp_image[1:5,1:5,keepWCS=FALSE] #convenient
+temp_image[1:5,1:5,header=FALSE] #convenient
 
 #And we can print and check dim easily
 print(temp_image)

@@ -52,7 +52,7 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L){
+                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L, scale_sparse=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -206,18 +206,32 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         
         check64 = inherits(temp_image, 'integer64')
         
-        if(sparse > 1){
-          temp_image = temp_image*sparse^2
+        if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse
+          }
         }
         
         if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^2
+          }
+          
           temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
         }
         
         if(naxis3 > 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^3
+          }
+          
           temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L))
         }
         if(naxis4 > 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^4
+          }
+          
           temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
         }
         if(check64){

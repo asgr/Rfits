@@ -10,7 +10,7 @@ Creates a pointer to an on-disk FITS image file, which can then be used like a M
 }
 \usage{
 Rfits_point(filename, ext = 1, header = TRUE, zap = NULL, allow_write = FALSE,
-  sparse = 1L)
+  sparse = 1L, scale_sparse = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -31,6 +31,9 @@ Logical; flag to indicate whether we should allow writing back into an on-disk p
 }
   \item{sparse}{
 Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
+}
+  \item{scale_sparse}{
+Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
 }
 }
 \details{
@@ -55,12 +58,16 @@ Aaron Robotham
 \code{\link{Rfits_image}}, \code{\link{Rfits_methods}}
 }
 \examples{
+library(magicaxis)
+
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_point(file_image, header=FALSE) # just the matrix part
 
 temp_image[1:5,1:5]
 
 temp_image[cbind(1:5,1:5)] #notice this just strips out the diagonal elements
+
+magimage(temp_image[sparse=10])
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
