@@ -43,28 +43,28 @@ Aaron Robotham
 }
 \examples{
 library(tdigest)
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 median(temp_image$imDat)
 
 #This is a silly example since the target image is small and we can digest
 #it directly in memory. The advantage will be very large images where we
 #want to use a pointer instead.
 
-td=tdigest(temp_image$imDat, compression=1e3) #larger compression is better!
+td = tdigest(temp_image$imDat, compression=1e3) #larger compression is better!
 td[0.5]
 
-temp_point=Rfits_point(file_image, header=FALSE)
-td2=Rfits_tdigest(temp_point)
+temp_point = Rfits_point(file_image, header=FALSE)
+td2 = Rfits_tdigest(temp_point)
 td2[0.5]
 
 #Now with a mask (blanking out the central part of the image)
 
-mask=matrix(0L,dim(temp_image)[1],dim(temp_image)[2])
-mask[151:250,151:250]=1L
+mask = matrix(0L,dim(temp_image)[1],dim(temp_image)[2])
+mask[151:250,151:250] = 1L
 median(temp_image$imDat[mask==0])
 
-td3=Rfits_tdigest(temp_point, mask=mask)
+td3 = Rfits_tdigest(temp_point, mask=mask)
 td3[0.5]
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

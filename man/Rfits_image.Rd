@@ -12,6 +12,7 @@
 \alias{Rfits_create_image}
 \alias{Rfits_write_pix}
 \alias{Rfits_blank_image}
+\alias{Rfits_check_image}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Vector Image Cube and Array Readers and Writers
@@ -61,13 +62,15 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   bscale = 1, compress = FALSE, bad_compress = 0L)
     
 Rfits_create_image(image, keyvalues = NULL, keycomments = NULL, comment = NULL,
-  history = NULL, filename = '', ext = 1, keypass = TRUE)
+  history = NULL, filename = '', ext = 1, keypass = FALSE, ...)
     
 Rfits_write_pix(data, filename, ext = 1, xlo = 1L, ylo = 1L, zlo = 1L, tlo = 1L)
 
 Rfits_blank_image(filename, ext = 1, create_ext = TRUE, create_file = TRUE,
   overwrite_file=TRUE, bitpix = -32, naxis = 2, naxis1 = 100, naxis2 = 100, naxis3 = 1,
   naxis4 = 1)
+  
+Rfits_check_image(image, keypass = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -191,7 +194,11 @@ Integer scalar; pixels in dimension 3 for the blank image.
   \item{naxis4}{
 Integer scalar; pixels in dimension 4 for the blank image.
 }
+  \item{\dots}{
+Other arguments to pass to Rwcs_keypass.
 }
+}
+
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to work.
 
@@ -217,7 +224,9 @@ In general, you need to be very when working with integer64 types. Such data sho
 
 \code{Rfits_write_pix} is a low level function to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk.
 
-\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
+\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does offer a method to work with larger than memory data on disk. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
+
+\code{Rfits_check_image} is a high level function to check the consistency of the profivided Rfits_image class object, and fix issues where possible. E.g. the keynames not correctly matching the keyvalues, or the keycomments not all being present (blank comments will be created where possible). It also guarantess the various other header items (hdr, header, raw) are completely consistent with the keyvalues. This means you can modify keyvalues and pass a target Rfits_image through this function before e.g. warping etc.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
@@ -226,7 +235,6 @@ In general, you need to be very when working with integer64 types. Such data sho
 Aaron Robotham,
 Rodrigo Tobar
 }
-
 \seealso{
 \code{\link{Rfits_table}}, \code{\link{Rfits_header}}, \code{FITSio}, \code{astro}
 }

@@ -36,16 +36,21 @@ Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow
   return(invisible(output))
 }
 
-plot.Rfits_pointer=function(x, useraw=FALSE, ...){
+plot.Rfits_pointer=function(x, useraw=FALSE, sparse='auto', ...){
   if(!inherits(x, 'Rfits_pointer')){
     stop('Object class is not of type Rfits_image!')
   }
+  
+  if(sparse == 'auto'){
+    sparse = ceiling(max(dim(x)/1e3))
+  }
+  
   if(is.null(x$keyvalues$CRVAL1)){
-    magimage(x[,,header=FALSE], ...)
+    magimage(x[,,sparse=sparse,header=FALSE], sparse=1L, ...)
   }else{
     if(requireNamespace("Rwcs", quietly=TRUE)){
       if(useraw){header = x$raw}else{header = NULL}
-      Rwcs::Rwcs_image(x[,,header=FALSE], keyvalues=x$keyvalues, header=header, ...)
+      Rwcs::Rwcs_image(x[,,sparse=sparse,header=FALSE], keyvalues=x$keyvalues, header=header, sparse=1L, ...)
     }else{
       message('The Rwcs package is needed to plot a Rfits_image object.')
     }

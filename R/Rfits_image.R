@@ -935,7 +935,7 @@ plot.Rfits_image = function(x, useraw=FALSE, ...){
 
 plot.Rfits_cube = function(x, slice=1, useraw=FALSE, ...){
   if(!inherits(x, 'Rfits_cube')){
-    stop('Object class is not of type Rfits_image!')
+    stop('Object class is not of type Rfits_cube!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -946,8 +946,8 @@ plot.Rfits_cube = function(x, slice=1, useraw=FALSE, ...){
 }
 
 plot.Rfits_array = function(x, slice=c(1,1), useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_cube')){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, 'Rfits_array')){
+    stop('Object class is not of type Rfits_array!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -1277,12 +1277,18 @@ Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
 }
 
 Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
-                              filename='', ext=1, keypass=TRUE){
+                              filename='', ext=1, keypass=FALSE, ...){
   assertList(keyvalues)
   class(keyvalues) = 'keylist'
-  
+  assertList(keycomments, null.ok=TRUE)
+  assertCharacter(comment, null.ok=TRUE)
+  assertCharacter(history, null.ok=TRUE)
+  assertCharacter(filename, max.len=1)
+  assertIntegerish(ext, max.len=1)
+  assertFlag(keypass)
+                  
   if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
-    keyvalues = Rwcs::Rwcs_keypass(keyvalues)
+    keyvalues = Rwcs::Rwcs_keypass(keyvalues, ...)
   }
   
   if(is.null(keyvalues$NAXIS1)){
@@ -1329,3 +1335,70 @@ Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=N
   
   return(output)
 }
+
+Rfits_check_image = function(image, keypass=FALSE, ...){
+  if(!inherits(image, c('Rfits_image'))){
+    stop('Object class is not of type Rfits_image')
+  }
+  
+  assertFlag(keypass)
+  
+  #Check imDat
+  if(is.null(image$imDat)){
+    stop('Missing imDat!')
+  }
+  
+  #Check keyvalues
+  if(is.null(image$keyvalues)){
+    stop('Missing keyvalues!')
+  }else{
+    if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
+      image$keyvalues = Rwcs::Rwcs_keypass(image$keyvalues, ...)
+    }
+  }
+  class(image$keyvalues) = 'keylist'
+  
+  #Check keycomments
+  if(is.null(image$keycomments)){
+    message('Missing keycomments! Filling with blank comments.')
+    image$keycomments = image$keyvalues
+    image$keycomments[] = ''
+  }else{
+    if(length(image$keyvalues) == length(image$keycomments)){
+      if(any(names(image$keyvalues) != names(image$keycomments))){
+        keycomments_new = image$keyvalues
+        keycomments_new[] = ''
+        match_keys = match(names(image$keyvalues), names(image$keycomments), nomatch=0)
+        keycomments_new[match_keys] = image$keycomments[match_keys]
+        image$keycomments = keycomments_new
+      }
+    }else{
+      keycomments_new = image$keyvalues
+      keycomments_new[] = ''
+      match_keys = match(names(image$keyvalues), names(image$keycomments), nomatch=0)
+      keycomments_new[match_keys] = image$keycomments[match_keys]
+      image$keycomments = keycomments_new
+    }
+  }
+  
+  #Check keynames
+  if(is.null(image$keynames)){
+    message('Missing keynames! Taking from keyvalues.')
+    image$keynames = names(image$keyvalues)
+  }else{
+    if(length(image$keyvalues) == length(image$keynames)){
+      if(any(names(image$keyvalues) != image$keynames)){
+        image$keynames = names(image$keyvalues)
+      }
+    }else{
+      image$keynames = names(image$keyvalues)
+    }
+  }
+  
+  image$hdr = Rfits_keyvalues_to_hdr(image$keyvalues)
+  image$header = Rfits_keyvalues_to_header(image$keyvalues, keycomments=image$keycomments, comment=image$comment, history=image$history)
+  image$raw = Rfits_header_to_raw(image$header)
+  
+  return(image)
+}
+
