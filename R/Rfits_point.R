@@ -48,11 +48,6 @@ plot.Rfits_pointer=function(x, useraw=FALSE, sparse='auto', ...){
   if(is.null(x$keyvalues$CRVAL1)){
     magimage(x[,,sparse=sparse,header=FALSE], sparse=1L, ...)
   }else{
-    if(requireNamespace("Rwcs", quietly=TRUE)){
-      if(useraw){header = x$raw}else{header = NULL}
-      Rwcs::Rwcs_image(x[,,sparse=sparse,header=FALSE], keyvalues=x$keyvalues, header=header, sparse=1L, ...)
-    }else{
-      message('The Rwcs package is needed to plot a Rfits_image object.')
-    }
+    plot(x[,,sparse=sparse], useraw=useraw, ...)
   }
 }

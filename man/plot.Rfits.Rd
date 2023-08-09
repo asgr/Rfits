@@ -49,9 +49,13 @@ Aaron Robotham
 }
 \examples{
 \dontrun{
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 plot(temp_image)
+
+temp_point = Rfits_point(file_image)
+plot(temp_point)
+plot(temp_point, sparse=4) #This will also update the WCS on the fly
 }
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
