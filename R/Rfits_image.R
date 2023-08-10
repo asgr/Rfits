@@ -1320,8 +1320,8 @@ Rfits_check_image = function(data, keypass=FALSE, ...){
     stop('Missing imDat!')
   }
   
-  imdim = dim(data$imDat)
-  Ndim = length(imdim)
+  im_dim = dim(data$imDat)
+  Ndim = length(im_dim)
   
   #Check keyvalues
   if(is.null(data$keyvalues)){
@@ -1338,7 +1338,7 @@ Rfits_check_image = function(data, keypass=FALSE, ...){
   data$keycomments$NAXIS = "number of data axes"
   
   for(i in 1:Ndim){
-    data$keyvalues[[paste0('NAXIS',i)]] = imdim[i]
+    data$keyvalues[[paste0('NAXIS',i)]] = im_dim[i]
     data$keycomments[[paste0('NAXIS',i)]] = paste("length of data axis", i)
   }
   
