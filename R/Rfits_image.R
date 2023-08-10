@@ -512,13 +512,13 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   )
 
     if(Ndim == 1){
-      class(output) = c('Rfits_vector', class(output))
+      class(output) = c('Rfits_vector', 'list')
     }else if(Ndim == 2){
-      class(output) = c('Rfits_image', class(output))
+      class(output) = c('Rfits_image', 'list')
     }else if(Ndim == 3){
-      class(output) = c('Rfits_cube', class(output))
+      class(output) = c('Rfits_cube', 'list')
     }else if(Ndim == 4){
-      class(output) = c('Rfits_array', class(output))
+      class(output) = c('Rfits_array', 'list')
     }
     return(invisible(output))
   }else{
@@ -1276,7 +1276,7 @@ Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
   return(pixarea(temp_header, useraw=useraw, unit=unit, ...))
 }
 
-Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
+Rfits_create_image = function(data, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
                               filename='', ext=1, keypass=FALSE, ...){
   assertList(keyvalues)
   class(keyvalues) = 'keylist'
@@ -1286,119 +1286,116 @@ Rfits_create_image = function(image, keyvalues=NULL, keycomments=NULL, comment=N
   assertCharacter(filename, max.len=1)
   assertIntegerish(ext, max.len=1)
   assertFlag(keypass)
-                  
-  if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
-    keyvalues = Rwcs::Rwcs_keypass(keyvalues, ...)
-  }
-  
-  if(is.null(keyvalues$NAXIS1)){
-    keyvalues$NAXIS1 = dim(image)[1]
-  }else{
-    if(keyvalues$NAXIS1 != dim(image)[1]){
-      keyvalues$NAXIS1 = dim(image)[1]
-    }
-  }
-  
-  if(is.null(keyvalues$NAXIS2)){
-    keyvalues$NAXIS2 = dim(image)[2]
-  }else{
-    if(keyvalues$NAXIS2 != dim(image)[2]){
-      keyvalues$NAXIS2 = dim(image)[2]
-    }
-  }
-  
-  hdr = Rfits_keyvalues_to_hdr(keyvalues)
-  header = Rfits_keyvalues_to_header(keyvalues, keycomments=keycomments, comment=comment, history=history)
-  raw = Rfits_header_to_raw(header)
-  keynames = names(keyvalues)
-  if(is.null(keycomments)){
-    keycomments = as.list(rep('', length(keyvalues)))
-  }
-  names(keycomments) = keynames
   
   output = list(
-    imDat = image,
+    imDat = data,
     keyvalues = keyvalues,
     keycomments = keycomments,
-    keynames = keynames,
-    header = header,
-    hdr = hdr,
-    raw = raw,
     comment = comment,
     history = history,
     filename = filename,
     ext = ext,
-    extname = keyvalues$EXTNAME
+    extname = keyvalues$EXTNAME,
+    WCSref = keyvalues$WCSref
   )
   
-  class(output) = c('Rfits_image', class(output))
+  #Set initial class
+  class(output) = c('Rfits_image', 'list')
+  
+  #Tidy things up
+  output = Rfits_check_image(output, keypass=keypass)
   
   return(output)
 }
 
-Rfits_check_image = function(image, keypass=FALSE, ...){
-  if(!inherits(image, c('Rfits_image'))){
-    stop('Object class is not of type Rfits_image')
+Rfits_check_image = function(data, keypass=FALSE, ...){
+  if(!inherits(data, c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+    stop('Object class is not of type Rfits_image, Rfits_cube or Rfits_array')
   }
   
   assertFlag(keypass)
   
   #Check imDat
-  if(is.null(image$imDat)){
+  if(is.null(data$imDat)){
     stop('Missing imDat!')
   }
   
+  imdim = dim(data$imDat)
+  Ndim = length(imdim)
+  
   #Check keyvalues
-  if(is.null(image$keyvalues)){
+  if(is.null(data$keyvalues)){
     stop('Missing keyvalues!')
   }else{
     if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
-      image$keyvalues = Rwcs::Rwcs_keypass(image$keyvalues, ...)
+      data$keyvalues = Rwcs::Rwcs_keypass(data$keyvalues, ...)
     }
   }
-  class(image$keyvalues) = 'keylist'
+  class(data$keyvalues) = 'keylist'
+  
+  #Enforce key NAXIS keyvalues
+  data$keyvalues$NAXIS = Ndim
+  data$keycomments$NAXIS = "number of data axes"
+  
+  for(i in 1:Ndim){
+    data$keyvalues[[paste0('NAXIS',i)]] = imdim[i]
+    data$keycomments[[paste0('NAXIS',i)]] = paste("length of data axis", i)
+  }
+  
+  #Reset keynames (this is always a good idea)
+  data$keynames = names(data$keyvalues)
   
   #Check keycomments
-  if(is.null(image$keycomments)){
+  if(is.null(data$keycomments)){
     message('Missing keycomments! Filling with blank comments.')
-    image$keycomments = image$keyvalues
-    image$keycomments[] = ''
+    if(is.null(data$keycomments)){
+      data$keycomments = as.list(rep('', length(data$keyvalues)))
+    }
+    names(data$keycomments) = data$keynames
   }else{
-    if(length(image$keyvalues) == length(image$keycomments)){
-      if(any(names(image$keyvalues) != names(image$keycomments))){
-        keycomments_new = image$keyvalues
-        keycomments_new[] = ''
-        match_keys = match(names(image$keyvalues), names(image$keycomments), nomatch=0)
-        keycomments_new[match_keys] = image$keycomments[match_keys]
-        image$keycomments = keycomments_new
+    if(length(data$keyvalues) == length(data$keycomments)){
+      if(any(data$keynames != names(data$keycomments))){
+        keycomments_new = as.list(rep('', length(data$keyvalues)))
+        names(keycomments_new) = data$keynames
+        match_keys = match(data$keynames, names(data$keycomments), nomatch=0)
+        keycomments_new[match_keys] = data$keycomments[match_keys]
+        data$keycomments = keycomments_new
       }
     }else{
-      keycomments_new = image$keyvalues
-      keycomments_new[] = ''
-      match_keys = match(names(image$keyvalues), names(image$keycomments), nomatch=0)
-      keycomments_new[match_keys] = image$keycomments[match_keys]
-      image$keycomments = keycomments_new
+      keycomments_new = as.list(rep('', length(data$keyvalues)))
+      names(keycomments_new) = data$keynames
+      match_keys = match(data$keynames, names(data$keycomments), nomatch=0)
+      keycomments_new[match_keys] = data$keycomments[match_keys]
+      data$keycomments = keycomments_new
     }
   }
   
-  #Check keynames
-  if(is.null(image$keynames)){
-    message('Missing keynames! Taking from keyvalues.')
-    image$keynames = names(image$keyvalues)
-  }else{
-    if(length(image$keyvalues) == length(image$keynames)){
-      if(any(names(image$keyvalues) != image$keynames)){
-        image$keynames = names(image$keyvalues)
-      }
-    }else{
-      image$keynames = names(image$keyvalues)
-    }
+  data$hdr = Rfits_keyvalues_to_hdr(data$keyvalues)
+  data$header = Rfits_keyvalues_to_header(data$keyvalues, keycomments=data$keycomments, comment=data$comment, history=data$history)
+  data$raw = Rfits_header_to_raw(data$header)
+  
+  if(is.null(data$ext)){
+    data$ext = 1L
   }
   
-  image$hdr = Rfits_keyvalues_to_hdr(image$keyvalues)
-  image$header = Rfits_keyvalues_to_header(image$keyvalues, keycomments=image$keycomments, comment=image$comment, history=image$history)
-  image$raw = Rfits_header_to_raw(image$header)
+  if(is.null(data$extname)){
+    data$extname = NULL
+  }
   
-  return(image)
+  if(is.null(data$WCSref)){
+    data$WCSref = 'NULL'
+  }
+  
+  if(Ndim == 1){
+    class(data) = c('Rfits_vector', 'list')
+  }else if(Ndim == 2){
+    class(data) = c('Rfits_image', 'list')
+  }else if(Ndim == 3){
+    class(data) = c('Rfits_cube', 'list')
+  }else if(Ndim == 4){
+    class(data) = c('Rfits_array', 'list')
+  }
+  
+  return(data)
 }
 

@@ -61,7 +61,7 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
   bscale = 1, compress = FALSE, bad_compress = 0L)
     
-Rfits_create_image(image, keyvalues = NULL, keycomments = NULL, comment = NULL,
+Rfits_create_image(data, keyvalues = NULL, keycomments = NULL, comment = NULL,
   history = NULL, filename = '', ext = 1, keypass = FALSE, ...)
     
 Rfits_write_pix(data, filename, ext = 1, xlo = 1L, ylo = 1L, zlo = 1L, tlo = 1L)
@@ -70,15 +70,12 @@ Rfits_blank_image(filename, ext = 1, create_ext = TRUE, create_file = TRUE,
   overwrite_file=TRUE, bitpix = -32, naxis = 2, naxis1 = 100, naxis2 = 100, naxis3 = 1,
   naxis4 = 1)
   
-Rfits_check_image(image, keypass = FALSE, ...)
+Rfits_check_image(data, keypass = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents. The matrix can also contain 64 bit integers via the \code{bit64} package. Note that \code{R} allows for integer-like behaviour beyond 2^31 (up to around 2^53) via the use of the mantissa (significance) part of the numeric double type. If working with something like a segmentation map that flows over 2^31, you should explictly convert this to a 64 bit integer via the \code{bit64} package before saving.
-}
-  \item{image}{
-Numeric vector, matrix, cube, array; data to be made into an internal FITS-like object.  
+Rfits_vector / Rfits_image / Rfits_cube / Rfits_array data to be processed; for some functions can also be numeric or integer matrix (i.e. image), vector, cube or 4D array (\code{Rfits_create_image}). The matrix can also contain 64 bit integers via the \code{bit64} package. Note that \code{R} allows for integer-like behaviour beyond 2^31 (up to around 2^53) via the use of the mantissa (significance) part of the numeric double type. If working with something like a segmentation map that flows over 2^31, you should explictly convert this to a 64 bit integer via the \code{bit64} package before saving.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing (see Examples). You can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. E.g \option{filename} = 'file.fits' for writing a normal uncompressed images, or \option{filename} = 'file.fits[compress]' for writing a compressed image. These have additional parameters that can be passed in, see \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}.
@@ -220,13 +217,13 @@ In general, you need to be very when working with integer64 types. Such data sho
 
 \code{Rfits_write_xxx} write out vector/image/cube/array to target FITS extension. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 
-\code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
+\code{Rfits_create_image} create an Rfits class object from user inputs. In this context \option{data} should be a normal R vector / matrix / cube / array. The output object returned will be of class Rfits_vector / Rfits_image / Rfits_cube / Rfits_array, and can be used like a standard FITS file internally, and can also be written out as one.
 
 \code{Rfits_write_pix} is a low level function to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk.
 
 \code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does offer a method to work with larger than memory data on disk. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 
-\code{Rfits_check_image} is a high level function to check the consistency of the profivided Rfits_image class object, and fix issues where possible. E.g. the keynames not correctly matching the keyvalues, or the keycomments not all being present (blank comments will be created where possible). It also guarantess the various other header items (hdr, header, raw) are completely consistent with the keyvalues. This means you can modify keyvalues and pass a target Rfits_image through this function before e.g. warping etc.
+\code{Rfits_check_image} is a high level function to check the consistency of the provided Rfits_vector / Rfits_image / Rfits_cube / Rfits_array class object, and fix issues where possible. E.g. the keynames not correctly matching the keyvalues, or the keycomments not all being present (blank comments will be created where possible). It also guarantess the various other header items (hdr, header, raw) are completely consistent with the keyvalues. This means you can modify keyvalues and pass a target Rfits_image through this function before e.g. warping etc.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
