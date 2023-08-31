@@ -394,14 +394,23 @@ Rfits_dim = function(filename, ext=1){
 
 `[.Rfits_image` = function(x, i, j, box=201, type='pix', header=TRUE){
   
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  
+  if(!missing(box) & missing(i) & missing(j)){
+    i = ceiling(xdim/2)
+    j = ceiling(ydim/2)
+  }
+  
   if(!missing(i)){
     express = as.character(substitute(i))
     
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(i))[3]){
         start = express[2]
-        end = dim(x)[1]
-        i = eval(parse(text=paste0(start,':',end)))
+        end = xdim
+        #i = eval(parse(text=paste0(start,':',end)))
+        i = c(start, end)
       }
     }
   }
@@ -412,11 +421,13 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(j))[3]){
         start = express[2]
-        end = dim(x)[1]
-        j = eval(parse(text=paste0(start,':',end)))
+        end = ydim
+        #j = eval(parse(text=paste0(start,':',end)))
+        j = c(start, end)
       }
     }
   }
+  
   
   if(!missing(i)){
     if(length(i)==2 & missing(j)){
@@ -427,8 +438,23 @@ Rfits_dim = function(filename, ext=1){
     }
   }
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         return(x) #do nothing!
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j)
+  upper_limits = list(xdim, ydim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
   
   if(type=='coord'){
     if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -448,8 +474,8 @@ Rfits_dim = function(filename, ext=1){
     j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
   }
   
-  safedim_i = .safedim(1L, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1L, dim(x$imDat)[2], min(j), max(j))
+  safedim_i = .safedim(1L, xdim, min(i), max(i))
+  safedim_j = .safedim(1L, ydim, min(j), max(j))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar))
   if(safedim_i$safe & safedim_j$safe){
@@ -529,13 +555,17 @@ Rfits_dim = function(filename, ext=1){
 
 `[.Rfits_cube` = function(x, i, j, k, header=TRUE, collapse=TRUE){
   
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  zdim = dim(x)[3]
+
   if(!missing(i)){
     express = as.character(substitute(i))
     
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(i))[3]){
         start = express[2]
-        end = dim(x)[1]
+        end = xdim
         i = eval(parse(text=paste0(start,':',end)))
       }
     }
@@ -547,7 +577,7 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(j))[3]){
         start = express[2]
-        end = dim(x)[2]
+        end = ydim
         j = eval(parse(text=paste0(start,':',end)))
       }
     }
@@ -559,19 +589,38 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(k))[3]){
         start = express[2]
-        end = dim(x)[3]
+        end = zdim
         k = eval(parse(text=paste0(start,':',end)))
       }
     }
   }
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
-  if(missing(k)){k = c(1,dim(x$imDat)[3])}
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  if(missing(k)){k = c(1,zdim)}
   
-  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
-  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         if(min(k) == 1L){
+  #           if(max(k) == zdim){
+  #             return(x) #do nothing!
+  #           }
+  #         }
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j, k)
+  upper_limits = list(xdim, ydim, zdim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  
+  safedim_i = .safedim(1, xdim, min(i), max(i))
+  safedim_j = .safedim(1, ydim, min(j), max(j))
+  safedim_k = .safedim(1, zdim, min(k), max(k))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar))
   if(safedim_i$safe & safedim_j$safe & safedim_k$safe){
@@ -673,13 +722,18 @@ Rfits_dim = function(filename, ext=1){
 
 `[.Rfits_array` = function(x, i, j, k, m, header=TRUE, collapse=TRUE){
   
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  zdim = dim(x)[3]
+  tdim = dim(x)[4]
+  
   if(!missing(i)){
     express = as.character(substitute(i))
     
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(i))[3]){
         start = express[2]
-        end = dim(x)[1]
+        end = xdim
         i = eval(parse(text=paste0(start,':',end)))
       }
     }
@@ -691,7 +745,7 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(j))[3]){
         start = express[2]
-        end = dim(x)[2]
+        end = ydim
         j = eval(parse(text=paste0(start,':',end)))
       }
     }
@@ -703,7 +757,7 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(k))[3]){
         start = express[2]
-        end = dim(x)[3]
+        end = zdim
         k = eval(parse(text=paste0(start,':',end)))
       }
     }
@@ -715,21 +769,44 @@ Rfits_dim = function(filename, ext=1){
     if(express[1] == ':' & length(express) == 3L){
       if(grepl('end',substitute(m))[3]){
         start = express[2]
-        end = dim(x)[4]
+        end = tdim
         m = eval(parse(text=paste0(start,':',end)))
       }
     }
   }
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
-  if(missing(k)){k = c(1,dim(x$imDat)[3])}
-  if(missing(m)){m = c(1,dim(x$imDat)[4])}
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  if(missing(k)){k = c(1,zdim)}
+  if(missing(m)){m = c(1,tdim)}
   
-  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
-  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
-  safedim_m = .safedim(1, dim(x$imDat)[4], min(m), max(m))
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         if(min(k) == 1L){
+  #           if(max(k) == zdim){
+  #             if(min(m) == 1L){
+  #               if(max(m) == zdim){
+  #                 return(x) #do nothing!
+  #               }
+  #             }
+  #           }
+  #         }
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j, k, m)
+  upper_limits = list(xdim, ydim, zdim, zdim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  
+  safedim_i = .safedim(1, xdim, min(i), max(i))
+  safedim_j = .safedim(1, ydim, min(j), max(j))
+  safedim_k = .safedim(1, zdim, min(k), max(k))
+  safedim_m = .safedim(1, tdim, min(m), max(m))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar, safedim_m$len_tar))
   if(safedim_i$safe & safedim_j$safe & safedim_k$safe & safedim_m$safe){
@@ -858,7 +935,7 @@ Rfits_dim = function(filename, ext=1){
   if(!missing(i)){
     if(is.vector(i)){
       if(length(i)==2 & missing(j)){
-        if(i[2]-i[1] != 1){
+        if(i[2] - i[1] != 1){
           j = ceiling(i[2])
           i = ceiling(i[1])
         }
@@ -1440,3 +1517,7 @@ Rfits_dim = function(filename, ext=1){
     return(e1[,] %/% e2)
   }
 }
+
+.minmax = function(x) c(min(x), max(x))
+
+.spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))

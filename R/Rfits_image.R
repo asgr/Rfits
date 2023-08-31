@@ -1399,3 +1399,49 @@ Rfits_check_image = function(data, keypass=FALSE, ...){
   return(data)
 }
 
+Rfits_crop = function(image, cropNA=TRUE, cropInf=FALSE, cropZero=FALSE){
+  if(! inherits(image, c('Rfits_image', 'Rfits_pointer'))){
+    stop('image must be either Rfits_image or Rfits_pointer!')
+  }
+  
+  if(inherits(image, 'Rfits_pointer')){
+    image = image[,]
+  }
+  
+  if(cropNA == FALSE & cropInf == FALSE & cropZero == FALSE){
+    return(image)
+  }
+  
+  xlo = 1L
+  xhi = dim(image)[1]
+  
+  ylo = 1L
+  yhi = dim(image)[2]
+  
+  tempsel = matrix(TRUE, xhi, yhi)
+  
+  if(cropNA){
+    tempsel = !is.na(image$imDat)
+  }
+  
+  if(cropInf){
+    tempsel = tempsel & is.finite(image$imDat)
+  }
+  
+  if(cropZero){
+    tempsel = tempsel & image$imDat != 0
+  }
+  
+  tempsel = which(tempsel, arr.ind=TRUE)
+  
+  xlo = min(tempsel[,1], na.rm=TRUE)
+  xhi = max(tempsel[,1], na.rm=TRUE)
+  ylo = min(tempsel[,2], na.rm=TRUE)
+  yhi = max(tempsel[,2], na.rm=TRUE)
+  
+  if(xlo == 1L & xhi == dim(image)[1] & ylo == 1L & yhi == dim(image)[2]){
+    return(image)
+  }
+  
+  return(image[c(xlo,xhi), c(ylo,yhi)])
+}

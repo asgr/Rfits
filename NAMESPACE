@@ -42,6 +42,7 @@ export(Rfits_create_image)
 export(Rfits_write_pix)
 export(Rfits_blank_image)
 export(Rfits_check_image)
+export(Rfits_crop)
 
 export(Rfits_info)
 export(Rfits_read_header)
