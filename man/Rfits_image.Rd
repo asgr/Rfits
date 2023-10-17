@@ -10,6 +10,9 @@
 \alias{Rfits_write_array}
 \alias{Rfits_write_vector}
 \alias{Rfits_create_image}
+\alias{Rfits_write_pix}
+\alias{Rfits_blank_image}
+\alias{Rfits_check_image}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Vector Image Cube and Array Readers and Writers
@@ -20,23 +23,23 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 \usage{
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL, keypass = FALSE,
-  zap = NULL)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -58,16 +61,21 @@ Rfits_write_array(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   create_ext = TRUE, create_file = TRUE, overwrite_file = TRUE, bzero = 0,
   bscale = 1, compress = FALSE, bad_compress = 0L)
     
-Rfits_create_image(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
-    filename = '', ext = 1, keypass = TRUE)
+Rfits_create_image(data, keyvalues = NULL, keycomments = NULL, comment = NULL,
+  history = NULL, filename = '', ext = 1, keypass = FALSE, ...)
+    
+Rfits_write_pix(data, filename, ext = 1, xlo = 1L, ylo = 1L, zlo = 1L, tlo = 1L)
+
+Rfits_blank_image(filename, ext = 1, create_ext = TRUE, create_file = TRUE,
+  overwrite_file=TRUE, bitpix = -32, naxis = 2, naxis1 = 100, naxis2 = 100, naxis3 = 1,
+  naxis4 = 1)
+  
+Rfits_check_image(data, keypass = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data}{
-Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out to a FITS file. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedents.
-}
-  \item{image}{
-Numeric vector, matrix, cube, array; data to be made into an internal FITS-like object.  
+Rfits_vector / Rfits_image / Rfits_cube / Rfits_array data to be processed; for some functions can also be numeric or integer matrix (i.e. image), vector, cube or 4D array (\code{Rfits_create_image}). The matrix can also contain 64 bit integers via the \code{bit64} package. Note that \code{R} allows for integer-like behaviour beyond 2^31 (up to around 2^53) via the use of the mantissa (significance) part of the numeric double type. If working with something like a segmentation map that flows over 2^31, you should explictly convert this to a 64 bit integer via the \code{bit64} package before saving.
 }
   \item{filename}{
 Character scalar; path to FITS file, either to be written to or read. There is good support for compressed reading and limited support for compressed writing (see Examples). You can use the filename to compress the target image by appending FITS relevant compression flags such as [compress] (uses RICE) [compress GZIP], [compress PLIO] and [compress HCOMPRESS]. E.g \option{filename} = 'file.fits' for writing a normal uncompressed images, or \option{filename} = 'file.fits[compress]' for writing a compressed image. These have additional parameters that can be passed in, see \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/compression.html}.
@@ -97,7 +105,7 @@ Character scalar/vector; (not required) history information associated with with
 Character scalar; the numeric data type to be written out for images. Can be '32' (32 bit), 'single' (32 bit), 'float' (32 bit), '64' (64 bit), 'double' (64 bit).
 }
   \item{integer}{
-Character scalar; the integer data type to be written out for images. Can be '16' (16 bit), 'short' (16 bit), 'int' (16 bit), '32' (32 bit), 'long' (32 bit). 
+Character scalar; the integer data type to be written out for images. Can be '8' (8 bit) 'byte' (8 bit), '16' (16 bit), 'short' (16 bit), 'int' (32 bit), '32' (32 bit), 'long' (32 bit), '64' (64 bit), 'longlong' (64 bit). If using '64' or 'longlong' you almost certainly need to have converted your integers in \option{data} to integer64 via the \code{bit64} package first.
 }
   \item{xlo}{
 Integer scalar; low x limit (usually Right Ascension axis) to cut out from \option{image} (1 or larger and less than \option{xhi}).
@@ -136,7 +144,13 @@ Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This ca
 Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
 }
   \item{zap}{
-Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
+Character vector; optional unique strings to zap out of the header. These elements are passed through \code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords.
+}
+  \item{sparse}{
+Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension. This can be useful for having a quick look at the data from a large image (since it is quick to read in). Note currently this is just for quick views of the pixels with a fairly rough WCS conversion, so do not treat with critical accuracy.
+}
+  \item{scale_sparse}{
+Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
 }
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
@@ -154,12 +168,34 @@ Numeric scalar; convenience BZERO zero level to apply to image, where VAL = (RAW
 Numeric scalar; convenience BSCALE scaling factor to apply to image, where VAL = (RAW x BSCALE) + BZERO, where VAL is what is seen in the R \code{matrix} or \code{array} and RAW is what you would find if inspecting the binary values stored on disk. If this is present in the \option{keyvalues} then the keyvalues$BSCALE value takes priority.
 }
   \item{compress}{
-Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the additional compression options that will be written within the square brackets, e.g. \option{compress} = 'GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]')
+Logical scalar or character scalar; a different mechanism for telling Rfits to compress a target image. Can either be TRUE which means it will use the standard CFITSIO compression (equivilant to \option{filename} = 'example.fits[compress]'), or you can provide the contents of the additional compression options that will be written within the square brackets, e.g. \option{compress} = 'GZIP' (equivilant to \option{filename} = 'example.fits[compress GZIP]'). Allowed values are 'RICE', 'GZIP', 'HCOMPRESS' and 'PLIO'.
 }
   \item{bad_compress}{
 Numeric scalar; non-numeric replacement value to use when compression is being done. CFITSIO does not work well with any of the usual R non-numeric values (NA, NaN, Inf etc) when compressing since it makes bad guesses at how to correctly re-scale the image for compression. This flag offers a simple numeric value to replace all non-numeric elements with when compression is requested (so it is not applied for uncompressed image writing).
 }
+  \item{bitpix}{
+Integer scalar; the bitpix for the blank image (8/16/32/64 for integer, and -32/-64 for float).  
 }
+  \item{naxis}{
+Integer scalar; number of dimensions for the blank image.
+}
+  \item{naxis1}{
+Integer scalar; pixels in dimension 1 for the blank image.
+}
+  \item{naxis2}{
+Integer scalar; pixels in dimension 2 for the blank image.
+}
+  \item{naxis3}{
+Integer scalar; pixels in dimension 3 for the blank image.
+}
+  \item{naxis4}{
+Integer scalar; pixels in dimension 4 for the blank image.
+}
+  \item{\dots}{
+Other arguments to pass to Rwcs_keypass.
+}
+}
+
 \details{
 R FITS readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to work.
 
@@ -172,14 +208,22 @@ When reading, if \option{header}=TRUE (default) then the output of \option{Rfits
 When reading, if \option{header}=FALSE then then the output is just the raw image matrix or cube array. You can either overwrite a current file or create a new extension to an already present FITS file. 
 }
 \note{
-You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedent (see Examples).
+You can either specifify BZERO and BSCALE through the input \option{bzero} and \option{bscale} function parameters, or put them in the \option{keyvalues} header list (with matching entrie in \option{keycomments}). Be careful to remove the BZERO and BSCALE values from the \option{keyvalues} header list if you wish to use the function interface, since the \option{keyvalues} header values (if present) always take precedence (see Examples).
+
+In general, you need to be very when working with integer64 types. Such data should read in fine, but you will find some simple operations (like subsetting and some mathemtical operations) might suddenly coerce it to a numeric type. This is because integer64 is not a first-class citizen in \code{R} world (it is a bolted on package), so it can break in unexpected places.
 }
 \value{
-\code{Rfits_read_image}: List; read image into numeric or integer matrix (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
+\code{Rfits_read_xxx}: List; read vector/image/cube/array into numeric or integer vector/matrix/array (\option{imDat}) and also header information as per \code{\link{Rfits_read_header}}. Also provides the \option{filename}, \option{ext}, \option{extname} and \option{WCSref} present.
 
-\code{Rfits_write_image} write out image to target FITS extension.
+\code{Rfits_write_xxx} write out vector/image/cube/array to target FITS extension. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
 
-\code{Rfits_create_image} create an Rfits class object from user inputs. This object can be used like a standard FITS file internally, and can also be written out as one.
+\code{Rfits_create_image} create an Rfits class object from user inputs. In this context \option{data} should be a normal R vector / matrix / cube / array. The output object returned will be of class Rfits_vector / Rfits_image / Rfits_cube / Rfits_array, and can be used like a standard FITS file internally, and can also be written out as one.
+
+\code{Rfits_write_pix} is a low level function to write simply the pixel data to an already created FITS files. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does off a method to work with larger than memory data on disk.
+
+\code{Rfits_blank_image} is a low level function to create a blank (filled with 0) image on disk. Note, bad things will happen if the target extension does not match the data type being written (e.g. you are trying to write a matrix of floats to a matrix of integers or the data sizes do not match). In general users should never use this functionality, since it removes almost all the safety features present in the higher level routines above (that guarantee the header and data tally). However, it does offer a method to work with larger than memory data on disk. For convenience it also silently returns a list with the \option{filename} / \option{ext} / \option{naxis} / \option{naxes} (vector of relevant \option{naxis[1-4]}).
+
+\code{Rfits_check_image} is a high level function to check the consistency of the provided Rfits_vector / Rfits_image / Rfits_cube / Rfits_array class object, and fix issues where possible. E.g. the keynames not correctly matching the keyvalues, or the keycomments not all being present (blank comments will be created where possible). It also guarantess the various other header items (hdr, header, raw) are completely consistent with the keyvalues. This means you can modify keyvalues and pass a target Rfits_image through this function before e.g. warping etc.
 }
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
@@ -188,30 +232,30 @@ You can either specifify BZERO and BSCALE through the input \option{bzero} and \
 Aaron Robotham,
 Rodrigo Tobar
 }
-
 \seealso{
 \code{\link{Rfits_table}}, \code{\link{Rfits_header}}, \code{FITSio}, \code{astro}
 }
 \examples{
+library(Rwcs)
+library(magicaxis)
 #Read full image
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 
 #For convenience we can access the matrix part directly
 temp_image$imDat[1:5,1:5] #explicit
-temp_image[1:5,1:5,keepWCS=FALSE] #convenient
+temp_image[1:5,1:5,header=FALSE] #convenient
 
 #And we can print and check dim easily
 print(temp_image)
 dim(temp_image)
 
 #Take a look
-library(magicaxis)
-magimageWCS(temp_image)
+plot(temp_image)
 
 #And again with just a subset
 temp_image_sub = Rfits_read_image(file_image, xlo=150, xhi=250, ylo=100, yhi=200)
-magimageWCS(temp_image_sub)
+plot(temp_image_sub)
 
 #check write and read consistency
 file_image_temp = tempfile()
@@ -251,6 +295,10 @@ Rfits_write_image(temp_image$imDat, file_image_temp, compress=TRUE)
 file.size(file_image_temp) #about a factor 5 compressed
 temp_image3 = Rfits_read_image(file_image_temp, ext=2)
 magimage(temp_image3$imDat)
+
+#Sparse sample reading (notice the WCS is modified as needed)
+plot(Rfits_read_image(file_image, sparse=4))
+plot(Rfits_read_image(file_image, sparse=8))
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

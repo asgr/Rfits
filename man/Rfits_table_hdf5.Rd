@@ -64,6 +64,7 @@ These functions are a proof of concept for creating more generic astronomy data 
 \code{\link{Rfits_table}}
 }
 \examples{
+\dontrun{
 library(hdf5r)
 
 #Read full table
@@ -87,6 +88,7 @@ sum(temp_table[,..cols_check] - temp_table_hdf5[,..cols_check])
 
 #Extra header attributes are still present in the HDF5 file
 attributes(temp_table_hdf5)$header[1:5]
+}
 }
 
 \concept{ HDF5 }

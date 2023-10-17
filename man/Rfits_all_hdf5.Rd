@@ -43,7 +43,7 @@ Character vector; if supplied the output list elements will be limited to those 
 \details{
 The interface here is very simple. Partly this is to discourage people using this as a complete replacement of the finer control available in lower level functions available in \code{Rfits}, i.e. do not expect to be able to complete all operations through the use of \code{Rfits_read_all_hdf5} and \code{Rfits_write_all_hdf5} alone.
 
-
+In particular, there is no explict support for reading writing and generally operating on the header part of the HDF5 files alone (but if you know how HDF5 works it should not be too hard to do this directly via the \code{hdf5r} package functions). Also, there is no explict implementation of pointers in the style of \code{\link{Rfits_point}}. Again, pointer like behaviour is possible via the \code{hdf5r} package
 }
 \value{
 \code{Rfits_read_all_hdf5} a list containing the full outputs of \code{\link{Rfits_read_image_hdf5}}, \code{\link{Rfits_read_table_hdf5}} as relevant. The output is of class 'Rfits_list', where each list element will have its own respective class (e.g. 'Rfits_image' or 'Rfit_table'). The name of the list component will be set to that of the EXTNAME in the FITS extension.
@@ -61,6 +61,9 @@ Aaron Robotham
 \code{\link{Rfits_image_hdf5}}, \code{\link{Rfits_table_hdf5}}
 }
 \examples{
+\dontrun{
+library(hdf5r)
+
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image, header=TRUE)
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
@@ -78,6 +81,7 @@ sum(data[[1]]$imDat - data2[[1]]$imDat)
 
 cols_check = which(sapply(temp_table[1,], is.numeric))
 sum(data[[2]][,..cols_check] - data2[[2]][,..cols_check])
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

@@ -57,12 +57,12 @@ Cfits_create_image <- function(filename, naxis, naxis1 = 100L, naxis2 = 100L, na
     invisible(.Call(`_Rfits_Cfits_create_image`, filename, naxis, naxis1, naxis2, naxis3, naxis4, ext, create_ext, create_file, bitpix))
 }
 
-Cfits_write_pix <- function(filename, data, datatype, naxis, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L) {
-    invisible(.Call(`_Rfits_Cfits_write_pix`, filename, data, datatype, naxis, naxis1, naxis2, naxis3, naxis4, ext))
+Cfits_write_pix <- function(filename, data, ext = 1L, datatype = -32L, naxis = 2L, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_pix`, filename, data, ext, datatype, naxis, naxis1, naxis2, naxis3, naxis4))
 }
 
-Cfits_read_img <- function(filename, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, ext = 1L, datatype = -32L) {
-    .Call(`_Rfits_Cfits_read_img`, filename, naxis1, naxis2, naxis3, naxis4, ext, datatype)
+Cfits_read_img <- function(filename, ext = 1L, datatype = -32L, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L) {
+    .Call(`_Rfits_Cfits_read_img`, filename, ext, datatype, naxis1, naxis2, naxis3, naxis4)
 }
 
 Cfits_read_header <- function(filename, ext = 1L) {
@@ -85,8 +85,12 @@ Cfits_delete_header <- function(filename, ext = 1L) {
     invisible(.Call(`_Rfits_Cfits_delete_header`, filename, ext))
 }
 
-Cfits_read_img_subset <- function(filename, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L, ext = 1L, datatype = -32L) {
-    .Call(`_Rfits_Cfits_read_img_subset`, filename, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, ext, datatype)
+Cfits_read_img_subset <- function(filename, ext = 1L, datatype = -32L, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L, sparse = 1L) {
+    .Call(`_Rfits_Cfits_read_img_subset`, filename, ext, datatype, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, sparse)
+}
+
+Cfits_write_img_subset <- function(filename, data, ext = 1L, datatype = -32L, naxis = 2L, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_img_subset`, filename, data, ext, datatype, naxis, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3))
 }
 
 Cfits_write_chksum <- function(filename) {

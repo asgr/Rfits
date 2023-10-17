@@ -7,46 +7,10 @@
   diff = (1L - lo_tar)
   out_lo_tar = out_lo_orig + diff
   out_hi_tar = out_hi_orig + diff
-  safe = (out_hi_tar >= out_lo_tar) & (out_hi_orig & out_lo_orig)
+  safe = (out_hi_tar >= out_lo_tar) & (out_hi_orig >= out_lo_orig)
   return(list(orig = out_lo_orig:out_hi_orig, tar = out_lo_tar:out_hi_tar, len_orig=len_orig,
               len_tar=len_tar, safe=safe, lo_orig=lo_orig, hi_orig=hi_orig, lo_tar=lo_tar,
               hi_tar=hi_tar, diff=diff))
-}
-
-Rfits_point=function(filename='temp.fits', ext=1, header=FALSE, zap=NULL){
-  assertCharacter(filename, max.len=1)
-  filename = path.expand(filename)
-  assertAccess(filename, access='r')
-  filename = Rfits_gunzip(filename)
-  assertIntegerish(ext, len=1)
-  assertFlag(header)
-  
-  temp = Rfits_read_header(filename=filename, ext=ext, zap=zap)
-  keyvalues = temp$keyvalues
-  raw = temp$raw
-  
-  if(isTRUE(keyvalues$ZIMAGE)){
-    naxis1 = keyvalues$ZNAXIS1
-    naxis2 = keyvalues$ZNAXIS2
-    naxis3 = keyvalues$ZNAXIS3
-    naxis4 = keyvalues$ZNAXIS4
-    datatype = keyvalues$ZBITPIX
-  }else{
-    naxis1 = keyvalues$NAXIS1
-    naxis2 = keyvalues$NAXIS2
-    naxis3 = keyvalues$NAXIS3
-    naxis4 = keyvalues$NAXIS4
-    datatype = keyvalues$BITPIX
-  }
-  
-  dim = c(naxis1); type='vector'
-  if(!is.null(naxis2)){dim = c(dim, naxis2); type='image'}
-  if(!is.null(naxis3)){dim = c(dim, naxis3); type='cube'}
-  if(!is.null(naxis4)){dim = c(dim, naxis4); type='array'}
-  
-  output = list(filename=filename, ext=ext, keyvalues=keyvalues, raw=raw, header=header, dim=dim, type=type)
-  class(output) = 'Rfits_pointer'
-  return(invisible(output))
 }
 
 print.Rfits_vector=function(x , ...){
@@ -59,7 +23,7 @@ print.Rfits_vector=function(x , ...){
     datatype = x$keyvalues$BITPIX
   }
   
-  cat('Class: Rfits_image\n')
+  cat('Class: Rfits_vector\n')
   cat('File path:',x$filename,'\n')
   cat('Ext num:',x$ext,'\n')
   cat('Ext name:',x$keyvalues[['EXTNAME']],'\n')
@@ -160,14 +124,23 @@ print.Rfits_pointer=function(x , ...){
 }
 
 print.Rfits_header=function(x, ...){
-  cat(x$header[1:8], sep='\n')
+  cat(x$header[1:min(8,length(x$header))], sep='\n')
   cat("...", sep='\n')
   cat('Key N:',length(x$keyvalues),'\n')
 }
 
+# print.Rfits_keylist=function(x, ...){
+#   cat(x[1:min(8,length(x))], sep='\n')
+#   cat("...", sep='\n')
+#   cat('Key N:',length(x),'\n')
+# }
+
 print.Rfits_list=function(x , ...){
   
   ext_name = names(x)
+  if(is.null(ext_name)){
+    ext_name = rep(NA, length(x))
+  }
   ext_dim = {}
   ext_class = {}
   ext_mode = {}
@@ -194,7 +167,7 @@ print.Rfits_list=function(x , ...){
     ext_mode = c(ext_mode, mode(x[[i]]))
     ext_type = c(ext_type, typeof(x[[i]]))
     ext_size = c(ext_size, round(object.size(x[[i]])/(2^20),4))
-    if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_pointer'))){
+    if(inherits(x[[i]], what=c('Rfits_image', 'Rfits_cube', 'Rfits_array', 'Rfits_vector', 'Rfits_pointer', 'Rfits_header'))){
       ext_keyN = c(ext_keyN, length(x[[i]]$keyvalues))
     }else if(inherits(x[[i]], what='Rfits_table')){
       ext_keyN = c(ext_keyN, length(attributes(x[[i]])$keyvalues))
@@ -220,51 +193,145 @@ print.Rfits_list=function(x , ...){
   print(summarytable)
 }
 
-print.Rfits_header=function(x, ...){
-  cat(x$header[1:min(8,length(x$header))], sep='\n')
-}
-
 length.Rfits_vector=function(x){
-  return(length(x$imDat))
+  return(dim(x))
 }
 
 length.Rfits_image=function(x){
-  return(length(x$imDat))
+  if(is.null(dim(x))){
+    return(length(x$imDat))
+  }else{
+    return(prod(dim(x)))
+  }
 }
 
-length.Rfits_cube=function(x){
-  return(length(x$imDat))
+length.Rfits_cube = length.Rfits_image
+length.Rfits_array = length.Rfits_image
+length.Rfits_pointer = length.Rfits_image
+length.Rfits_header = length.Rfits_image
+#length.Rfits_keylist = length.Rfits_image I think length might be confusing (probably just want to now the number of entries)
+
+Rfits_length = function(filename, ext=1){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(length(temp_header))
 }
 
-length.Rfits_array=function(x){
-  return(length(x$imDat))
+dim.Rfits_image = function(x){
+  if(inherits(x$imDat, 'array')){
+    return(dim(x$imDat))
+  }else{
+    return(length(x$imDat))
+  }
 }
 
-length.Rfits_pointer=function(x){
-  return(prod(x$dim))
-}
-
-dim.Rfits_vector=function(x){
-  return(length(x$imDat))
-}
-
-dim.Rfits_image=function(x){
-  return(dim(x$imDat))
-}
-
-dim.Rfits_cube=function(x){
-  return(dim(x$imDat))
-}
-
-dim.Rfits_array=function(x){
-  return(dim(x$imDat))
-}
+dim.Rfits_vector = dim.Rfits_image
+dim.Rfits_cube = dim.Rfits_image
+dim.Rfits_array = dim.Rfits_image
 
 dim.Rfits_pointer=function(x){
   return(x$dim)
 }
 
-`[.Rfits_vector` = function(x, i, keepWCS=TRUE){
+dim.Rfits_header=function(x){
+  if(isTRUE(x$keyvalues$ZIMAGE)){
+    if(!is.null(x$keyvalues$ZNAXIS1)){
+      NAXIS1 = x$keyvalues$ZNAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$keyvalues$ZNAXIS2)){
+      NAXIS2 = x$keyvalues$ZNAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$keyvalues$ZNAXIS3)){
+      NAXIS3 = x$keyvalues$ZNAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$keyvalues$ZNAXIS4)){
+      NAXIS4 = x$keyvalues$ZNAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }else{
+    if(!is.null(x$keyvalues$NAXIS1)){
+      NAXIS1 = x$keyvalues$NAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS2)){
+      NAXIS2 = x$keyvalues$NAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS3)){
+      NAXIS3 = x$keyvalues$NAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$keyvalues$NAXIS4)){
+      NAXIS4 = x$keyvalues$NAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }
+  return(c(NAXIS1, NAXIS2, NAXIS3, NAXIS4))
+}
+
+dim.Rfits_keylist=function(x){
+  if(isTRUE(x$ZIMAGE)){
+    if(!is.null(x$ZNAXIS1)){
+      NAXIS1 = x$ZNAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$ZNAXIS2)){
+      NAXIS2 = x$ZNAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$ZNAXIS3)){
+      NAXIS3 = x$ZNAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$ZNAXIS4)){
+      NAXIS4 = x$ZNAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }else{
+    if(!is.null(x$NAXIS1)){
+      NAXIS1 = x$NAXIS1
+    }else{
+      NAXIS1 = NULL
+    }
+    if(!is.null(x$NAXIS2)){
+      NAXIS2 = x$NAXIS2
+    }else{
+      NAXIS2 = NULL
+    }
+    if(!is.null(x$NAXIS3)){
+      NAXIS3 = x$NAXIS3
+    }else{
+      NAXIS3 = NULL
+    }
+    if(!is.null(x$NAXIS4)){
+      NAXIS4 = x$NAXIS4
+    }else{
+      NAXIS4 = NULL
+    }
+  }
+  return(c(NAXIS1, NAXIS2, NAXIS3, NAXIS4))
+}
+
+Rfits_dim = function(filename, ext=1){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(dim(temp_header))
+}
+
+`[.Rfits_vector` = function(x, i, header=TRUE){
   
   if(missing(i)){i = c(1,length(x$imDat))}
   
@@ -275,7 +342,7 @@ dim.Rfits_pointer=function(x){
     tar[safedim_i$tar] = x$imDat[safedim_i$orig]
   }
     
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
     }else{
@@ -294,7 +361,9 @@ dim.Rfits_pointer=function(x){
     x$keycomments$XCUTHI = 'High image x range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar))
@@ -323,7 +392,42 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_image` = function(x, i, j, box=201, type='pix', keepWCS=TRUE){
+`[.Rfits_image` = function(x, i, j, box=201, type='pix', header=TRUE){
+  
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  
+  if(!missing(box) & missing(i) & missing(j)){
+    i = ceiling(xdim/2)
+    j = ceiling(ydim/2)
+  }
+  
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = xdim
+        #i = eval(parse(text=paste0(start,':',end)))
+        i = c(start, end)
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = ydim
+        #j = eval(parse(text=paste0(start,':',end)))
+        j = c(start, end)
+      }
+    }
+  }
+  
   
   if(!missing(i)){
     if(length(i)==2 & missing(j)){
@@ -334,8 +438,23 @@ dim.Rfits_pointer=function(x){
     }
   }
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         return(x) #do nothing!
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j)
+  upper_limits = list(xdim, ydim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
   
   if(type=='coord'){
     if(requireNamespace("Rwcs", quietly=TRUE)){
@@ -349,19 +468,21 @@ dim.Rfits_pointer=function(x){
     }
   }
   
-  if(length(box) == 1){box = c(box,box)}
-  if(length(i) == 1){i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))}
-  if(length(j) == 1){j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))}
+  if(length(i) == 1 & length(j) == 1){
+    if(length(box) == 1){box = c(box,box)}
+    i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+    j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+  }
   
-  safedim_i = .safedim(1L, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1L, dim(x$imDat)[2], min(j), max(j))
+  safedim_i = .safedim(1L, xdim, min(i), max(i))
+  safedim_j = .safedim(1L, ydim, min(j), max(j))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar))
   if(safedim_i$safe & safedim_j$safe){
     tar[safedim_i$tar,safedim_j$tar] = x$imDat[safedim_i$orig,safedim_j$orig]
   }
 
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -389,7 +510,12 @@ dim.Rfits_pointer=function(x){
     x$keycomments$YCUTHI = 'High image y range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI') 
+    #x$keynames['XCUTLO'] = 'XCUTLO'
+    #x$keynames['XCUTHI'] = 'XCUTHI'
+    #x$keynames['YCUTLO'] = 'YCUTLO'
+    #x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames = names(x$keyvalues)
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar))
@@ -427,22 +553,81 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_cube` = function(x, i, j, k, keepWCS=TRUE, collapse=TRUE){
+`[.Rfits_cube` = function(x, i, j, k, header=TRUE, collapse=TRUE){
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
-  if(missing(k)){k = c(1,dim(x$imDat)[3])}
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  zdim = dim(x)[3]
+
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = xdim
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
   
-  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
-  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = ydim
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(k)){
+    express = as.character(substitute(k))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(k))[3]){
+        start = express[2]
+        end = zdim
+        k = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  if(missing(k)){k = c(1,zdim)}
+  
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         if(min(k) == 1L){
+  #           if(max(k) == zdim){
+  #             return(x) #do nothing!
+  #           }
+  #         }
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j, k)
+  upper_limits = list(xdim, ydim, zdim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  
+  safedim_i = .safedim(1, xdim, min(i), max(i))
+  safedim_j = .safedim(1, ydim, min(j), max(j))
+  safedim_k = .safedim(1, zdim, min(k), max(k))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar))
   if(safedim_i$safe & safedim_j$safe & safedim_k$safe){
     tar[safedim_i$tar,safedim_j$tar,safedim_k$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig]
   }
   
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -490,7 +675,13 @@ dim.Rfits_pointer=function(x){
     x$keycomments$ZCUTHI = 'High image z range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
+    x$keynames['YCUTLO'] = 'YCUTLO'
+    x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames['ZCUTLO'] = 'ZCUTLO'
+    x$keynames['ZCUTHI'] = 'ZCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar))
@@ -529,24 +720,100 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_array` = function(x, i, j, k, m, keepWCS=TRUE, collapse=TRUE){
+`[.Rfits_array` = function(x, i, j, k, m, header=TRUE, collapse=TRUE){
   
-  if(missing(i)){i = c(1,dim(x$imDat)[1])}
-  if(missing(j)){j = c(1,dim(x$imDat)[2])}
-  if(missing(k)){k = c(1,dim(x$imDat)[3])}
-  if(missing(m)){m = c(1,dim(x$imDat)[4])}
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  zdim = dim(x)[3]
+  tdim = dim(x)[4]
   
-  safedim_i = .safedim(1, dim(x$imDat)[1], min(i), max(i))
-  safedim_j = .safedim(1, dim(x$imDat)[2], min(j), max(j))
-  safedim_k = .safedim(1, dim(x$imDat)[3], min(k), max(k))
-  safedim_m = .safedim(1, dim(x$imDat)[4], min(m), max(m))
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = xdim
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = ydim
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(k)){
+    express = as.character(substitute(k))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(k))[3]){
+        start = express[2]
+        end = zdim
+        k = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(m)){
+    express = as.character(substitute(m))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(m))[3]){
+        start = express[2]
+        end = tdim
+        m = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(missing(i)){i = c(1,xdim)}
+  if(missing(j)){j = c(1,ydim)}
+  if(missing(k)){k = c(1,zdim)}
+  if(missing(m)){m = c(1,tdim)}
+  
+  # if(min(i) == 1L){
+  #   if(max(i) == xdim){
+  #     if(min(j) == 1L){
+  #       if(max(j) == ydim){
+  #         if(min(k) == 1L){
+  #           if(max(k) == zdim){
+  #             if(min(m) == 1L){
+  #               if(max(m) == zdim){
+  #                 return(x) #do nothing!
+  #               }
+  #             }
+  #           }
+  #         }
+  #       }
+  #     }
+  #   }
+  # }
+  
+  #This is Rigo's version of the above (a bit more maintainable):
+  arrays = list(i, j, k, m)
+  upper_limits = list(xdim, ydim, zdim, zdim)
+  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  
+  safedim_i = .safedim(1, xdim, min(i), max(i))
+  safedim_j = .safedim(1, ydim, min(j), max(j))
+  safedim_k = .safedim(1, zdim, min(k), max(k))
+  safedim_m = .safedim(1, tdim, min(m), max(m))
   
   tar = array(NA, dim=c(safedim_i$len_tar, safedim_j$len_tar, safedim_k$len_tar, safedim_m$len_tar))
   if(safedim_i$safe & safedim_j$safe & safedim_k$safe & safedim_m$safe){
     tar[safedim_i$tar,safedim_j$tar,safedim_k$tar,safedim_m$tar] = x$imDat[safedim_i$orig,safedim_j$orig,safedim_k$orig,safedim_m$orig]
   }
   
-  if(keepWCS){
+  if(header){
     if(!isTRUE(x$keyvalues$ZIMAGE)){
       x$keyvalues$NAXIS1 = safedim_i$len_tar
       x$keyvalues$NAXIS2 = safedim_j$len_tar
@@ -616,7 +883,15 @@ dim.Rfits_pointer=function(x){
     x$keycomments$TCUTHI = 'High image t range'
     
     #New keynames being added
-    x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI', 'TCUTLO', 'TCUTHI') 
+    #x$keynames = c(x$keynames, 'XCUTLO', 'XCUTHI', 'YCUTLO', 'YCUTHI', 'ZCUTLO', 'ZCUTHI', 'TCUTLO', 'TCUTHI') 
+    x$keynames['XCUTLO'] = 'XCUTLO'
+    x$keynames['XCUTHI'] = 'XCUTHI'
+    x$keynames['YCUTLO'] = 'YCUTLO'
+    x$keynames['YCUTHI'] = 'YCUTHI'
+    x$keynames['ZCUTLO'] = 'ZCUTLO'
+    x$keynames['ZCUTHI'] = 'ZCUTHI'
+    x$keynames['TCUTLO'] = 'TCUTLO'
+    x$keynames['TCUTHI'] = 'TCUTHI'
     
     #New history being added
     x$history = c(x$history, paste0('Subset of original image: x= ',safedim_i$lo_tar,':',safedim_i$hi_tar, ' / y= ', safedim_j$lo_tar,':',safedim_j$hi_tar, ' / z= ', safedim_k$lo_tar,':',safedim_k$hi_tar, ' / t= ', safedim_m$lo_tar,':',safedim_m$hi_tar))
@@ -655,13 +930,15 @@ dim.Rfits_pointer=function(x){
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse){
   
   if(!missing(i)){
-    if(length(i)==2 & missing(j)){
-      if(i[2]-i[1] != 1){
-        j = ceiling(i[2])
-        i = ceiling(i[1])
+    if(is.vector(i)){
+      if(length(i)==2 & missing(j)){
+        if(i[2] - i[1] != 1){
+          j = ceiling(i[2])
+          i = ceiling(i[1])
+        }
       }
     }
   }
@@ -699,18 +976,23 @@ dim.Rfits_pointer=function(x){
   
   if(Ndim == 2){
     if(length(box) == 1){box = c(box,box)}
-    if(!missing(i)){
-      if(length(i) == 1){i = ceiling(i + c(-(box[1]-1)/2, (box[1]-1)/2))}
-    }
-    if(!missing(j)){
-      if(length(j) == 1){j = ceiling(j + c(-(box[2]-1)/2, (box[2]-1)/2))}
+    if(!missing(i) & !missing(j)){
+      if(is.vector(i)){
+        if(length(i) == 1 & length(j) == 1){
+          if(length(box) == 1){box = c(box,box)}
+          i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+          j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+        }
+      }
     }
   }
   
   if(!missing(i)){
-    if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
-    xlo = ceiling(min(i))
-    xhi = ceiling(max(i))
+    if(is.vector(i)){
+      if(is.null(naxis1)){stop('NAXIS1 is NULL: specifying too many dimensions!')}
+      xlo = ceiling(min(i))
+      xhi = ceiling(max(i))
+    }
   }else{
     xlo = NULL
     xhi = NULL
@@ -740,119 +1022,502 @@ dim.Rfits_pointer=function(x){
     thi = NULL
   }
   
+  if(!missing(i)){
+    if(is.matrix(i)){
+      output = foreach(row = 1:dim(i)[1], .combine='c')%do%{
+        if(dim(i)[2] == 1){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                            fpixel0=i[row,1],
+                            lpixel0=i[row,1]))
+        }else if(dim(i)[2] == 2){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2]))
+        }else if(dim(i)[2] == 3){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3]))
+        }else if(dim(i)[2] == 4){
+          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+                                                   fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
+                                                   lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4]))
+        }else{
+          stop('Data type not recognised!')
+        }
+      }
+      return(output)
+    }
+  }
+  
   return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                          tlo=tlo, thi=thi))
+                          tlo=tlo, thi=thi, sparse=sparse, scale_sparse=scale_sparse))
+}
+
+`[<-.Rfits_pointer` = function(x, i, j, k, m, allow_write=x$allow_write, value){
+  if(allow_write == FALSE){
+    stop('allow_write = FALSE!')
+  }
+  
+  dims = x$dim
+  
+  if(length(dim(value)) > length(dims)){
+    stop('Replacement object has more dimensions than target FITS!')
+  }
+  
+  if(!missing(i)){
+    if(is.vector(i)){
+      if(dim(value)[1] != diff(range(i)) + 1L){
+        stop('dim x (1) of replacement does not match subset selection!')
+      }
+      Npix = diff(range(i)) + 1L
+    }else if(is.matrix(i)){
+      if(length(value) != dim(i)[1]){
+        stop('Number of replacement locations does not match values!')
+      }
+      Npix = dim(i)[1]
+    }
+  }else{
+    if(length(dims) >= 1){
+      i = 1:dims[1]
+      Npix = diff(range(i)) + 1L
+    }
+  }
+  if(!missing(j)){
+    if(dim(value)[2] != diff(range(j)) + 1L){
+      stop('dim y (2) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(j)) + 1L)
+  }else{
+    if(length(dims) >= 2 & is.vector(i)){
+      j = 1:dims[2]
+      Npix = Npix*(diff(range(j)) + 1L)
+    }
+  }
+  if(!missing(k)){
+    if(dim(value)[3] != diff(range(k)) + 1L){
+      stop('dim z (3) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(k)) + 1L)
+  }else{
+    if(length(dims) >= 3 & is.vector(i)){
+      k = 1:dims[3]
+      Npix = Npix*(diff(range(k)) + 1L)
+    }
+  }
+  if(!missing(m)){
+    if(dim(value)[4] != diff(range(m)) + 1L){
+      stop('dim t (4) of replacement does not match subset selection!')
+    }
+    Npix = Npix*(diff(range(m)) + 1L)
+  }else{
+    if(length(dims) == 4 & is.vector(i)){
+      m = 1:dims[4]
+      Npix = Npix*(diff(range(m)) + 1L)
+    }
+  }
+  
+  if(length(value) != Npix){
+    stop('Number of replacement pixels mismatches number of subset pixels!')
+  }
+  
+  if(is.vector(i)){
+    if(x$type == 'vector'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(i, na.rm=TRUE))
+    }
+    if(x$type == 'image'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE))
+    }
+    if(x$type == 'cube'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE))
+    }
+    if(x$type == 'array'){
+      Rfits_write_pix(data=value, filename=x$filename, ext=x$ext, xlo=min(j, na.rm=TRUE), ylo=min(j, na.rm=TRUE), zlo=min(k, na.rm=TRUE), tlo=min(m, na.rm=TRUE))
+    }
+  }else if(is.matrix(i)){
+    
+    datatype = 0
+    
+    if(is.logical(value[1])){
+      datatype = 11
+    }
+    
+    if(datatype == 0 & is.integer(value[1])){
+      datatype = 31
+    }else if(is.integer64(value[1])){
+      datatype = 81
+    }
+    
+    if(datatype==0 & is.numeric(value[1])){
+      datatype = 82
+    }
+    
+    for(row in 1:dim(i)[1]){
+      if(x$type == 'vector'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1])
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=1,
+                                       fpixel0=i[row,1],
+                                       lpixel0=i[row,1])
+      }else if(x$type == 'image'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2])
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=2,
+                                       fpixel0=i[row,1], fpixel1=i[row,2],
+                                       lpixel0=i[row,1], lpixel1=i[row,2])
+      }else if(x$type == 'cube'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3])
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3],
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3])
+      }else if(x$type == 'array'){
+        #Rfits_write_pix(data=value[row], filename=x$filename, ext=x$ext, xlo=i[row,1], ylo=i[row,2], zlo=i[row,3], tlo=i[row,4])
+        Cfits_write_img_subset(filename=x$filename, data=value[row], ext=x$ext, datatype=datatype, naxis=3,
+                                       fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4])
+      }else{
+        stop('Data type not recognised!')
+      }
+    }
+  }
+  
+  return(Rfits_point(filename=x$filename, ext=x$ext, header=x$header, zap=x$zap, allow_write=x$allow_write))
+}
+
+`&.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat & e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat & e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat & e2
+  }
+  return(e1)
+}
+
+`|.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat | e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat | e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat | e2
+  }
+  return(e1)
+}
+
+`!=.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat != e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat != e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat != e2
+  }
+  return(e1)
+}
+
+`==.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat == e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat == e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat == e2
+  }
+  return(e1)
+}
+
+`<.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat < e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat < e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat < e2
+  }
+  return(e1)
+}
+
+`<=.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat <= e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat <= e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat <= e2
+  }
+  return(e1)
+}
+
+`>.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat > e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat > e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat > e2
+  }
+  return(e1)
+}
+
+`>=.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat >= e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat >= e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat >= e2
+  }
+  return(e1)
+}
+
+`+.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat + e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat + e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat + e2
+  }
+  return(e1)
+}
+
+`-.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat - e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat - e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat - e2
+  }
+  return(e1)
+}
+
+`*.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat * e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat * e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat * e2
+  }
+  return(e1)
+}
+
+`/.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat / e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat / e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat / e2
+  }
+  return(e1)
+}
+
+`^.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat ^ e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat ^ e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat ^ e2
+  }
+  return(e1)
+}
+
+`%%.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat %% e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat %% e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat %% e2
+  }
+  return(e1)
+}
+
+`%*%.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat %*% e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat %*% e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat %*% e2
+  }
+  return(e1)
+}
+
+`%/%.Rfits_image`=function(e1, e2){
+  if (missing(e2)) 
+    return(e1)
+  if (inherits(e2, 'Rfits_image')){
+    e1$imDat =  e1$imDat %/% e2$imDat
+  }else if (inherits(e2, 'Rfits_pointer')){
+    e1$imDat =  e1$imDat %/% e2[,]$imDat
+  }else{
+    e1$imDat =  e1$imDat %/% e2
+  }
+  return(e1)
 }
 
 `&.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] & e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] & e2[,])
+  }else{
+    return(e1[,] & e2)
+  }
 }
 
 `|.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] | e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] | e2[,])
+  }else{
+    return(e1[,] | e2)
+  }
 }
 
 `!=.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] != e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] != e2[,])
+  }else{
+    return(e1[,] != e2)
+  }
 }
 
 `==.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] == e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] == e2[,])
+  }else{
+    return(e1[,] == e2)
+  }
 }
 
 `<.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] < e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] < e2[,])
+  }else{
+    return(e1[,] < e2)
+  }
 }
 
 `<=.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] <= e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] <= e2[,])
+  }else{
+    return(e1[,] <= e2)
+  }
 }
 
 `>.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] > e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] > e2[,])
+  }else{
+    return(e1[,] > e2)
+  }
 }
 
 `>=.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] >= e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] >= e2[,])
+  }else{
+    return(e1[,] >= e2)
+  }
 }
 
 `+.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] + e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] + e2[,])
+  }else{
+    return(e1[,] + e2)
+  }
 }
 
 `-.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] - e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] - e2[,])
+  }else{
+    return(e1[,] - e2)
+  }
 }
 
 `*.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] * e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] * e2[,])
+  }else{
+    return(e1[,] * e2)
+  }
 }
 
 `/.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] / e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] / e2[,])
+  }else{
+    return(e1[,] / e2)
+  }
 }
 
 `^.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] ^ e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] ^ e2[,])
+  }else{
+    return(e1[,] ^ e2)
+  }
 }
 
 `%%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %% e2[,header=FALSE]
-}
-
-`%/%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %/% e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %% e2[,])
+  }else{
+    return(e1[,] %% e2)
+  }
 }
 
 `%*%.Rfits_pointer`=function(e1, e2){
-  if (missing(e2)) 
-    return(e1)
-  if (inherits(e2, 'Rfits_pointer'))
-  e1[,header=FALSE] %*% e2[,header=FALSE]
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %*% e2[,])
+  }else{
+    return(e1[,] %*% e2)
+  }
 }
+
+`%/%.Rfits_pointer`=function(e1, e2){
+  if (inherits(e2, 'Rfits_pointer')){
+    return(e1[,] %/% e2[,])
+  }else{
+    return(e1[,] %/% e2)
+  }
+}
+
+.minmax = function(x) c(min(x), max(x))
+
+.spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))

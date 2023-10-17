@@ -13,12 +13,12 @@ WCS Plot Methods for Images and Cubes
 Makes a nice WCS image of a sensibly described vector / image / cube / array read in with \code{\link{Rfits_read_image}}.
 }
 \usage{
-\method{plot}{Rfits_image}(x, useraw=FALSE, ...)
-\method{plot}{Rfits_cube}(x, slice = 1, useraw=FALSE, ...)
-\method{plot}{Rfits_array}(x, slice = c(1,1), useraw=FALSE, ...)
+\method{plot}{Rfits_image}(x, useraw = FALSE, ...)
+\method{plot}{Rfits_cube}(x, slice = 1, useraw = FALSE, ...)
+\method{plot}{Rfits_array}(x, slice = c(1,1), useraw = FALSE, ...)
 \method{plot}{Rfits_vector}(x, ...)
 \method{lines}{Rfits_vector}(x, ...)
-\method{plot}{Rfits_pointer}(x, useraw=FALSE, ...)
+\method{plot}{Rfits_pointer}(x, useraw = FALSE, sparse = 'auto', ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -30,6 +30,9 @@ Logical; should the full raw header be used and passed to CFITSIO? This is often
 }
   \item{slice}{
 Integer scalar or vector; the slice/s of the FITS cube/array to display.  
+}
+  \item{sparse}{
+Integer scalar; determines whether the image pixels are sparse sampled to speed up plotting. If set to 2 it will only determine every 2nd pixel, and if 3 every 3rd etc. The default 'auto' means it will scale to produce a maximum number of 1,000 pixels on any side (on most monitors this is a fairly useful maximum, and ensures quick displaying of even very large images).
 }
   \item{\dots}{
 Extra options to pass to \code{Rwcs_image}.
@@ -46,9 +49,13 @@ Aaron Robotham
 }
 \examples{
 \dontrun{
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 plot(temp_image)
+
+temp_point = Rfits_point(file_image)
+plot(temp_point)
+plot(temp_point, sparse=4) #This will also update the WCS on the fly
 }
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

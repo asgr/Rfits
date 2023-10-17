@@ -33,11 +33,13 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   
   #images
   
-  if(!is.null(info$headers[[1]]$keyvalues$NAXIS1)){
-    if(pointer){
-      data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap)
-    }else{
-      data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap)
+  if(!is.null(info$headers[[1]]$keyvalues$NAXIS)){
+    if(info$headers[[1]]$keyvalues$NAXIS > 0){
+      if(pointer){
+        data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap)
+      }else{
+        data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap)
+      }
     }
   }
   
@@ -152,7 +154,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         ext = 1
       }
       
-      if(inherits(data[[i]], c('Rfits_vector','Rfits_image','Rfits_cube','Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
+      if(inherits(data[[i]], c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
         Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
                           create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE
@@ -166,6 +168,11 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         Rfits_write_header(filename=filename, keyvalues=data[[i]]$keyvalues, keycomments=data[[i]]$keycomments,
                            comment=data[[i]]$comments, history=data[[i]]$history, create_ext=TRUE,
                            create_file=create_file, overwrite_file=overwrite_file)
+        create_file = FALSE
+        overwrite_file = FALSE
+      }else if(inherits(data[[i]], 'Rfits_pointer')){
+        Rfits_write_image(data=data[[i]][,], filename=filename, ext=ext,
+                          create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE
         overwrite_file = FALSE
       }else{
@@ -194,3 +201,45 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
 }
 
 Rfits_write = Rfits_write_all
+
+Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
+                           recursive=TRUE, header=TRUE, pointer=TRUE, cores=1, ...){
+  if(is.null(filelist)){
+    if(is.null(dirlist)){
+      stop('Missing filelist and dirlist')
+    }
+    filelist = {}
+    for(i in 1:length(dirlist)){
+      filelist = c(filelist,
+                   list.files(dirlist[i], full.names=TRUE, recursive=recursive))
+    }
+  }
+  
+  registerDoParallel(cores=cores)
+  
+  filelist = normalizePath(filelist)
+  if(!is.null(pattern)){
+    for(i in pattern){
+      filelist = grep(pattern=i, filelist, value=TRUE)
+    }
+  }
+  filelist = grep(pattern='.fits$', filelist, value=TRUE)
+  
+  if(length(extlist) == 1){
+    extlist = rep(extlist, length(filelist))
+  }
+  
+  if(pointer){
+    data = foreach(i=1:length(filelist))%dopar%{
+      return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+    }
+  }else{
+    data = foreach(i=1:length(filelist))%dopar%{
+      return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+    }
+  }
+  
+  class(data) = 'Rfits_list'
+  attributes(data)$filename = filelist
+  return(data)
+}

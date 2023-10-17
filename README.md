@@ -17,8 +17,8 @@ You can obtain the current version from [GitHub](https://github.com/)
 with:
 
 ``` r
-# install.packages("devtools")
-devtools::install_github("asgr/Rfits")
+# install.packages("remotes")
+remotes::install_github("asgr/Rfits")
 ```
 
 ## Example

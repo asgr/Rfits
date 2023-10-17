@@ -5,6 +5,7 @@
 \alias{Rfits_write_all}
 \alias{Rfits_read}
 \alias{Rfits_write}
+\alias{Rfits_make_list}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Read and Write all FITS Extensions
@@ -22,17 +23,20 @@ Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = 
   compress = FALSE, bad_compress = 0, list_sub = NULL)
 Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE,
   compress = FALSE, bad_compress = 0, list_sub = NULL)
+  
+Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = NULL,
+  recursive = TRUE, header = TRUE, pointer = TRUE, cores = 1, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{filename}{
-Character scalar; path to FITS file, either to be written to or read.
+Character scalar; path to FITS file, either to be written to or read. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
 }
   \item{pointer}{
-Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory (tables are always loaded into memory). See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be set as FALSE, but for very large multi-extension FITS image files (especially those which contain compressed images) setting to TRUE will hugely reduce memory consumption and speed up access times of subsets. The default of 'auto' will set to TRUE if the target FITS file is larger than 100 MB (perhaps a bit unwieldy and slow to load in) and FALSE if it is smaller than this.
+Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory (tables are always loaded into memory). See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be set as FALSE, but for very large multi-extension FITS image files (especially those which contain compressed images) setting to TRUE will hugely reduce memory consumption and speed up access times of subsets. The default of 'auto' will set to TRUE if the target FITS file is larger than 100 MB (perhaps a bit unwieldy and slow to load in) and FALSE if it is smaller than this. For \code{Rfits_make_list} the only allowed values are TRUE (default) and FALSE, no 'auto' option is available.
 }
   \item{data}{
-List; a list of images and tables to be written out to a target FITS file. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
+List; a list of images and tables to be written out to a target FITS file. Supported types are: Rfits_vector, Rfits_image, Rfits_cube, Rfits_array, array, matrix, integer, numeric, Rfits_table, data.frame, data.table, Rfits_header and Rfits_pointer. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
 }
   \item{header}{
 Logical vector; should headers by extracted for each FITS extension (TRUE, default), or just the data (FALSE). If this is the same length as the number of extensions then this will be set on a per extension bases, but if length 1 then the same logic will be used for all extensions.
@@ -64,18 +68,41 @@ Numeric vector; non-numeric replacement value to use when compression is being d
   \item{list_sub}{
 Character vector; if supplied the output list elements will be limited to those named here. This is a convenient way to only write out a subset of a large list by list component name.  
 }
+  \item{filelist}{
+Character vector; vector of full paths of FITS files to analyse. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
+}
+  \item{dirlist}{
+Character vector; vector of full paths of directories to analyse.
+}
+  \item{extlist}{
+Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}
+}
+  \item{pattern}{
+Character vector; regular expressions to filter \option{filelist} by. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$". Note an extra check that all files are FITS files (a pattern of ".fits$") will be made whether requested or not. Note you should nearly always use a leading and trailing '*' search because the pattern match is made on the full file path string, i.e. glob2rx('u*.fits') = '^u.*\\\\.fits$' would fail on '/path/to/file/u_GAMA.fits' (because of the '/path/to/file/' before 'u_GAMA.fits'), but glob2rx('*u*.fits') = '^.*u.*\\\\.fits$' would work as expected.
+}
+  \item{recursive}{
+Logical; if using \option{dirlist} should all sub-directories be checked recursively?
+}
+  \item{cores}{
+Integer scalar; the number of cores to run on.
+}
+  \item{\dots}{
+Further arguments to pass to \code{\link{Rfits_read_image}} (when \option{pointer} = FALSE) or \code{\link{Rfits_point}} (when \option{pointer} = TRUE). Note these arguments will be inherited by all files loaded into the 'Rfits_list'.
+}
 }
 \details{
 The interface here is very simple. Partly this is to discourage people using this as a complete replacement of the finer control available in lower level functions available in \code{Rfits}, i.e. do not expect to be able to complete all operations through the use of \code{Rfits_read_all} and \code{Rfits_write_all} alone. That said, they cover an awful lot of use cases in practice.
 }
 \value{
-\code{Rfits_read_all} a list containing the full outputs of \code{\link{Rfits_read_image}}, \code{\link{Rfits_read_table}} as relevant. The output is of class 'Rfits_list', where each list element will have its own respective class (e.g. 'Rfits_image' or 'Rfit_table'). The name of the list component will be set to that of the EXTNAME in the FITS extension.
+\code{Rfits_read_all} a list containing the full outputs of \code{\link{Rfits_read_image}}, \code{\link{Rfits_read_table}} as relevant. The output is of class 'Rfits_list', where each list element will have its own respective class (e.g. 'Rfits_image' or 'Rfits_table'). The name of the list component will be set to that of the EXTNAME in the FITS extension.
 
 \code{Rfits_read} is simply a convenience pointer to \code{Rfits_read_all}.
 
 \code{Rfits_write_all} write the contents of \option{data} to target FITS file \option{filename}.
 
 \code{Rfits_write} is simply a convenience pointer to \code{Rfits_write_all}.
+
+\code{Rfits_make_list} creates a list of images or image pointers. The output is of class 'Rfits_list', so in most respects it is like you have read in a single multi-extension FITS rather than assembling it from multiple different target files. This can be useful when wanting to rapidly interrogate images interactively. 
 }
 \author{
 Aaron Robotham

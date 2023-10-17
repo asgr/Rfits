@@ -117,6 +117,7 @@ These functions are a proof of concept for creating more generic astronomy data 
 \code{\link{Rfits_image}}
 }
 \examples{
+\dontrun{
 library(hdf5r)
 
 #Read full image
@@ -132,6 +133,7 @@ temp_image_hdf5 = Rfits_read_image_hdf5(file_image_temp)
 
 #Check
 sum(temp_image$imDat - temp_image_hdf5$imDat)
+}
 }
 
 \concept{ HDF5 }

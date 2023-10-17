@@ -57,6 +57,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   assertFlag(data.table)
   
@@ -85,12 +86,17 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(verbose){
       message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
     }
-    output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
+    try({
+      output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, nrow=nrow)
+    })
+    if(is.null(output[count][[1]])){
+      output[[count]] = NA
+    }
     count = count + 1
   }
   
   if(data.table){
-    output = data.table::as.data.table(output)
+    data.table::setDT(output)
     
   }else{
     output = as.data.frame(output)
@@ -120,6 +126,7 @@ Rfits_read_colnames=function(filename='temp.fits', ext=2){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   colnames=Cfits_read_colname(filename=filename, ext=ext)
@@ -218,8 +225,8 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
     }
     
-    if(length(grep('1B|1K|1J|1D|1E|A',tforms)) != ncol){
-      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|A',tforms))),sep='\n'))
+    if(length(grep('1B|1K|1J|1D|1E|1I|A',tforms)) != ncol){
+      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A',tforms))),sep='\n'))
     }
   }
   
@@ -259,13 +266,20 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       }
     }
   }
+  
   for(i in 1:ncol){
     if(verbose){
       message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
     }
-    table[[i]][is.na(table[[i]])] = NA_replace
-    table[[i]][is.nan(table[[i]])] = NaN_replace
-    table[[i]][is.infinite(table[[i]])] = Inf_replace
+    if(anyNA(table[[i]])){
+      table[[i]][is.na(table[[i]])] = NA_replace
+    }
+    if(anyNaN(table[[i]])){
+      table[[i]][is.nan(table[[i]])] = NaN_replace
+    }
+    if(anyInfinite(table[[i]])){
+      table[[i]][is.infinite(table[[i]])] = Inf_replace
+    }
     Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
 }

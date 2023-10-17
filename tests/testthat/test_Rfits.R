@@ -1,10 +1,12 @@
-context("Check Rfits table/image read/write")
 #load packages
 library(Rfits)
 library(testthat)
 library(FITSio)
 library(tdigest)
 library(R.utils)
+library(bit64)
+
+context("Check Rfits table/image read/write")
 
 #ex 1 check that we read in images like readFITS
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -30,7 +32,7 @@ Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, 
 try(Rfits_read_image(file_image_temp, ext=3), silent=TRUE)
 #carry on writing
 temp=try(Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, create_ext=T))
-expect(class(temp)=='NULL', "Could not write new extension!")
+expect(temp$ext==4, "Did not write to extension 2!")
 
 #ex 5 check keyvalues are identical
 expect_identical(temp_image$keyvalues, temp_image2$keyvalues) 
@@ -138,7 +140,7 @@ temp_compress = Rfits_read_image(file_image_temp,ext=2)
 expect(abs(log10(sum(temp_image$imDat)/sum(temp_compress$imDat))) < 1e-4, failure_message = 'Images differ too much!')
 
 #ex 23 subset a pointer
-temp_point = Rfits_point(file_image)
+temp_point = Rfits_point(file_image, header=FALSE)
 expect_equal(temp_image$imDat[1:5,1:5], temp_point[1:5,1:5])
 
 #ex 24 read and write cubes
@@ -174,11 +176,11 @@ expect_identical(as.character(temp_check['CHECKSUM']), "correct")
 #ex 28 check [] methods work for images
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
-expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,keepWCS=FALSE])
+expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,header=FALSE])
 
 #ex 29 check [] methods work for cubes
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
-expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,keepWCS=FALSE])
+expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,header=FALSE])
 
 #ex 30 check consistent BZERO and BSCALE reading and writing
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -210,13 +212,14 @@ td=tdigest(temp_image$imDat, compression=1e3)
 expect_equal(median(temp_image$imDat), td[0.5], tolerance=2e-3)
 
 #ex 33 pure header
-temp_head=list(
-  SIMPLE=TRUE,
-  BITPIX=16L,
-  NAXIS=0L,
-  EXTEND=TRUE,
-  RANDOM='Hello'
+temp_head = list(
+  SIMPLE = TRUE,
+  BITPIX = 16L,
+  NAXIS = 0L,
+  EXTEND = TRUE,
+  RANDOM = 'Hello'
 )
+class(temp_head) = 'Rfits_keylist'
 file_head_temp = tempfile()
 Rfits_write_header(file_head_temp, keyvalues=temp_head, create_file=T, create_ext=T)
 temp_head2 = Rfits_read_header(file_head_temp)
@@ -261,8 +264,8 @@ temp_mix3 = Rfits_read_all(file_mix_temp3)
 expect_length(temp_mix3, 6L)
 
 #ex39/40 check ext headers
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 file_list_temp = tempfile()
 Rfits_write(list(temp_image, temp_image), filename=file_list_temp)
 temp_list = Rfits_read(file_list_temp)
@@ -277,3 +280,33 @@ R.utils::gzip(system.file('extdata', 'image.fits', package = "Rfits"), destname=
 temp_image_gz = Rfits_read_image(file_gz_temp)
 expect_identical(temp_image$imDat, temp_image_gz$imDat)
 expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
+
+#ex43/44/45/46 check some methods
+
+expect_identical(dim(temp_vector), 3722L)
+expect_identical(dim(temp_image), c(356L, 356L))
+expect_identical(dim(temp_cube), c(50L, 50L, 4L))
+expect_identical(dim(temp_array2), c(10L, 10L, 10L, 10L))
+
+#ex47 write a subset to a current FITS file
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+file_image_temp = tempfile()
+Rfits_write_image(temp_image, file_image_temp)
+
+temp_mat = matrix(1:9,3,3)
+
+Rfits_write_pix(temp_mat, file_image_temp, xlo=10, ylo=20)
+
+temp_image2 = Rfits_read_image(file_image_temp)
+expect_equal(temp_mat, temp_image2$imDat[10:12,20:22])
+
+#ex48 create blank image and write a subset to it
+file_image_temp = tempfile()
+Rfits_blank_image(file_image_temp, bitpix=32)
+
+temp_mat = matrix(1:9,3,3)
+
+Rfits_write_pix(temp_mat, file_image_temp, xlo=50, ylo=60)
+temp_image2 = Rfits_read_image(file_image_temp)
+expect_identical(temp_mat, temp_image2$imDat[50:52,60:62])

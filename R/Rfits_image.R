@@ -52,12 +52,13 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL){
+                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L, scale_sparse=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   assertFlag(header)
   assertIntegerish(xlo, null.ok=TRUE)
@@ -71,47 +72,81 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   assertFlag(remove_HIERARCH)
   assertFlag(force_logical)
   checkNumeric(bad, null.ok=TRUE)
+  assertFlag(keypass)
+  assertCharacter(zap, null.ok=TRUE)
+  assertIntegerish(sparse, null.ok=FALSE)
   
   subset=FALSE
   
-  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | header){
+  if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | sparse > 1 | header){
     
     hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
     
+    #Have to check for NAXIS1 directly, because I've come across images missing NAXIS :-(
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
-      naxis1=hdr$keyvalues$ZNAXIS1
-      naxis2=hdr$keyvalues$ZNAXIS2
-      naxis3=hdr$keyvalues$ZNAXIS3
-      naxis4=hdr$keyvalues$ZNAXIS4
-      datatype=hdr$keyvalues$ZBITPIX
+      naxis1 = hdr$keyvalues$ZNAXIS1
     }else{
-      naxis1=hdr$keyvalues$NAXIS1
-      naxis2=hdr$keyvalues$NAXIS2
-      naxis3=hdr$keyvalues$NAXIS3
-      naxis4=hdr$keyvalues$NAXIS4
-      datatype=hdr$keyvalues$BITPIX
+      naxis1 = hdr$keyvalues$NAXIS1
     }
     
-    if(ext==1 & (is.null(naxis1))){
-      stop('Missing naxis1, usually this means the first image is after ext=1 (e.g. try setting ext=2).')
+    if(ext==1 & is.null(naxis1)){
+      message('Missing NAXIS1, usually this means the first image is after ext = 1')
+      if(isTRUE(hdr$keyvalues$NAXIS == 0L) & isTRUE(hdr$keyvalues$EXTEND)){
+        message('Trying ext = 2')
+        ext = 2
+        hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        if(isTRUE(hdr$keyvalues$NAXIS > 0L)){
+          message('New NAXIS > 0, continuing with ext = 2')
+        }else{
+          stop('Well that did not work either...')
+        }
+      }
     }
     
-    Ndim = 1
-    if(!is.null(naxis2)){Ndim = 2}
-    if(!is.null(naxis3)){Ndim = 3}
-    if(!is.null(naxis4)){Ndim = 4}
+    if(isTRUE(hdr$keyvalues$ZIMAGE)){
+      naxis1 = hdr$keyvalues$ZNAXIS1
+      naxis2 = hdr$keyvalues$ZNAXIS2
+      naxis3 = hdr$keyvalues$ZNAXIS3
+      naxis4 = hdr$keyvalues$ZNAXIS4
+      datatype = hdr$keyvalues$ZBITPIX
+    }else{
+      naxis1 = hdr$keyvalues$NAXIS1
+      naxis2 = hdr$keyvalues$NAXIS2
+      naxis3 = hdr$keyvalues$NAXIS3
+      naxis4 = hdr$keyvalues$NAXIS4
+      datatype = hdr$keyvalues$BITPIX
+    }
+    
+    Ndim = hdr$keyvalues$NAXIS
+    
+    if(is.null(Ndim)){
+      if(!is.null(naxis1)){Ndim = 1L}
+      if(!is.null(naxis2)){Ndim = 2L}
+      if(!is.null(naxis3)){Ndim = 3L}
+      if(!is.null(naxis4)){Ndim = 4L}
+    }
     
     if(is.null(naxis1)){
+      message('NAXIS1 is missing: this is pretty weird!')
       naxis1 = 1
     }
     if(is.null(naxis2)){
       naxis2 = 1
+      if(Ndim == 2){
+        message('NAXIS2 is missing, but NAXIS=2: this is pretty weird!')
+      }
     }
     if(is.null(naxis3)){
       naxis3 = 1
+      if(Ndim == 3){
+        message('NAXIS3 is missing, but NAXIS=3: this is pretty weird!')
+      }
     }
     if(is.null(naxis4)){
       naxis4 = 1
+      if(Ndim == 4){
+        message('NAXIS4 is missing, but NAXIS=4: this is pretty weird!')
+      }
     }
     
     if(is.null(xlo)){xlo=1}else{subset=TRUE}
@@ -122,7 +157,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     if(is.null(zhi)){zhi=naxis3}else{subset=TRUE}
     if(is.null(tlo)){tlo=1}else{subset=TRUE}
     if(is.null(thi)){thi=naxis4}else{subset=TRUE}
-    if(subset){
+    
+    if(subset | sparse > 1){
       safex = .safedim(1,naxis1,xlo,xhi)
       safey = .safedim(1,naxis2,ylo,yhi)
       safez = .safedim(1,naxis3,zlo,zhi)
@@ -160,20 +196,88 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(subset){
+  if(subset | sparse > 1){
     if(safex$safe & safey$safe & safez$safe & safet$safe){
-      temp_image = Cfits_read_img_subset(filename=filename, fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
-                                lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi, ext=ext, datatype=datatype)
-      
-      if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-        temp_image = matrix(temp_image, xhi-xlo+1, yhi-ylo+1)
+      try({
+        temp_image = Cfits_read_img_subset(filename=filename, ext=ext, datatype=datatype,
+                                           fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                                           lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi,
+                                           sparse=sparse)
+        
+        check64 = inherits(temp_image, 'integer64')
+        
+        if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse
+          }
+        }
+        
+        if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^2
+          }
+          
+          temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
+        }
+        
+        if(naxis3 > 1 & naxis4 == 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^3
+          }
+          
+          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L))
+        }
+        if(naxis4 > 1){
+          if(scale_sparse){
+            temp_image = temp_image*sparse^4
+          }
+          
+          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
+        }
+        if(check64){
+          attributes(temp_image)$class = "integer64"
+        }
+      })
+      if(sparse > 1){
+        if(header){
+          if(Ndim == 1){
+            hdr$keyvalues$NAXIS1 = length(temp_image)
+          }else{
+            hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
+          }
+          # hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L)/sparse + (sparse - 1L)/sparse
+          hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar)/sparse + 1
+          
+          if(Ndim >= 2){
+            hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
+            hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar)/sparse + 1
+          }
+          
+          if(Ndim >= 3){
+            hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
+            hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar)/sparse + 1
+          }
+          
+          if(Ndim >= 4){
+            hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
+            hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar)/sparse + 1
+          }
+          
+          hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
+          hdr$keyvalues$CD1_2 = hdr$keyvalues$CD1_2 * sparse
+          hdr$keyvalues$CD2_1 = hdr$keyvalues$CD2_1 * sparse
+          hdr$keyvalues$CD2_2 = hdr$keyvalues$CD2_2 * sparse
+          
+          output = Rfits_create_image(temp_image, keyvalues = hdr$keyvalues) #scale by sparse^2 to get fluxes roughly right
+          
+          return(output)
+        }else{
+          return(temp_image)
+        }
       }
-      
-      if(naxis3 > 1 & naxis4 == 1){
-        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1))
-      }
-      if(naxis4 > 1){
-        temp_image = array(temp_image, dim=c(xhi-xlo+1, yhi-ylo+1, zhi-zlo+1, thi-tlo+1))
+      if(!is.numeric(temp_image)){
+        message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
+        temp_image = NA
       }
     }
     if(Ndim==1){
@@ -201,7 +305,12 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
     }
     
+    naxis1 = safex$len_tar
+    naxis2 = safey$len_tar
+    naxis3 = safez$len_tar
+    naxis4 = safet$len_tar
   }else{
+    # Leave the naxis reads- this is the only way to know the naxis if we aren't given a header!
     naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
     if(is.numeric(naxis1)){
       naxis2 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext), silent=TRUE)
@@ -216,19 +325,40 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
     }
     if(!is.numeric(naxis1)){
-      stop('NAXIS1 is missing- at least this NAXIS required!')
+      message('NAXIS1 is missing- this is pretty weird!')
+      naxis1 = 1
+    }else{
+      Ndim = 1L
     }
     if(!is.numeric(naxis2)){
       naxis2 = 1
+    }else{
+      Ndim = 2L
     }
     if(!is.numeric(naxis3)){
       naxis3 = 1
+    }else{
+      Ndim = 3L
     }
     if(!is.numeric(naxis4)){
       naxis4 = 1
+    }else{
+      Ndim = 4L
     }
-    image = Cfits_read_img(filename=filename, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
-                         naxis4=naxis4, ext=ext, datatype=datatype)
+    try({
+      image = Cfits_read_img(filename=filename, ext=ext, datatype=datatype,
+                             naxis1=naxis1, naxis2=naxis2, naxis3=naxis3, naxis4=naxis4)
+    })
+    if(!is.numeric(image)){
+      message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
+      image = NA
+    }
+  }
+  
+  if(is.numeric(image) & (datatype == -16 | datatype == -32)){
+    if(anyNA(image)){
+      image[is.nan(image)] = NA
+    }
   }
   
   if(force_logical & is.integer(image)){
@@ -241,24 +371,29 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(subset){
-    naxis1 = safex$len_tar
-    naxis2 = safey$len_tar
-    naxis3 = safez$len_tar
-    naxis4 = safet$len_tar
-  }
-  
-  if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  # if(naxis1 == 1 & naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  #   image = as.vector(image)
+  # }else if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
+  #   image = as.vector(image)
+  # }else if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
+  #   dim(image) =c(naxis1, naxis2)
+  # }else if(naxis3 > 1 & naxis4 == 1){
+  #   dim(image) =c(naxis1, naxis2, naxis3)
+  # }else if(naxis4 > 1){
+  #   dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+  # }else{
+  #   stop('Cannot determine the dimensions of the image!')
+  # }
+  if(Ndim == 1){
     image = as.vector(image)
-  }
-  if(naxis2 > 1 & naxis3 == 1 & naxis4 == 1){
-    image = matrix(image, naxis1, naxis2)
-  }
-  if(naxis3 > 1 & naxis4 == 1){
-    image = array(image, dim=c(naxis1, naxis2, naxis3))
-  }
-  if(naxis4 > 1){
-    image = array(image, dim=c(naxis1, naxis2, naxis3, naxis4))
+  }else if(Ndim == 2){
+    dim(image) =c(naxis1, naxis2)
+  }else if(Ndim == 3){
+    dim(image) =c(naxis1, naxis2, naxis3)
+  }else if(Ndim == 4){
+    dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+  }else{
+    stop('Cannot determine the dimensions of the image, or more than 4!')
   }
   
   if(header){
@@ -376,14 +511,14 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   WCSref = WCSref
                   )
 
-    if(naxis2 == 1 & naxis3 == 1 & naxis4 == 1){
-      class(output) = c('Rfits_vector', class(output))
-    }else if(naxis3 == 1 & naxis4 == 1){
-      class(output) = c('Rfits_image', class(output))
-    }else if(naxis3 > 1 & naxis4 == 1){
-      class(output) = c('Rfits_cube', class(output))
-    }else if(naxis4 > 1){
-      class(output) = c('Rfits_array', class(output))
+    if(Ndim == 1){
+      class(output) = c('Rfits_vector', 'list')
+    }else if(Ndim == 2){
+      class(output) = c('Rfits_image', 'list')
+    }else if(Ndim == 3){
+      class(output) = c('Rfits_cube', 'list')
+    }else if(Ndim == 4){
+      class(output) = c('Rfits_array', 'list')
     }
     return(invisible(output))
   }else{
@@ -396,7 +531,7 @@ Rfits_read_vector = Rfits_read_image
 Rfits_read_cube = Rfits_read_image
 
 Rfits_read_array = Rfits_read_image
-
+  
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
@@ -406,6 +541,9 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   assertFlag(overwrite_file)
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  if(grepl('[compress', filename, fixed=TRUE)){
+    compress = TRUE
+  }
   justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   if(create_file){
     assertPathForOutput(justfilename, overwrite=TRUE)
@@ -474,22 +612,62 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   
   bitpix = 0
   
-  if(max(data,na.rm=TRUE)>2^30){
-    integer='long'
+  int_change = FALSE
+  
+  if(integer=='byte' | integer=='8'){
+    if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
+      integer = 'short'
+      int_change = TRUE
+    }
   }
-
+  
+  if(integer=='short' | integer=='16'){
+    if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
+      integer = 'long'
+      int_change = TRUE
+    }
+  }
+  
+  if(integer=='long' | integer=='int' | integer=='32'){
+    if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
+      integer = 'longlong'
+      int_change = TRUE
+    }
+  }
+  
+  if(int_change & (is.integer(data) | is.integer64(data))){
+    message('Converted integer type to ',integer,' since data range is too large!')
+  }
+  
   if(is.logical(data[1])){
     bitpix = 8
     datatype = 11
   }
   
   if(bitpix == 0 & is.integer(data[1])){
-    if(integer=='short' | integer=='int' | integer=='16'){
+    if(integer=='byte' | integer=='8'){
+      bitpix = 8
+      datatype = 11
+    }else if(integer=='short' | integer=='16'){
       bitpix = 16
       datatype = 21
-    }else if(integer=='long' | integer=='32'){
+    }else if(integer=='long' | integer=='int' | integer=='32'){
       bitpix = 32
       datatype = 31
+      if(!missing(keyvalues)){
+        if(!is.null(keyvalues$BZERO)){
+          if(keyvalues$BZERO + max(data, na.rm=T) > 2^31){
+            keyvalues$BZERO = 0
+            message('Changing BZERO to 0 to prevent integer overflow!')
+          }
+        }
+      }
+    }else if(integer=='longlong' | integer=='64'){
+      bitpix = 64
+      datatype = 81
+      if(is.integer(data)){
+        data = as.integer64(data)
+      }
     }else{
       stop('integer type must be short/int/16 (16 bit) or long/32 (32 bit)')
     }
@@ -519,6 +697,10 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   ext = Cfits_read_nhdu(filename=filename)
   
   if(!missing(keyvalues)){
+    if(is.null(keyvalues$BITPIX)){
+      keynames = c(keynames, 'BITPIX')
+      keycomments$BITPIX = 'number of bits per data pixel'
+    }
     keyvalues$BITPIX = bitpix
     
     if(!missing(comment)){
@@ -531,8 +713,202 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
                        keycomments=keycomments, keynames=keynames,
                        comment=comment, history=history, ext=ext)
   }
-  Cfits_write_pix(filename=filename, data=data, datatype=datatype, naxis=naxis, naxis1=naxes[1],
-                  naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4], ext=ext)
+  Cfits_write_pix(filename=filename, data=data, ext=ext, datatype=datatype,
+                  naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3], naxis4=naxes[4])
+  return(invisible(list(filename=filename, ext=ext, naxis=naxis, naxes=c(naxes[1], naxes[2], naxes[3], naxes[4])[1:naxis])))
+}
+
+Rfits_blank_image = function(filename, ext=1, create_ext=TRUE, create_file=TRUE, overwrite_file=TRUE,
+                             bitpix=-32, naxis=2, naxis1=100, naxis2=100, naxis3=1, naxis4=1){
+  assertFlag(create_ext)
+  assertFlag(create_file)
+  assertFlag(overwrite_file)
+  assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
+  justfilename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
+  if(create_file){
+    assertPathForOutput(justfilename, overwrite=TRUE)
+  }else{
+    assertFileExists(justfilename)
+    assertAccess(justfilename, access='w')
+  }
+  if(testFileExists(justfilename) & overwrite_file & create_file){
+    file.remove(justfilename)
+  }
+  assertIntegerish(ext, len=1)
+  assertIntegerish(naxis, len=1)
+  assertIntegerish(naxis1, len=1)
+  assertIntegerish(naxis2, len=1)
+  assertIntegerish(naxis3, len=1)
+  assertIntegerish(naxis4, len=1)
+  
+  Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxis1, naxis2=naxis2, naxis3=naxis3,
+                     naxis4=naxis4, ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+  return(invisible(list(filename=filename, ext=ext, naxis=naxis, naxes=c(naxis1, naxis2, naxis3, naxis4)[1:naxis])))
+}
+
+Rfits_write_pix = function(data, filename, ext=1, xlo=1L, ylo=1L, zlo=1L, tlo=1L){
+  assertCharacter(filename, max.len=1)
+  filename = path.expand(filename)
+  assertFileExists(filename)
+  assertAccess(filename, access='w')
+  
+  if(inherits(data, what=c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+    data = data$imDat
+  }
+  if(is.vector(data)){
+    assertVector(data)
+  }else{
+    assertArray(data)
+  }
+  
+  dim_data = dim(data)
+  
+  if(is.null(dim_data)){dim_data = length(data)}
+  naxis = length(dim_data)
+  if(naxis >= 1){
+    naxes = c(dim_data[1],1,1,1)
+    xhi = xlo + naxes[1] - 1
+  }
+  if(naxis >= 2){
+    naxes = c(dim_data[1:2],1,1)
+    yhi = ylo + naxes[2] - 1
+  }else{
+    yhi = 1
+  }
+  if(naxis >= 3){
+    naxes = c(dim_data[1:3],1)
+    zhi = zlo + naxes[3] - 1
+  }else{
+    zhi = 1
+  }
+  if(naxis == 4){
+    naxes = dim_data
+    thi = tlo + naxes[4] - 1
+  }else{
+    thi = 1
+  }
+  
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  dim_fits = dim(temp_header)
+  
+  if(naxis == 1){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    
+    if(safe_x$safe){
+      data = data[safe_x$tar]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ',dim_fits)
+      return(NULL)
+    }
+  }
+  if(naxis == 2){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    
+    if(safe_x$safe & safe_y$safe){
+      data = data[safe_x$tar, safe_y$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2])
+      return(NULL)
+    }
+  }
+  if(naxis == 3){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3])
+      return(NULL)
+    }
+  }
+  if(naxis == 4){
+    safe_x = .safedim(1L, dim_fits[1], xlo, xhi)
+    safe_y = .safedim(1L, dim_fits[2], ylo, yhi)
+    safe_z = .safedim(1L, dim_fits[3], zlo, zhi)
+    safe_t = .safedim(1L, dim_fits[4], tlo, thi)
+    
+    if(safe_x$safe & safe_y$safe & safe_z$safe & safe_t$safe){
+      data = data[safe_x$tar, safe_y$tar, safe_z$tar, safe_t$tar, drop=FALSE]
+      xlo = min(safe_x$orig)
+      xhi = max(safe_x$orig)
+      ylo = min(safe_y$orig)
+      yhi = max(safe_y$orig)
+      zlo = min(safe_z$orig)
+      zhi = max(safe_z$orig)
+      tlo = min(safe_t$orig)
+      thi = max(safe_t$orig)
+    }else{
+      message('Doing nothing: data is entirely outside of target FITS!')
+      message('FITS: ', dim_fits[1], ' ',  dim_fits[2], ' ',  dim_fits[3], ' ',  dim_fits[4])
+      return(NULL)
+    }
+  }
+  
+  # int_change = FALSE
+  # 
+  # if(integer=='byte' | integer=='8'){
+  #   if(max(data,na.rm=TRUE) >= 2^7 | min(data,na.rm=TRUE) <= -2^7){
+  #     integer = 'short'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(integer=='short' | integer=='16'){
+  #   if(max(data,na.rm=TRUE) >= 2^15 | min(data,na.rm=TRUE) <= -2^15){
+  #     integer = 'long'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(integer=='long' | integer=='int' | integer=='32'){
+  #   if(max(data,na.rm=TRUE) >= 2^31 | min(data,na.rm=TRUE) <= -2^31){
+  #     integer = 'longlong'
+  #     int_change = TRUE
+  #   }
+  # }
+  # 
+  # if(int_change & (is.integer(data) | is.integer64(data))){
+  #   message('Converted integer type to ',integer,' since data range is too large!')
+  # }
+  
+  datatype = 0
+  
+  if(is.logical(data[1])){
+    datatype = 11
+  }
+  
+  if(datatype == 0 & is.integer(data[1])){
+    datatype = 31
+  }else if(is.integer64(data[1])){
+    datatype = 81
+  }
+  
+  if(datatype==0 & is.numeric(data[1])){
+    datatype = 82
+  }
+  
+  Cfits_write_img_subset(filename=filename, data=data, ext=ext, datatype=datatype, naxis=naxis,
+                         fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
+                         lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi)
 }
 
 Rfits_write_vector = Rfits_write_image
@@ -541,21 +917,25 @@ Rfits_write_cube = Rfits_write_image
 
 Rfits_write_array = Rfits_write_image
 
-plot.Rfits_image=function(x, useraw=FALSE, ...){
+plot.Rfits_image = function(x, useraw=FALSE, ...){
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
-  if(requireNamespace("Rwcs", quietly=TRUE)){
-   if(useraw){header = x$raw}else{header = NULL}
-    Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=header, ...)
+  if(is.null(x$keyvalues$CRVAL1)){
+    magimage(x$imDat, ...)
   }else{
-    message('The Rwcs package is needed to plot a Rfits_image object.')
+    if(requireNamespace("Rwcs", quietly=TRUE)){
+      if(useraw){header = x$raw}else{header = NULL}
+      Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=header, ...)
+    }else{
+      message('The Rwcs package is needed to plot a Rfits_image object.')
+    }
   }
 }
 
-plot.Rfits_cube=function(x, slice=1, useraw=FALSE, ...){
+plot.Rfits_cube = function(x, slice=1, useraw=FALSE, ...){
   if(!inherits(x, 'Rfits_cube')){
-    stop('Object class is not of type Rfits_image!')
+    stop('Object class is not of type Rfits_cube!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -565,9 +945,9 @@ plot.Rfits_cube=function(x, slice=1, useraw=FALSE, ...){
   }
 }
 
-plot.Rfits_array=function(x, slice=c(1,1), useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_cube')){
-    stop('Object class is not of type Rfits_image!')
+plot.Rfits_array = function(x, slice=c(1,1), useraw=FALSE, ...){
+  if(!inherits(x, 'Rfits_array')){
+    stop('Object class is not of type Rfits_array!')
   }
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
@@ -577,7 +957,7 @@ plot.Rfits_array=function(x, slice=c(1,1), useraw=FALSE, ...){
   }
 }
 
-plot.Rfits_vector=function(x, ...){
+plot.Rfits_vector = function(x, ...){
   if(!inherits(x, 'Rfits_vector')){
     stop('Object class is not of type Rfits_vector!')
   }
@@ -598,7 +978,7 @@ plot.Rfits_vector=function(x, ...){
   }
 }
 
-lines.Rfits_vector=function(x, ...){
+lines.Rfits_vector = function(x, ...){
   if(!inherits(x, 'Rfits_vector')){
     stop('Object class is not of type Rfits_vector!')
   }
@@ -615,19 +995,7 @@ lines.Rfits_vector=function(x, ...){
   lines(xref, x$imDat, ...)
 }
 
-plot.Rfits_pointer=function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_pointer')){
-    stop('Object class is not of type Rfits_image!')
-  }
-  if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
-    Rwcs::Rwcs_image(x[,,header=FALSE], keyvalues=x$keyvalues, header=header, ...)
-  }else{
-    message('The Rwcs package is needed to plot a Rfits_image object.')
-  }
-}
-
-Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
+Rfits_tdigest = function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TRUE){
   if(requireNamespace("tdigest", quietly=TRUE)){
     fd = tdigest::tdigest({}, compression=compression)
     image_ydim = dim(image)[2]
@@ -656,45 +1024,107 @@ Rfits_tdigest=function(image, mask=NULL, chunk=100L, compression=1e3, verbose=TR
   }
 }
 
-centre = function(x, useraw=FALSE){
+centre = function(x, useraw=FALSE, ...){
   UseMethod("centre", x)
 }
 
 centre.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_image')){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
-  dims = dim(x)
+  
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
+      message('No NAXIS! Probably not an image, returning NA.')
+      return(NA)
+    }else{
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+          return(NA)
+        }
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+        return(NA)
+      }
+    }
+  }
+  
+  im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(dims[1]/2, dims[2]/2, keyvalues = x$keyvalues, header=header, ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
   }
 }
 
-center = function(x, useraw=FALSE){
+center = function(x, useraw=FALSE, ...){
   UseMethod("center", x)
 }
 
+#other useful methods:
 center.Rfits_image = centre.Rfits_image
+centre.Rfits_pointer = centre.Rfits_image
+center.Rfits_pointer = centre.Rfits_image
+centre.Rfits_header = centre.Rfits_image
+center.Rfits_header = centre.Rfits_image
+centre.Rfits_keylist = centre.Rfits_image
+center.Rfits_keylist = centre.Rfits_image
 
-corners = function(x, useraw=FALSE){
+Rfits_centre = function(filename, ext=1, useraw=FALSE, ...){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(centre(temp_header, useraw=useraw, ...))
+}
+
+Rfits_center = Rfits_centre
+
+corners = function(x, useraw=FALSE, ...){
   UseMethod("corners", x)
 }
 
 corners.Rfits_image = function(x, useraw=FALSE, ...){
-  if(!inherits(x, 'Rfits_image')){
-    stop('Object class is not of type Rfits_image!')
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
-  dims = dim(x)
+  
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
+      message('No NAXIS! Probably not an image, returning NA.')
+      return(NA)
+    }else{
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+          return(NA)
+        }
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+        return(NA)
+      }
+    }
+  }
+  
+  im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = x$keyvalues, header=header, ...)
-    TL = Rwcs::Rwcs_p2s(0, dims[2], keyvalues = x$keyvalues, header=header, ...)
-    TR = Rwcs::Rwcs_p2s(dims[1], dims[2], keyvalues = x$keyvalues, header=header, ...)
-    BR = Rwcs::Rwcs_p2s(dims[1], 0, keyvalues = x$keyvalues, header=header, ...)
+    BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
+    TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
+    TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
+    BR = Rwcs::Rwcs_p2s(im_dim[1], 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     output = rbind(BL, TL, TR, BR)
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
     return(output)
@@ -703,71 +1133,315 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
-pixscale = function(x, useraw=FALSE){
+corners.Rfits_pointer = corners.Rfits_image
+corners.Rfits_header = corners.Rfits_image
+corners.Rfits_keylist = corners.Rfits_image
+
+Rfits_corners = function(filename, ext=1, useraw=FALSE, ...){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(corners(temp_header, useraw=useraw, ...))
+}
+
+pixscale = function(x, useraw=FALSE, unit='asec', ...){
   UseMethod("pixscale", x)
 }
 
-pixscale.Rfits_image = function(x, useraw=FALSE, ...){
-  # if(!inherits(x, 'Rfits_image')){
-  #   stop('Object class is not of type Rfits_image!')
-  # }
-  # 
-  # if(requireNamespace("Rwcs", quietly=TRUE)){
-  #   keyvalues = Rwcs::Rwcs_keypass(x$keyvalues)
-  #   CD1_1 = keyvalues$CD1_1
-  #   CD1_2 = keyvalues$CD1_2
-  #   CD2_1 = keyvalues$CD2_1
-  #   CD2_2 = keyvalues$CD2_2
-  #   
-  #   return(3600*(sqrt(CD1_1^2+CD1_2^2)+sqrt(CD2_1^2+CD2_2^2))/2)
-  # }else{
-  #   message('The Rwcs package is needed to find the corners of a Rfits_image object.')
-  # }
-  if(!inherits(x, 'Rfits_image')){
-    stop('Object class is not of type Rfits_image!')
+pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
-  dims = dim(x)
+  
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
+      message('No NAXIS! Probably not an image, returning NA.')
+      return(NA)
+    }else{
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+          return(NA)
+        }
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+        return(NA)
+      }
+    }
+  }
+  
+  im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){header = x$raw}else{header = NULL}
-    output = Rwcs::Rwcs_p2s(dims[1]/2 + c(-0.5,0.5), dims[2]/2 + c(-0.5,0.5), keyvalues = x$keyvalues, header=header, ...)
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
+    if(max(abs(diff(output[,1]))) > 359){
+      output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
+    }
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
-    return(2545.584412*sqrt(diff(output[,1])^2 + diff(output[,2])^2)) # 2545.584412 = 3600/sqrt(2)
+    scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2) # 0.7071068 = 1/sqrt(2)
+    
+    if(unit=='deg'){
+      return(scale_deg)
+    }else if(unit == 'asec'){
+      return(scale_deg*3600)
+    }else if(unit == 'amin'){
+      return(scale_deg*60)
+    }else if(unit=='rad'){
+      return(scale_deg * (pi/180))
+    }else{
+      message('Not a valid unit, must be one of asec / amin / deg / rad')
+    }
   }else{
     message('The Rwcs package is needed to find the centre of a Rfits_image object.')
   }
 }
 
-Rfits_create_image = function(image, keyvalues, keycomments=NULL, comment = NULL, history = NULL,
-                              filename='', ext=1, keypass=TRUE){
+pixscale.Rfits_pointer = pixscale.Rfits_image
+pixscale.Rfits_header = pixscale.Rfits_image
+pixscale.Rfits_keylist = pixscale.Rfits_image
+
+Rfits_pixscale = function(filename, ext=1, useraw=FALSE, unit='asec', ...){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(pixscale(temp_header, useraw=useraw, unit=unit, ...))
+}
+
+pixarea = function(x, useraw=FALSE, unit='asec2', ...){
+  UseMethod("pixarea", x)
+}
+
+pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
+  }
   
-  if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
-    keyvalues = Rwcs::Rwcs_keypass(keyvalues)
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
   }
-  hdr = Rfits_keyvalues_to_hdr(keyvalues)
-  header = Rfits_keyvalues_to_header(keyvalues, keycomments=keycomments, comment=comment, history=history)
-  raw = Rfits_header_to_raw(header)
-  keynames = names(keyvalues)
-  if(is.null(keycomments)){
-    keycomments = as.list(rep('', length(keyvalues)))
+  
+  if(inherits(x, 'Rfits_header')){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
+      message('No NAXIS! Probably not an image, returning NA.')
+      return(NA)
+    }else{
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+          return(NA)
+        }
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+        return(NA)
+      }
+    }
   }
-  names(keycomments) = keynames
+  
+  im_dim = dim(x) #this works on all classes
+  if(requireNamespace("Rwcs", quietly=TRUE)){
+    if(useraw){header = x$raw}else{header = NULL}
+    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
+    if(max(abs(diff(output[,1]))) > 359){
+      output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
+    }
+    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
+    area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
+    
+    if(unit=='deg2'){
+      return(area_deg)
+    }else if(unit == 'asec2'){
+      return(area_deg*3600^2)
+    }else if(unit == 'amin2'){
+      return(area_deg*60^2)
+    }else if(unit=='rad2' | unit=='str'){
+      return(area_deg * (pi/180)^2)
+    }else{
+      message('Not a valid unit, must be one of asec2 / amin2 / deg2 / rad2 / str')
+    }
+  }else{
+    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
+  }
+}
+
+pixarea.Rfits_pointer = pixarea.Rfits_image
+pixarea.Rfits_header = pixarea.Rfits_image
+pixarea.Rfits_keylist = pixarea.Rfits_image
+
+Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(pixarea(temp_header, useraw=useraw, unit=unit, ...))
+}
+
+Rfits_create_image = function(data, keyvalues=NULL, keycomments=NULL, comment=NULL, history=NULL,
+                              filename='', ext=1, keypass=FALSE, ...){
+  assertList(keyvalues)
+  class(keyvalues) = 'keylist'
+  assertList(keycomments, null.ok=TRUE)
+  assertCharacter(comment, null.ok=TRUE)
+  assertCharacter(history, null.ok=TRUE)
+  assertCharacter(filename, max.len=1)
+  assertIntegerish(ext, max.len=1)
+  assertFlag(keypass)
   
   output = list(
-    imDat = image,
+    imDat = data,
     keyvalues = keyvalues,
     keycomments = keycomments,
-    keynames = keynames,
-    header = header,
-    hdr = hdr,
-    raw = raw,
     comment = comment,
     history = history,
     filename = filename,
     ext = ext,
-    extname = keyvalues$EXTNAME
+    extname = keyvalues$EXTNAME,
+    WCSref = keyvalues$WCSref
   )
   
-  class(output) = c('Rfits_image', class(output))
+  #Set initial class
+  class(output) = c('Rfits_image', 'list')
+  
+  #Tidy things up
+  output = Rfits_check_image(output, keypass=keypass)
   
   return(output)
+}
+
+Rfits_check_image = function(data, keypass=FALSE, ...){
+  if(!inherits(data, c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+    stop('Object class is not of type Rfits_image, Rfits_cube or Rfits_array')
+  }
+  
+  assertFlag(keypass)
+  
+  #Check imDat
+  if(is.null(data$imDat)){
+    stop('Missing imDat!')
+  }
+  
+  im_dim = dim(data$imDat)
+  Ndim = length(im_dim)
+  
+  #Check keyvalues
+  if(is.null(data$keyvalues)){
+    stop('Missing keyvalues!')
+  }else{
+    if(requireNamespace("Rwcs", quietly=TRUE) & keypass){
+      data$keyvalues = Rwcs::Rwcs_keypass(data$keyvalues, ...)
+    }
+  }
+  class(data$keyvalues) = 'keylist'
+  
+  #Enforce key NAXIS keyvalues
+  data$keyvalues$NAXIS = Ndim
+  data$keycomments$NAXIS = "number of data axes"
+  
+  for(i in 1:Ndim){
+    data$keyvalues[[paste0('NAXIS',i)]] = im_dim[i]
+    data$keycomments[[paste0('NAXIS',i)]] = paste("length of data axis", i)
+  }
+  
+  #Reset keynames (this is always a good idea)
+  data$keynames = names(data$keyvalues)
+  
+  #Check keycomments
+  if(is.null(data$keycomments)){
+    message('Missing keycomments! Filling with blank comments.')
+    if(is.null(data$keycomments)){
+      data$keycomments = as.list(rep('', length(data$keyvalues)))
+    }
+    names(data$keycomments) = data$keynames
+  }else{
+    if(length(data$keyvalues) == length(data$keycomments)){
+      if(any(data$keynames != names(data$keycomments))){
+        keycomments_new = as.list(rep('', length(data$keyvalues)))
+        names(keycomments_new) = data$keynames
+        match_keys = match(data$keynames, names(data$keycomments), nomatch=0)
+        keycomments_new[match_keys] = data$keycomments[match_keys]
+        data$keycomments = keycomments_new
+      }
+    }else{
+      keycomments_new = as.list(rep('', length(data$keyvalues)))
+      names(keycomments_new) = data$keynames
+      match_keys = match(data$keynames, names(data$keycomments), nomatch=0)
+      keycomments_new[match_keys] = data$keycomments[match_keys]
+      data$keycomments = keycomments_new
+    }
+  }
+  
+  data$hdr = Rfits_keyvalues_to_hdr(data$keyvalues)
+  data$header = Rfits_keyvalues_to_header(data$keyvalues, keycomments=data$keycomments, comment=data$comment, history=data$history)
+  data$raw = Rfits_header_to_raw(data$header)
+  
+  if(is.null(data$ext)){
+    data$ext = 1L
+  }
+  
+  if(is.null(data$extname)){
+    data$extname = NULL
+  }
+  
+  if(is.null(data$WCSref)){
+    data$WCSref = 'NULL'
+  }
+  
+  if(Ndim == 1){
+    class(data) = c('Rfits_vector', 'list')
+  }else if(Ndim == 2){
+    class(data) = c('Rfits_image', 'list')
+  }else if(Ndim == 3){
+    class(data) = c('Rfits_cube', 'list')
+  }else if(Ndim == 4){
+    class(data) = c('Rfits_array', 'list')
+  }
+  
+  return(data)
+}
+
+Rfits_crop = function(image, cropNA=TRUE, cropInf=FALSE, cropZero=FALSE){
+  if(! inherits(image, c('Rfits_image', 'Rfits_pointer'))){
+    stop('image must be either Rfits_image or Rfits_pointer!')
+  }
+  
+  if(inherits(image, 'Rfits_pointer')){
+    image = image[,]
+  }
+  
+  if(cropNA == FALSE & cropInf == FALSE & cropZero == FALSE){
+    return(image)
+  }
+  
+  xlo = 1L
+  xhi = dim(image)[1]
+  
+  ylo = 1L
+  yhi = dim(image)[2]
+  
+  tempsel = matrix(TRUE, xhi, yhi)
+  
+  if(cropNA){
+    tempsel = !is.na(image$imDat)
+  }
+  
+  if(cropInf){
+    tempsel = tempsel & is.finite(image$imDat)
+  }
+  
+  if(cropZero){
+    tempsel = tempsel & image$imDat != 0
+  }
+  
+  tempsel = which(tempsel, arr.ind=TRUE)
+  
+  xlo = min(tempsel[,1], na.rm=TRUE)
+  xhi = max(tempsel[,1], na.rm=TRUE)
+  ylo = min(tempsel[,2], na.rm=TRUE)
+  yhi = max(tempsel[,2], na.rm=TRUE)
+  
+  if(xlo == 1L & xhi == dim(image)[1] & ylo == 1L & yhi == dim(image)[2]){
+    return(image)
+  }
+  
+  return(image[c(xlo,xhi), c(ylo,yhi)])
 }

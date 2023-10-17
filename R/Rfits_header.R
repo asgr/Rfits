@@ -50,7 +50,7 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
-Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1){
+Rfits_read_key=function(filename='temp.fits', keyname, keytype='auto', ext=1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -58,16 +58,51 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='numeric', ext=1)
   filename = Rfits_gunzip(filename)
   assertCharacter(keyname, len=1)
   assertCharacter(keytype, max.len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
+  keytype = tolower(keytype)
+  
   if(keytype=='numeric'){
-    typecode=82
-  }else if(keytype=='string'){
-    typecode=16
+    typecode = 82
+  }else if(keytype=='integer'){
+    typecode = 41
+  }else if(keytype=='string' | keytype=='character' | keytype=='char' | keytype=='auto'){
+    typecode = 16
   }else{
     stop('Unrecognised keytype')
   }
-  return(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext))
+  
+  temp_key = try(Cfits_read_key(filename=filename, keyname=keyname, typecode=typecode, ext=ext), silent=TRUE)
+  
+  if(keytype=='auto'){
+    if(inherits(temp_key, "try-error")){
+      return(NA)
+    }
+    suppressWarnings({temp_key_num = as.numeric(temp_key)})
+    if(!is.na(temp_key_num)){
+      suppressWarnings({isint = temp_key_num %% 1 == 0 & abs(temp_key_num) <= .Machine$integer.max})
+      if(isint){
+        return(as.integer(temp_key_num))
+      }else{
+        return(as.numeric(temp_key_num))
+      }
+    }else{
+      if(temp_key == 'T'){
+        return(TRUE)
+      }else if(temp_key == 'F'){
+        return(FALSE)
+      }else{
+        if(temp_key == 'NA'){
+          return(NA)
+        }else{
+          return(temp_key) #should be a character by now
+        }
+      }
+    }
+  }else{
+    return(temp_key)
+  }
 }
 
 Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="", ext=1){
@@ -76,8 +111,15 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
+  if(is.null(keyvalue)){
+    if(identical(parent.frame(n=1), globalenv())){
+      message('keyvalue for', keyname, ' is NULL. Nothing written.')
+    }
+    return(invisible(FALSE))
+  }
   if(length(keyvalue)!=1){stop('keyvalue must be length 1')}
   assertCharacter(keycomment, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
   typecode=0
@@ -106,9 +148,16 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
       keyname = paste0('HIERARCH  ', keyname)
     }
   }
-    
-  if(is.character(keyvalue)){typecode=16}
-  Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode)
+  
+  if(is.na(keyvalue)){
+    keyvalue = 'NA'
+  }
+  
+  if(is.character(keyvalue)){
+    typecode=16
+  }
+  try(Cfits_update_key(filename=filename, keyvalue=keyvalue, keyname=keyname, keycomment=keycomment, ext=ext, typecode=typecode))
+  return(invisible(TRUE))
 }
 
 Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
@@ -117,9 +166,10 @@ Rfits_write_comment=function(filename='temp.fits', comment="", ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(comment, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
-  Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext)
+  try(Cfits_write_comment(filename=filename, comment=paste('  ',comment,sep=''), ext=ext))
 }
 
 Rfits_write_history=function(filename='temp.fits', history="", ext=1){
@@ -128,9 +178,10 @@ Rfits_write_history=function(filename='temp.fits', history="", ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(history, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)[1]}
   assertIntegerish(ext, len=1)
   
-  Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext)
+  try(Cfits_write_history(filename=filename, history=paste('  ',history,sep=''), ext=ext))
 }
 
 Rfits_write_date=function(filename='temp.fits', ext=1){
@@ -138,9 +189,10 @@ Rfits_write_date=function(filename='temp.fits', ext=1){
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
-  Cfits_write_date(filename=filename, ext=ext)
+  try(Cfits_write_date(filename=filename, ext=ext))
 }
 
 Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
@@ -149,9 +201,10 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='w')
   assertCharacter(keyname, len=1)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   
-  Cfits_delete_key(filename=filename, keyname=keyname, ext=ext)
+  try(Cfits_delete_key(filename=filename, keyname=keyname, ext=ext))
 }
 
 Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE, zap=NULL){
@@ -160,6 +213,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   assertFlag(remove_HIERARCH)
   
@@ -203,6 +257,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   #keyword list
   keyvalues = Rfits_hdr_to_keyvalues(hdr)
   keynames = names(keyvalues)
+  class(keyvalues) = 'Rfits_keylist'
   
   nloop = ceiling(length(keynames)/1e3)
   loc_goodhead={}
@@ -257,6 +312,7 @@ Rfits_read_header_raw=function(filename='temp.fits', ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   return(Cfits_read_header_raw(filename=filename, ext=ext))
 }
@@ -299,13 +355,14 @@ Rfits_write_header=function(filename='temp.fits', keyvalues, keycomments, keynam
   if(missing(keynames)){
     keynames = names(keyvalues)
   }
-  assertCharacter(keynames, max.len=length(keyvalues))
+  assertCharacter(keynames, len=length(keyvalues))
   if(! missing(comment)){
     assertCharacter(comment, null.ok = TRUE)
   }
   if(! missing(history)){
     assertCharacter(history, null.ok = TRUE)
   }
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   if(create_file){
     assertPathForOutput(filename, overwrite=overwrite_file)
@@ -433,6 +490,7 @@ Rfits_nkey = function(filename='temp.fits', ext=1){
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
   assertAccess(filename, access='r')
   filename = Rfits_gunzip(filename)
+  if(is.character(ext)){ext = Rfits_extname_to_ext(filename, ext)}
   assertIntegerish(ext, len=1)
   return(Cfits_read_nkey(filename=filename, ext=ext))
 }
@@ -487,12 +545,14 @@ Rfits_hdr_to_keyvalues = function(hdr){
   }
   keyvalues[hdr[c(F,T)] == 'T'] = TRUE
   keyvalues[hdr[c(F,T)] == 'F'] = FALSE
+  keyvalues[hdr[c(F,T)] == 'NA'] = NA
   names(keyvalues) = keynames
   return(keyvalues)
 }
 
 Rfits_keyvalues_to_hdr = function(keyvalues){
   assertList(keyvalues)
+  keyvalues = keyvalues[!is.na(keyvalues)]
   temp_out = rep('', 2*length(keyvalues))
   temp_out[seq(1,2*length(keyvalues)-1,by=2)] = names(keyvalues)
   temp_keyvalues = as.character(keyvalues)
@@ -585,4 +645,287 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   assertFlag(complement)
   
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
+}
+
+Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
+                          recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
+                          get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE, get_extremes=FALSE,
+                          get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
+                          keypass=FALSE, zap=NULL, data.table=TRUE){
+  if(is.null(filelist)){
+    if(is.null(dirlist)){
+      stop('Missing filelist and dirlist')
+    }
+    for(i in 1:length(dirlist)){
+      filelist = c(filelist,
+                   list.files(dirlist[i], full.names=TRUE, recursive=recursive))
+    }
+  }
+  
+  registerDoParallel(cores=cores)
+  
+  filelist = normalizePath(filelist)
+  if(!is.null(pattern)){
+    for(i in pattern){
+      filelist = grep(pattern=i, filelist, value=TRUE)
+    }
+  }
+  filelist = grep(pattern='.fits$', filelist, value=TRUE)
+  
+  if(length(extlist) == 1){
+    extlist = rep(extlist, length(filelist))
+  }
+  
+  if(length(keylist) > 0){
+    obs_info = data.frame()
+    
+    obs_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+      current_info = list()
+      for(key in keylist){
+        current_info = c(current_info,
+          key = Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i])
+        )
+      }
+      return(as.data.frame(current_info))
+    }
+    
+    colnames(obs_info) = keylist
+  }else{
+    obs_info = NULL
+  }
+  
+  if(get_all){
+    get_length = TRUE
+    get_dim = TRUE
+    get_centre = TRUE
+    get_corners = TRUE
+    get_extremes = TRUE
+    get_pixscale = TRUE
+    get_pixarea = TRUE
+  }
+  
+  if(any(get_length, get_dim, get_centre, get_corners, get_pixscale, get_pixarea)){
+    method_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+      
+      suppressMessages({
+        temp_header = Rfits_read_header(filename=filelist[i], ext=extlist[i], remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        
+        current_info = list()
+        
+        if(get_length){
+          temp_length = length(temp_header)
+          if(is.null(temp_length)){
+            temp_length = NA
+          }
+          current_info = c(current_info, length = temp_length)
+        }
+        
+        if(get_dim){
+          temp_dim = dim(temp_header)
+          if(is.null(temp_dim[1])){
+            temp_dim = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           dim_1 = temp_dim[1],
+                           dim_2 = temp_dim[2],
+                           dim_3 = temp_dim[3],
+                           dim_4 = temp_dim[4]
+                           )
+        }
+        
+        if(get_centre){
+          temp_cen = centre(temp_header)
+          if(is.na(temp_cen[1])){
+            temp_cen = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           centre_RA = temp_cen[1], centre_Dec = temp_cen[2]
+                           )
+        }
+        
+        if(get_corners){
+          temp_cor = corners(temp_header)
+          if(is.na(temp_cor[1])){
+            temp_cor = matrix(NA, 4,2)
+          }
+          current_info = c(current_info,
+                           corner_BL_RA = temp_cor[1,1], corner_BL_Dec = temp_cor[1,2],
+                           corner_TL_RA = temp_cor[2,1], corner_TL_Dec = temp_cor[2,2],
+                           corner_TR_RA = temp_cor[3,1], corner_TR_Dec = temp_cor[3,2],
+                           corner_BR_RA = temp_cor[4,1], corner_BR_Dec = temp_cor[4,2]
+                           )
+        }
+        
+        if(get_extremes){
+          temp_ext = corners(temp_header)
+          if(is.na(temp_cor[1])){
+            temp_ext = matrix(NA, 4,2)
+          }
+          current_info = c(current_info,
+                           min_RA = min(temp_cor[,1]), min_Dec = min(temp_cor[,2]),
+                           max_RA = max(temp_cor[,1]), max_Dec = max(temp_cor[,2])
+          )
+        }
+        
+        if(get_pixscale){
+          temp_pixscale = pixscale(temp_header)
+          current_info = c(current_info, pixscale = temp_pixscale)
+        }
+        
+        if(get_pixarea){
+          temp_pixarea = pixarea(temp_header)
+          current_info = c(current_info, pixarea = temp_pixarea)
+        }
+        return(as.data.frame(current_info))
+      })
+    }
+    
+    method_info = as.data.frame(method_info)
+  }else{
+    method_info = NULL
+  }
+  
+  output_info = NULL
+  
+  if(!is.null(obs_info)){
+    output_info = obs_info
+  }
+  
+  if(!is.null(method_info)){
+    if(is.null(output_info)){
+      output_info = method_info
+    }else{
+      output_info = cbind(output_info, method_info)
+    }
+  }
+  
+  file = basename(filelist)
+  stub = gsub('.fits$','',file)
+  path = dirname(filelist)
+  
+  fileinfo = tolower(fileinfo)
+  colname_fileinfo = NULL
+  
+  if(keep_ext){
+    colname_fileinfo = c('ext', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(extlist)
+    }else{
+      output_info = cbind(extlist, output_info)
+    }
+  }
+  if('path' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('path', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(path)
+    }else{
+      output_info = cbind(path, output_info)
+    }
+  }
+  if('stub' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('stub', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(stub)
+    }else{
+      output_info = cbind(stub, output_info)
+    }
+  }
+  if('file' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('file', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(file)
+    }else{
+      output_info = cbind(file, output_info)
+    }
+  }
+  if('full' %in% fileinfo | 'all' %in% fileinfo){
+    colname_fileinfo = c('full', colname_fileinfo)
+    if(is.null(output_info)){
+      output_info = as.data.frame(filelist)
+    }else{
+      output_info = cbind(filelist, output_info)
+    }
+  }
+  
+  if(!is.null(colname_fileinfo)){
+    colnames(output_info)[1:length(colname_fileinfo)] = colname_fileinfo
+  }
+  
+  if(data.table){
+    data.table::setDT(output_info)
+  }
+  
+  return(invisible(output_info))
+}
+
+Rfits_extnames = function(filename='temp.fits'){
+  Nhdu = Rfits_nhdu(filename)
+  
+  extnames = {}
+  
+  for(i in 1:Nhdu){
+    temp_extname = Rfits_read_key(filename, keyname = 'EXTNAME', keytype='string', ext=i)
+    if(length(temp_extname) == 0 | inherits(temp_extname, 'try-error')){
+      temp_extname = NA_character_
+    }
+    extnames = c(extnames, temp_extname)
+  }
+  return(extnames)
+}
+
+Rfits_extname_to_ext = function(filename='temp.fits', extname=''){
+  extnames = Rfits_extnames(filename)
+  loc = which(extnames == extname)
+  if(length(loc) == 0){
+    loc = NA
+  }
+  return(loc)
+}
+
+Rfits_key_match = function(keyvalues_test, keyvalues_ref, check = 'both', ignore = 'NULL',
+                          verbose = FALSE){
+  keynames_test = names(keyvalues_test)
+  keynames_ref = names(keyvalues_ref)
+  
+  if(check[1] == 'both'){
+    keynames_check = keynames_ref[keynames_ref %in% keynames_test]
+  }else if(check[1] == 'ref'){
+    keynames_check = keynames_ref
+  }else if(check[1] == 'test'){
+    keynames_check = keynames_test
+  }else if(check[1] == 'all'){
+    keynames_check = unique(keynames_test, keyvalues_ref)
+  }else{
+    keynames_check = check
+  }
+  
+  if(!is.null(ignore)){
+    keynames_check = keynames_check[!keynames_check %in% ignore]
+  }
+  
+  i = NULL
+  
+  test_out = foreach(i = 1:length(keynames_check), .combine='c')%do%{
+    isTRUE(keyvalues_test[[keynames_check[i]]] == keyvalues_ref[[keynames_check[i]]])
+  }
+  
+  if(verbose){
+    if(any(test_out)){
+      message('Equal: ', paste(keynames_check[test_out], collapse = ' '))
+    }
+    
+    if(any(!test_out)){
+      message('Diff: ', paste(keynames_check[!test_out], collapse = ' '))
+    }
+    
+    if(!all(keynames_check %in% keynames_test)){
+      message('Missing in test: ', paste(keynames_check[!(keynames_check %in% keynames_test)], collapse = ' '))
+    }
+    
+    if(!all(keynames_check %in% keynames_ref)){
+      message('Missing in ref: ', paste(keynames_check[!(keynames_check %in% keynames_ref)], collapse = ' '))
+    }
+  }
+  
+  return(all(test_out))
 }

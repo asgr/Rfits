@@ -18,6 +18,8 @@
 \alias{Rfits_nhdu}
 \alias{Rfits_nkey}
 \alias{Rfits_read_header_raw}
+\alias{Rfits_extnames}
+\alias{Rfits_extname_to_ext}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Header Readers and Writers
@@ -35,7 +37,7 @@ Rfits_write_header(filename = 'temp.fits', keyvalues, keycomments, keynames,
 
 Rfits_info(filename = 'temp.fits', remove_HIERARCH = FALSE)
 
-Rfits_read_key(filename = 'temp.fits', keyname, keytype = 'numeric', ext = 1)
+Rfits_read_key(filename = 'temp.fits', keyname, keytype = 'auto', ext = 1)
 
 Rfits_write_key(filename = 'temp.fits', keyname, keyvalue, keycomment = "",
     ext = 1)
@@ -64,7 +66,9 @@ Rfits_nkey(filename = 'temp.fits', ext = 1)
 
 Rfits_read_header_raw(filename = 'temp.fits', ext = 1)
 
+Rfits_extnames(filename)
 
+Rfits_extname_to_ext(filename, extname='')
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -81,7 +85,7 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
 Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
 }
   \item{zap}{
-Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
+Character vector; optional unique strings to zap out of the header. These elements are passed through \code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords.
 }
   \item{keyname}{
 Character scalar; keyname in FITS header to be updated, added (if not present), or deleted.  
@@ -90,7 +94,7 @@ Character scalar; keyname in FITS header to be updated, added (if not present), 
 Character vector; (not required) keynames in FITS header to be updated or added (if not present). If not supplied then the keynames will be taken from the names of \option{keyvalues}.
 }
   \item{keytype}{
-Character scalar; type of key to be read in, either "numeric" or "string". 
+Character scalar; type of key to be read in, either "numeric", "integer", or "string", "character" or "char". There is also the special option "auto" that tried its best to guess the correct type of the output based on what is returned.
 }
   \item{keyvalue}{
 Scalar; value to be written (updated or added) into header (can be any type, e.g. numeric, integer, string).
@@ -127,6 +131,9 @@ Either numeric or character scalar; values to be encoded/decoded respectively (o
 }
   \item{complement}{
 Logical; should the checksums be complemented (only for advanced users).  
+}
+  \item{extname}{
+Character scalar; the extension name of interest.  
 }
 }
 \details{
@@ -203,8 +210,11 @@ Integer scalar; total number of keys in the header.
 
 \code{Rfits_read_header_raw} fully concatenated header output with full padding. This is really for later passing into \code{Rwcs} functions that can accept such headers, \code{Rfits} does not use this otherwise.
 
+\code{Rfits_extnames} character vector of all the extension names present in the target fits file. Literally the string contained in EXTNAME. This will have the value of NA if EXTNAME is entirely missing from a particular extention.
 
+\code{Rfits_extname_to_ext} integer vector of the extension location/s for a particular filename / extname combination. This is useful when extensions might vary in location. Note it will provide all extension locations in multiple matches are found.
 }
+
 \references{
 \url{https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/c_user/cfitsio.html}
 }
@@ -218,8 +228,8 @@ Rodrigo Tobar
 }
 \examples{
 #Read full image
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 
 #View header info
 temp_image$keyvalues$NAXIS1
@@ -227,9 +237,9 @@ temp_image$keyvalues$CTYPE1
 
 #Read just the header
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
-temp_table_header_ext1=Rfits_read_header(file_table, ext = 1) #Meta table data
-temp_table_header_ext2=Rfits_read_header(file_table, ext = 2) #Column info
-temp_image_header=Rfits_read_header(file_image, ext = 1) #Meta image data
+temp_table_header_ext1 = Rfits_read_header(file_table, ext = 1) #Meta table data
+temp_table_header_ext2 = Rfits_read_header(file_table, ext = 2) #Column info
+temp_image_header = Rfits_read_header(file_image, ext = 1) #Meta image data
 temp_image_header$keyvalues$NAXIS1
 temp_image_header$keyvalues$CTYPE1
 
