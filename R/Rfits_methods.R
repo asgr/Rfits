@@ -932,6 +932,64 @@ Rfits_dim = function(filename, ext=1){
 
 `[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse){
   
+  xdim = dim(x)[1]
+  ydim = dim(x)[2]
+  zdim = dim(x)[3]
+  tdim = dim(x)[4]
+  
+  if(!missing(box) & missing(i) & missing(j)){
+    i = ceiling(xdim/2)
+    j = ceiling(ydim/2)
+  }
+  
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(i))[3]){
+        start = express[2]
+        end = xdim
+        i = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(j)){
+    express = as.character(substitute(j))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(j))[3]){
+        start = express[2]
+        end = ydim
+        j = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(k)){
+    express = as.character(substitute(k))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(k))[3]){
+        start = express[2]
+        end = zdim
+        k = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
+  if(!missing(m)){
+    express = as.character(substitute(m))
+    
+    if(express[1] == ':' & length(express) == 3L){
+      if(grepl('end',substitute(m))[3]){
+        start = express[2]
+        end = tdim
+        m = eval(parse(text=paste0(start,':',end)))
+      }
+    }
+  }
+  
   if(!missing(i)){
     if(is.vector(i)){
       if(length(i)==2 & missing(j)){

@@ -1331,7 +1331,7 @@ Rfits_check_image = function(data, keypass=FALSE, ...){
       data$keyvalues = Rwcs::Rwcs_keypass(data$keyvalues, ...)
     }
   }
-  class(data$keyvalues) = 'keylist'
+  class(data$keyvalues) = 'Rfits_keylist'
   
   #Enforce key NAXIS keyvalues
   data$keyvalues$NAXIS = Ndim
