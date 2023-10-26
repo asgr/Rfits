@@ -24,6 +24,7 @@
 \alias{dim.Rfits_pointer}
 \alias{dim.Rfits_header}
 \alias{dim.Rfits_keylist}
+\alias{dim.Rfits_pointer_hdf5}
 
 \alias{centre}
 \alias{center}
@@ -68,6 +69,7 @@
 \alias{[.Rfits_cube}
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
+\alias{[.Rfits_pointer_hdf5}
 
 \alias{[<-.Rfits_pointer}
 
@@ -133,6 +135,7 @@
 \method{dim}{Rfits_pointer}(x)
 \method{dim}{Rfits_header}(x)
 \method{dim}{Rfits_keylist}(x)
+\method{dim}{Rfits_pointer_hdf5}(x)
 
 centre(x, useraw=FALSE, ...)
 center(x, useraw=FALSE, ...)
@@ -179,6 +182,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header,
   sparse=x$sparse, scale_sparse=x$scale_sparse)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
+\method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)

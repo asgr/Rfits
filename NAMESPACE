@@ -94,7 +94,6 @@ export(Rfits_write_array_hdf5)
 
 export(Rfits_length)
 export(Rfits_dim)
-export(plot.Rfits_pointer)
 
 export(centre)
 export(center)
@@ -109,12 +108,14 @@ export(Rfits_pixscale)
 export(Rfits_pixarea)
 
 export(Rfits_point)
+export(Rfits_point_hdf5)
 
 S3method("[", Rfits_image)
 S3method("[", Rfits_cube)
 S3method("[", Rfits_array)
 S3method("[", Rfits_vector)
 S3method("[", Rfits_pointer)
+S3method("[", Rfits_pointer_hdf5)
 
 S3method("[<-", Rfits_pointer)
 
@@ -142,6 +143,7 @@ S3method("dim", Rfits_array)
 S3method("dim", Rfits_pointer)
 S3method("dim", Rfits_header)
 S3method("dim", Rfits_keylist)
+S3method("dim", Rfits_pointer_hdf5)
 
 S3method("plot", Rfits_image)
 S3method("plot", Rfits_cube)
