@@ -1334,12 +1334,23 @@ Rfits_check_image = function(data, keypass=FALSE, ...){
   class(data$keyvalues) = 'Rfits_keylist'
   
   #Enforce key NAXIS keyvalues
-  data$keyvalues$NAXIS = Ndim
-  data$keycomments$NAXIS = "number of data axes"
+  if(isTRUE(data$keyvalues$ZIMAGE)){
+    data$keyvalues$ZNAXIS = Ndim
+    data$keycomments$ZNAXIS = "number of data axes"
+  }else{
+    data$keyvalues$NAXIS = Ndim
+    data$keycomments$NAXIS = "number of data axes"
+  }
+  
   
   for(i in 1:Ndim){
-    data$keyvalues[[paste0('NAXIS',i)]] = im_dim[i]
-    data$keycomments[[paste0('NAXIS',i)]] = paste("length of data axis", i)
+    if(isTRUE(data$keyvalues$ZIMAGE)){
+      data$keyvalues[[paste0('ZNAXIS',i)]] = im_dim[i]
+      data$keycomments[[paste0('ZNAXIS',i)]] = paste("length of data axis", i)
+    }else{
+      data$keyvalues[[paste0('NAXIS',i)]] = im_dim[i]
+      data$keycomments[[paste0('NAXIS',i)]] = paste("length of data axis", i)
+    }
   }
   
   #Reset keynames (this is always a good idea)
