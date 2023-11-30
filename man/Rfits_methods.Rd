@@ -24,36 +24,43 @@
 \alias{dim.Rfits_pointer}
 \alias{dim.Rfits_header}
 \alias{dim.Rfits_keylist}
+\alias{dim.Rfits_pointer_hdf5}
 
 \alias{centre}
 \alias{center}
 \alias{corners}
 \alias{pixscale}
 \alias{pixarea}
+\alias{rotation}
 
 \alias{centre.Rfits_image}
 \alias{center.Rfits_image}
-\alias{corners.Rfits_image}
-\alias{pixscale.Rfits_image}
-\alias{pixarea.Rfits_image}
-
 \alias{centre.Rfits_pointer}
 \alias{center.Rfits_pointer}
-\alias{corners.Rfits_pointer}
-\alias{pixscale.Rfits_pointer}
-\alias{pixarea.Rfits_pointer}
-
 \alias{centre.Rfits_header}
 \alias{center.Rfits_header}
-\alias{corners.Rfits_header}
-\alias{pixscale.Rfits_header}
-\alias{pixarea.Rfits_header}
-
 \alias{centre.Rfits_keylist}
 \alias{center.Rfits_keylist}
+
+\alias{corners.Rfits_image}
+\alias{corners.Rfits_pointer}
+\alias{corners.Rfits_header}
 \alias{corners.Rfits_keylist}
+
+\alias{pixscale.Rfits_image}
+\alias{pixscale.Rfits_pointer}
+\alias{pixscale.Rfits_header}
 \alias{pixscale.Rfits_keylist}
+
+\alias{pixarea.Rfits_image}
+\alias{pixarea.Rfits_pointer}
+\alias{pixarea.Rfits_header}
 \alias{pixarea.Rfits_keylist}
+
+\alias{rotation.Rfits_image}
+\alias{rotation.Rfits_pointer}
+\alias{rotation.Rfits_header}
+\alias{rotation.Rfits_keylist}
 
 \alias{Rfits_length}
 \alias{Rfits_dim}
@@ -62,12 +69,14 @@
 \alias{Rfits_corners}
 \alias{Rfits_pixscale}
 \alias{Rfits_pixarea}
+\alias{Rfits_rotation}
 
 \alias{[.Rfits_vector}
 \alias{[.Rfits_image}
 \alias{[.Rfits_cube}
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
+\alias{[.Rfits_pointer_hdf5}
 
 \alias{[<-.Rfits_pointer}
 
@@ -133,6 +142,7 @@
 \method{dim}{Rfits_pointer}(x)
 \method{dim}{Rfits_header}(x)
 \method{dim}{Rfits_keylist}(x)
+\method{dim}{Rfits_pointer_hdf5}(x)
 
 centre(x, useraw=FALSE, ...)
 center(x, useraw=FALSE, ...)
@@ -145,24 +155,28 @@ pixarea(x, useraw=FALSE, unit='asec2', ...)
 \method{corners}{Rfits_image}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_image}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_image}(x, useraw=FALSE, unit='asec2',  ...)
+\method{rotation}{Rfits_image}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_pointer}(x, useraw=FALSE, ...)
 \method{center}{Rfits_pointer}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_pointer}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_pointer}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_pointer}(x, useraw=FALSE, unit='asec2',  ...)
+\method{rotation}{Rfits_pointer}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_header}(x, useraw=FALSE, ...)
 \method{center}{Rfits_header}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_header}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_header}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_header}(x, useraw=FALSE, unit='asec2',  ...)
+\method{rotation}{Rfits_header}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_keylist}(x, useraw=FALSE, ...)
 \method{center}{Rfits_keylist}(x, useraw=FALSE, ...)
 \method{corners}{Rfits_keylist}(x, useraw=FALSE,  ...)
 \method{pixscale}{Rfits_keylist}(x, useraw=FALSE, unit='asec',  ...)
 \method{pixarea}{Rfits_keylist}(x, useraw=FALSE, unit='asec2',  ...)
+\method{rotation}{Rfits_keylist}(x, keypass=TRUE, ...)
 
 Rfits_length(filename, ext=1)
 Rfits_dim(filename, ext=1)
@@ -171,6 +185,7 @@ Rfits_center(filename, ext=1, useraw=FALSE, ...)
 Rfits_corners(filename, ext=1, useraw=FALSE, ...)
 Rfits_pixscale(filename, ext=1, useraw=FALSE, unit='asec', ...)
 Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
+Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 
 \method{[}{Rfits_vector}(x, i, header=TRUE)
 \method{[}{Rfits_image}(x, i, j, box=201, type='pix', header=TRUE)
@@ -179,6 +194,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header,
   sparse=x$sparse, scale_sparse=x$scale_sparse)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
+\method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)
@@ -223,6 +239,7 @@ Rfits_pixarea(filename, ext=1, useraw=FALSE, unit='asec2', ...)
   \item{m}{Integer/numeric vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
   \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
   \item{unit}{Character scalar; for pixscale must be one of asec / amin / deg / rad, for pixarea must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
+    \item{keypass}{Logical; should \code{Rwcs_keypass} be used to clean up the header?}
   \item{header}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
   \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
   \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
@@ -245,8 +262,9 @@ Logical; should the image be scaled to compensate for sparse sampling (so roghly
   \item{dim}{Integer vector; these methods return the dimensions present in the target object.}
   \item{centre / center}{Numeric vector; these methods return the coordinates at the centre of the spatial dimensions (NA if not an image / cube / array.}
   \item{corners}{Numeric matrix; these methods return the coordinates at the corners of the spatial dimensions (NA if not an image / cube / array. Rows are TL / BL / TR / BR (top to bottom).}
-  \item{pixscale}{Integer scalar; these methods return the pixel scale of the spatial dimensions in the specified units.}
-  \item{pixarea}{Integer scalar; these methods return the pixel area of the spatial dimensions in the specified units.}
+  \item{pixscale}{Numeric scalar; these methods return the pixel scale of the spatial dimensions in the specified units.}
+  \item{pixarea}{Numeric scalar; these methods return the pixel area of the spatial dimensions in the specified units.}
+  \item{rotation}{Numeric vector; these methods return the image rotation in degrees for the North and East vector. This is the vector of [1] North with respect to y-axis up clockwise (so -> is 90); and East with respect to x-axis right clockwise (so East -> is 0) [2]. This should be clear when comparing to the compass drawn when making a \code{plot} of the \option{image} data.}
   
   \code{\link{&}}, \code{\link{|}}, \code{\link{xor}}, \code{\link{!=}}, \code{\link{==}}, 
   \code{\link{<}}, \code{\link{<=}}, \code{\link{>}}, \code{\link{>=}} return a logical vector \cr

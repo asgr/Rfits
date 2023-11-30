@@ -8,6 +8,7 @@
 \alias{Rfits_write_image_hdf5}
 \alias{Rfits_write_cube_hdf5}
 \alias{Rfits_write_array_hdf5}
+\alias{Rfits_point_hdf5}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 FITS Style HDF5 Vector Image Cube and Array Readers and Writers
@@ -43,6 +44,8 @@ Rfits_write_cube_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext 
   
 Rfits_write_array_hdf5(data, filename = 'temp.h5', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE)
+  
+Rfits_point_hdf5(filename = 'temp.h5', extname = 'data1', ext = NULL, header = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

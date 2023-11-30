@@ -1,7 +1,10 @@
 Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, header=TRUE,
                                  xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, zlo=NULL, zhi=NULL,
                                  tlo=NULL, thi=NULL, remove_HIERARCH=FALSE, force_logical=FALSE){
-  if(requireNamespace("hdf5r", quietly = TRUE)){
+  if(!requireNamespace("hdf5r", quietly = TRUE)){
+    stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
+  }
+  
     assertCharacter(filename, max.len=1)
     filename = path.expand(filename)
     assertAccess(filename, access='r')
@@ -246,9 +249,6 @@ Rfits_read_image_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, 
     if(!is.null(output)){
       return(invisible(output))
     }
-  }else{
-    stop('The hdf5r package is needed for reading to work. Please install from CRAN.', call. = FALSE)
-  }
 }
 
 Rfits_read_vector_hdf5 = Rfits_read_image_hdf5
@@ -256,7 +256,9 @@ Rfits_read_cube_hdf5 = Rfits_read_image_hdf5
 Rfits_read_array_hdf5 = Rfits_read_image_hdf5
 
 Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', create_ext=TRUE, overwrite_file=FALSE){
-  if(requireNamespace("hdf5r", quietly = TRUE)){
+  if(!requireNamespace("hdf5r", quietly = TRUE)){
+    stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
+  }
     assertCharacter(filename, max.len=1)
     assertCharacter(extname, max.len=1)
     filename = path.expand(filename)
@@ -284,11 +286,62 @@ Rfits_write_image_hdf5 = function(data, filename='temp.h5', extname='data1', cre
     })
     
     #file.h5$close_all()
-  }else{
-    stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
-  }
 }
 
 Rfits_write_vector_hdf5 = Rfits_write_image_hdf5
 Rfits_write_cube_hdf5 = Rfits_write_image_hdf5
 Rfits_write_array_hdf5 = Rfits_write_image_hdf5
+
+Rfits_point_hdf5 = function(filename='temp.h5', extname='data1', ext=NULL, header=TRUE){
+  output = list(filename=filename, extname=extname, ext=ext, header=header)
+  class(output) = 'Rfits_pointer_hdf5'
+  return(invisible(output))
+}
+
+`[.Rfits_pointer_hdf5` = function(x, i=NULL, j=NULL, k=NULL, m=NULL, header=x$header){
+  
+  if(!missing(i)){
+    if(is.vector(i)){
+      xlo = ceiling(min(i))
+      xhi = ceiling(max(i))
+    }
+  }else{
+    xlo = NULL
+    xhi = NULL
+  }
+  if(!missing(j)){
+    ylo = ceiling(min(j))
+    yhi = ceiling(max(j))
+  }else{
+    ylo = NULL
+    yhi = NULL
+  }
+  if(!missing(k)){
+    zlo = ceiling(min(k))
+    zhi = ceiling(max(k))
+  }else{
+    zlo = NULL
+    zhi = NULL
+  }
+  if(!missing(m)){
+    tlo = ceiling(min(m))
+    thi = ceiling(max(m))
+  }else{
+    tlo = NULL
+    thi = NULL
+  }
+  
+  data = Rfits_read_image_hdf5(x$filename, extname=x$extname, ext=x$ext,
+                               xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
+                               tlo=tlo, thi=thi, header=header)
+  return(data)
+}
+
+dim.Rfits_pointer_hdf5 = function(x){
+  if(!requireNamespace("hdf5r", quietly = TRUE)){
+    stop('The hdf5r package is needed for writing to work. Please install from CRAN.', call. = FALSE)
+  }
+  
+  data = hdf5r::H5File$new(x, mode="r")
+  return(data[['image']]$dims)
+}

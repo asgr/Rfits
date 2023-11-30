@@ -38,10 +38,7 @@ Aaron Robotham
 \code{\link{Rfits_image}}
 }
 \examples{
-library(Rfits)
-
-image = Rfits_read_image(system.file('extdata/VIKING/mystery_VIKING_Z.fits',
-  package="ProFound"))
+image = Rfits_read_image(system.file('extdata', 'image.fits', package = "Rfits"))
 
 plot(image)
 
