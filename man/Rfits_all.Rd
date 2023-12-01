@@ -69,10 +69,10 @@ Numeric vector; non-numeric replacement value to use when compression is being d
 Character vector; if supplied the output list elements will be limited to those named here. This is a convenient way to only write out a subset of a large list by list component name.  
 }
   \item{filelist}{
-Character vector; vector of full paths of FITS files to analyse. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
+Character vector; vector of full paths of FITS files to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is used. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
 }
   \item{dirlist}{
-Character vector; vector of full paths of directories to analyse.
+Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is used.
 }
   \item{extlist}{
 Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}

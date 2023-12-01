@@ -691,6 +691,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     }
   }
   filelist = grep(pattern='.fits$', filelist, value=TRUE)
+  filelist = unique(filelist)
   
   if(length(extlist) == 1){
     extlist = rep(extlist, length(filelist))

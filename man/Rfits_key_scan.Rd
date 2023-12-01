@@ -17,10 +17,10 @@ Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{filelist}{
-Character vector; vector of full paths of FITS files to analyse.
+Character vector; vector of full paths of FITS files to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is scanned.
 }
   \item{dirlist}{
-Character vector; vector of full paths of directories to analyse.
+Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is scanned.
 }
   \item{keylist}{
 Character vector; vector of keywords to scan the files for.
