@@ -667,45 +667,58 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
   return(Cfits_decode_chksum(ascii=checksum, complement=complement))
 }
 
-Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
+Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=NULL, extlist=1, pattern=NULL,
                           recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=1, get_length=FALSE,
                           get_dim=FALSE, get_centre=FALSE, get_rotation=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
                           keypass=FALSE, zap=NULL, data.table=TRUE, ...){
-  if(is.null(filelist)){
-    if(is.null(dirlist)){
-      stop('Missing filelist and dirlist')
-    }
-    for(i in 1:length(dirlist)){
-      filelist = c(filelist,
-                   list.files(dirlist[i], full.names=TRUE, recursive=recursive))
-    }
-  }
   
   registerDoParallel(cores=cores)
   
-  filelist = normalizePath(filelist)
-  if(!is.null(pattern)){
-    for(i in pattern){
-      filelist = grep(pattern=i, filelist, value=TRUE)
+  if(is.null(image_list)){
+    if(is.null(filelist)){
+      if(is.null(dirlist)){
+        stop('Missing filelist and dirlist')
+      }
+      for(i in 1:length(dirlist)){
+        filelist = c(filelist,
+                     list.files(dirlist[i], full.names=TRUE, recursive=recursive))
+      }
+    }
+    
+    filelist = normalizePath(filelist)
+    if(!is.null(pattern)){
+      for(i in pattern){
+        filelist = grep(pattern=i, filelist, value=TRUE)
+      }
+    }
+    filelist = grep(pattern='.fits$', filelist, value=TRUE)
+    filelist = unique(filelist)
+    
+    Nscan = length(filelist)
+  }else{
+    Nscan = length(image_list)
+    filelist = foreach(i = 1:Nscan, .combine='c')%dopar%{
+      image_list[[i]]$filename
     }
   }
-  filelist = grep(pattern='.fits$', filelist, value=TRUE)
-  filelist = unique(filelist)
   
   if(length(extlist) == 1){
-    extlist = rep(extlist, length(filelist))
+    extlist = rep(extlist, Nscan)
   }
   
   if(length(keylist) > 0){
     obs_info = data.frame()
     
-    obs_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+    obs_info = foreach(i = 1:Nscan, .combine='rbind')%dopar%{
       current_info = list()
       for(key in keylist){
-        current_info = c(current_info,
-          key = Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i])
-        )
+          if(is.null(image_list)){
+            keyval = Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i])
+          }else{
+            keyval = image_list[[i]]$keyvalues[[key]]
+          }
+        current_info = c(current_info, key=keyval)
       }
       return(as.data.frame(current_info))
     }
@@ -727,15 +740,19 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
   }
   
   if(any(get_length, get_dim, get_centre, get_corners, get_pixscale, get_pixarea)){
-    method_info = foreach(i = 1:length(filelist), .combine='rbind')%dopar%{
+    method_info = foreach(i = 1:Nscan, .combine='rbind')%dopar%{
       
       suppressMessages({
-        temp_header = Rfits_read_header(filename=filelist[i], ext=extlist[i], remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        if(is.null(image_list)){
+          temp_keyvalues = Rfits_read_header(filename=filelist[i], ext=extlist[i], remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)$keyvalues
+        }else{
+          temp_keyvalues = image_list[[i]]$keyvalues
+        }
         
         current_info = list()
         
         if(get_length){
-          temp_length = length(temp_header)
+          temp_length = length(temp_keyvalues)
           if(is.null(temp_length)){
             temp_length = NA
           }
@@ -743,7 +760,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_dim){
-          temp_dim = dim(temp_header)
+          temp_dim = dim(temp_keyvalues)
           if(is.null(temp_dim[1])){
             temp_dim = rep(NA, 2)
           }
@@ -756,7 +773,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_centre){
-          temp_cen = centre(temp_header, ...)
+          temp_cen = centre(temp_keyvalues, ...)
           if(is.na(temp_cen[1])){
             temp_cen = rep(NA, 2)
           }
@@ -766,7 +783,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_rotation){
-          temp_rot = rotation(temp_header, ...)
+          temp_rot = rotation(temp_keyvalues, ...)
           if(is.na(temp_rot[1])){
             temp_rot = rep(NA, 2)
           }
@@ -776,7 +793,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_corners){
-          temp_cor = corners(temp_header, ...)
+          temp_cor = corners(temp_keyvalues, ...)
           if(is.na(temp_cor[1])){
             temp_cor = matrix(NA, 4, 2)
           }
@@ -789,7 +806,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_extremes){
-          temp_ext = extremes(temp_header, ...)
+          temp_ext = extremes(temp_keyvalues, ...)
           if(is.na(temp_ext[1])){
             temp_ext = matrix(NA, 3, 2)
           }
@@ -801,12 +818,12 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_pixscale){
-          temp_pixscale = pixscale(temp_header, ...)
+          temp_pixscale = pixscale(temp_keyvalues, ...)
           current_info = c(current_info, pixscale = temp_pixscale)
         }
         
         if(get_pixarea){
-          temp_pixarea = pixarea(temp_header, ...)
+          temp_pixarea = pixarea(temp_keyvalues, ...)
           current_info = c(current_info, pixarea = temp_pixarea)
         }
         return(as.data.frame(current_info))

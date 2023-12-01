@@ -8,12 +8,12 @@ Key Word Scanner
 Scans files or list of directories for keywords in FITS files. This is useful for e.g. finding all CRVAL1/2 of large sets of observations (if looking for a particular region of sky, say).
 }
 \usage{
-Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
-  pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
-  get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_rotation = FALSE,
-  get_corners = FALSE, get_extremes = FALSE, get_pixscale = FALSE, get_pixarea = FALSE,
-  get_all = FALSE, remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL,
-  data.table = TRUE, ...)
+Rfits_key_scan(filelist = NULL, dirlist = NULL, image_list = NULL, keylist = NULL,
+  extlist = 1, pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE,
+  cores = 1, get_length = FALSE, get_dim = FALSE, get_centre = FALSE,
+  get_rotation = FALSE, get_corners = FALSE, get_extremes = FALSE,
+  get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
+  keypass = FALSE, zap = NULL, data.table = TRUE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -22,6 +22,9 @@ Character vector; vector of full paths of FITS files to analyse. Both \option{fi
 }
   \item{dirlist}{
 Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is scanned.
+}
+  \item{image_list}{
+List of the input \code{\link{Rfits_image}} or \code{\link{Rfits_pointer}} objects from e.g. \code{\link{Rfits_make_list}}.
 }
   \item{keylist}{
 Character vector; vector of keywords to scan the files for.
@@ -108,4 +111,14 @@ temp_scan = Rfits_key_scan(filelist = c(file_image, file_cube),
   keylist=c('NAXIS1', 'CRVAL1', 'EQUINOX', 'CUNIT1'))
 
 print(temp_scan)
+
+temp_scan2 = Rfits_key_scan(filelist=file_image, get_all=TRUE)
+
+print(temp_scan2)
+
+image_list = Rfits_make_list(filelist=file_image)
+
+temp_scan3 = Rfits_key_scan(image_list=image_list, get_all=TRUE)
+
+print(temp_scan3)
 }
