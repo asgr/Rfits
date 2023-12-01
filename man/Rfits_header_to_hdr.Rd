@@ -7,6 +7,9 @@
 \alias{Rfits_header_to_raw}
 \alias{Rfits_raw_to_header}
 \alias{Rfits_header_zap}
+\alias{Rfits_raw_to_keyvalues}
+\alias{Rfits_keyvalues_to_raw}
+
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Header Converters
@@ -22,7 +25,10 @@ Rfits_keyvalues_to_hdr(keyvalues)
 Rfits_keyvalues_to_header(keyvalues, keycomments = NULL, comment = NULL,
   history = NULL)
 Rfits_header_to_raw(header, zap = NULL, ...)
-Rfits_raw_to_header(header)
+Rfits_raw_to_header(raw)
+Rfits_raw_to_keyvalues(raw, remove_HIERARCH = FALSE)
+Rfits_keyvalues_to_raw(keyvalues, keycomments = NULL, comment = NULL, history = NULL,
+  zap = NULL, ...)
 Rfits_header_zap(header, zap = NULL, ...)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -42,6 +48,9 @@ WCSAXES =                    2 / Number of World Coordinate System axes
 }
   \item{hdr}{
 Character vector; alternates keyname/kevalue pairs. This is the same format used in the \code{FITSio} package. See Examples.
+}
+  \item{raw}{
+Character scalar; raw header where all keys are exactly separated by 80 characters, and all are concatenated together into a single string. This is mostly for use with \code{Cwcs_head_s2p} and \code{Cwcs_head_p2s} which takes a raw form header as input and passes it through WCSLIB.
 }
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
@@ -86,6 +95,10 @@ Utility converstion functions, should you be stuck with an older format header.
 
 \code{Rfits_raw_to_header} return a \option{header} vector, as used in most instances of \option{header} in \code{Rfits}.
 
+\code{Rfits_raw_to_keyvalues} return a \option{keyvalues} list format key values header that is the standard in \code{Rfits}.
+
+\code{Rfits_keyvalues_to_raw} return a raw \option{header} where all keys are exactly separated by 80 characters, and all are concatenated together into a single string. This is mostly for use with \code{Cwcs_head_s2p} and \code{Cwcs_head_p2s} which takes a raw form header as input and passes it through WCSLIB.
+
 \code{Rfits_header_zap} returns a header vector with header lines containing specified text zapped out. This can be useful for cleaning bad headers up easily.
 }
 \author{
@@ -97,31 +110,36 @@ Aaron Robotham
 }
 \examples{
 #Read full image
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
 print(temp_image$header)
 
-temp_hdr=Rfits_header_to_hdr(temp_image$header)
+temp_hdr = Rfits_header_to_hdr(temp_image$header)
 print(temp_hdr)
 
-temp_keyvalues=Rfits_hdr_to_keyvalues(temp_hdr)
+temp_keyvalues = Rfits_hdr_to_keyvalues(temp_hdr)
 print(temp_keyvalues)
 
-temp_keyvalues=Rfits_header_to_keyvalues(temp_image$header)
+temp_keyvalues = Rfits_header_to_keyvalues(temp_image$header)
 print(temp_keyvalues)
 
-temp_hdr=Rfits_keyvalues_to_hdr(temp_keyvalues)
+temp_hdr = Rfits_keyvalues_to_hdr(temp_keyvalues)
 print(temp_hdr)
 
-temp_header=Rfits_keyvalues_to_header(temp_image$keyvalues, temp_image$keycomments,
+temp_header = Rfits_keyvalues_to_header(temp_image$keyvalues, temp_image$keycomments,
   temp_image$comment)
 print(temp_header)
 
-temp_raw=Rfits_header_to_raw(temp_image$header)
+temp_raw = Rfits_header_to_raw(temp_image$header)
 print(temp_raw)
 
-temp_header=Rfits_raw_to_header(temp_raw)
+temp_header = Rfits_raw_to_header(temp_raw)
 print(temp_header) #Notice the formatting includes blank spaces out to 80 characters
+
+temp_keyvalues2 = Rfits_raw_to_keyvalues(temp_raw)
+print(temp_keyvalues2)
+
+identical(temp_keyvalues, temp_keyvalues2)
 }
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the

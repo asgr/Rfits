@@ -1,10 +1,10 @@
 #centre
 
-centre = function(x, useraw=FALSE, ...){
+centre = function(x, useraw=TRUE, ...){
   UseMethod("centre", x)
 }
 
-centre.Rfits_image = function(x, useraw=FALSE, ...){
+centre.Rfits_image = function(x, useraw=TRUE, ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
@@ -42,7 +42,7 @@ centre.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
-center = function(x, useraw=FALSE, ...){
+center = function(x, useraw=TRUE, ...){
   UseMethod("center", x)
 }
 
@@ -57,11 +57,11 @@ center.Rfits_keylist = centre.Rfits_image
 
 #corners
 
-corners = function(x, useraw=FALSE, ...){
+corners = function(x, useraw=TRUE, ...){
   UseMethod("corners", x)
 }
 
-corners.Rfits_image = function(x, useraw=FALSE, ...){
+corners.Rfits_image = function(x, useraw=TRUE, RAneg=FALSE, ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
@@ -98,6 +98,11 @@ corners.Rfits_image = function(x, useraw=FALSE, ...){
     BR = Rwcs::Rwcs_p2s(im_dim[1], 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     output = rbind(BL, TL, TR, BR)
     row.names(output) = c('BL', 'TL', 'TR', 'BR')
+    
+    if(max(output[,'RA'], na.rm=TRUE) - min(output[,'RA'], na.rm=TRUE) > 180 & RAneg){
+      output[output[,'RA'] > 180,'RA'] = output[output[,'RA'] > 180,'RA'] - 360
+    }
+    
     return(output)
   }else{
     message('The Rwcs package is needed to find the corners of a Rfits_image object.')
@@ -108,13 +113,95 @@ corners.Rfits_pointer = corners.Rfits_image
 corners.Rfits_header = corners.Rfits_image
 corners.Rfits_keylist = corners.Rfits_image
 
+#extremes
+
+extremes = function(x, useraw=TRUE, unit='asec', ...){
+  UseMethod("extremes", x)
+}
+
+extremes.Rfits_image = function(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...){
+  if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
+    stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
+  }
+  
+  if(inherits(x, 'Rfits_keylist')){
+    keyvalues = x
+  }else{
+    keyvalues = x$keyvalues
+  }
+  
+  if(inherits(x, c('Rfits_header', 'Rfits_keylist'))){
+    if(is.null(keyvalues$NAXIS) & is.null(keyvalues$ZNAXIS)){
+      message('No NAXIS! Probably not an image, returning NA.')
+      return(NA)
+    }else{
+      if(!is.null(keyvalues$ZNAXIS)){
+        if(keyvalues$ZNAXIS < 2){
+          message('ZNAXIS: ', keyvalues$ZNAXIS,'.  Probably not an image, returning NA.')
+          return(NA)
+        }
+      }else if(keyvalues$NAXIS < 2){
+        message('NAXIS: ', keyvalues$NAXIS,'.  Probably not an image, returning NA.')
+        return(NA)
+      }
+    }
+  }
+  
+  temp_corners = corners(x=x, useraw=useraw, ...)
+  
+  if(max(temp_corners[,'RA'], na.rm=TRUE) - min(temp_corners[,'RA'], na.rm=TRUE) > 180){
+    wrap_0 = TRUE
+    temp_corners[temp_corners[,'RA'] > 180,'RA'] = temp_corners[temp_corners[,'RA'] > 180,'RA'] - 360
+  }else{
+    wrap_0 = FALSE
+  }
+  
+  temp_min = c(RA = min(temp_corners[,'RA'], na.rm=TRUE), Dec = min(temp_corners[,'Dec'], na.rm=TRUE))
+  temp_max = c(RA = max(temp_corners[,'RA'], na.rm=TRUE), Dec = max(temp_corners[,'Dec'], na.rm=TRUE))
+  
+  output = rbind(temp_min, temp_max)
+  
+  Dec_worst = max(abs(output[,'Dec']), na.rm=TRUE)
+  RA_range = abs(diff(range(output[,'RA'])))*cos(Dec_worst*pi/180)
+  Dec_range = abs(diff(range(output[,'Dec'])))
+  
+  if(unit=='deg'){
+    #do nothing
+  }else if(unit == 'asec'){
+    RA_range = RA_range*3600
+    Dec_range = Dec_range*3600
+  }else if(unit == 'amin'){
+    RA_range = RA_range*60
+    Dec_range = Dec_range*60
+  }else if(unit=='rad'){
+    RA_range = RA_range*pi/180
+    Dec_range = Dec_range*pi/180
+  }else{
+    message('Not a valid unit, must be one of asec / amin / deg / rad')
+  }
+
+  output = rbind(output, c(RA = RA_range, Dec = Dec_range))
+    
+  row.names(output) = c('min', 'max', 'range')
+  
+  if(RAneg==FALSE & wrap_0){
+    output[1,1] = temp_min[1,1] + 360
+  }
+  
+  return(output)
+}
+
+extremes.Rfits_pointer = extremes.Rfits_image
+extremes.Rfits_header = extremes.Rfits_image
+extremes.Rfits_keylist = extremes.Rfits_image
+
 #pixscale
 
-pixscale = function(x, useraw=FALSE, unit='asec', ...){
+pixscale = function(x, useraw=TRUE, unit='asec', ...){
   UseMethod("pixscale", x)
 }
 
-pixscale.Rfits_image = function(x, useraw=FALSE, unit='asec', ...){
+pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
@@ -174,11 +261,11 @@ pixscale.Rfits_keylist = pixscale.Rfits_image
 
 #pixarea
 
-pixarea = function(x, useraw=FALSE, unit='asec2', ...){
+pixarea = function(x, useraw=TRUE, unit='asec2', ...){
   UseMethod("pixarea", x)
 }
 
-pixarea.Rfits_image = function(x, useraw=FALSE, unit='asec2', ...){
+pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }

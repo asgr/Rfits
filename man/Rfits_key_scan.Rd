@@ -12,7 +12,7 @@ Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
   pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
   get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
   get_extremes = FALSE, get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE,
-  remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL, data.table = TRUE)
+  remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL, data.table = TRUE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -56,13 +56,13 @@ Logical, should target central coordinates be extracted? (See \code{\link{Rfits_
 Logical, should target corner coordinates be extracted? (See \code{\link{Rfits_methods}}).
 }
   \item{get_extremes}{
-Logical, should the minimum and maximum RA/Dec of the corners coordinates be extracted?. Note depending on the WCS this might not be trivial from the output corners, since both the min/max x/y pixels can be the min/max RA/Dec.
+Logical, should the minimum, maximum and range of RA/Dec of the corners coordinates be extracted?. Note depending on the WCS this might not be trivial from the output corners, since both the min/max x/y pixels can be the min/max RA/Dec. The range is always in amin. (See \code{\link{Rfits_methods}}).
 }
   \item{get_pixscale}{
-Logical, should target pixel scale be extracted? (See \code{\link{Rfits_methods}}).
+Logical, should target pixel scale be extracted? The pixel scale is always in asec. (See \code{\link{Rfits_methods}}).
 }
   \item{get_pixarea}{
-Logical, should target pixel area be extracted? (See \code{\link{Rfits_methods}}).
+Logical, should target pixel area be extracted? The pixel scale is always in asec2. (See \code{\link{Rfits_methods}}).
 }
   \item{get_all}{
 Logical, should all of the \option{get_XXX} methods be extracted? (See \code{\link{Rfits_methods}}).
@@ -78,6 +78,9 @@ Character vector; optional unique strings to zap out of the header. These elemen
 }
   \item{data.table}{
 Logical; should a \code{data.table} be returned? Otherwise a data.frame is returned.
+}
+  \item{\dots}{
+  
 }
 }
 \details{
