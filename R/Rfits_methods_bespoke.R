@@ -368,7 +368,7 @@ rotation.Rfits_image = function(x, keypass=TRUE, ...){
   North_ang = (atan2(keyvalues$CD1_2, keyvalues$CD2_2)*180/pi) %% 360
   East_ang = (360 - atan2(keyvalues$CD2_1, keyvalues$CD1_1)*180/pi) %% 360
   
-  return(c(North = North_ang, East = East_ang))
+  return(cbind(North = North_ang, East = East_ang))
 }
 
 rotation.Rfits_pointer = rotation.Rfits_image

@@ -10,9 +10,10 @@ Scans files or list of directories for keywords in FITS files. This is useful fo
 \usage{
 Rfits_key_scan(filelist = NULL, dirlist = NULL, keylist = NULL, extlist = 1,
   pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE, cores = 1,
-  get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_corners = FALSE,
-  get_extremes = FALSE, get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE,
-  remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL, data.table = TRUE, ...)
+  get_length = FALSE, get_dim = FALSE, get_centre = FALSE, get_rotation = FALSE,
+  get_corners = FALSE, get_extremes = FALSE, get_pixscale = FALSE, get_pixarea = FALSE,
+  get_all = FALSE, remove_HIERARCH = FALSE, keypass = FALSE, zap = NULL,
+  data.table = TRUE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -51,6 +52,9 @@ Logical, should target dimensions be extracted? (See \code{\link{Rfits_methods}}
 }
   \item{get_centre}{
 Logical, should target central coordinates be extracted? (See \code{\link{Rfits_methods}}).
+}
+  \item{get_rotation}{
+Logical, should frame rotation be extracted? (See \code{\link{Rfits_methods}}). 
 }
   \item{get_corners}{
 Logical, should target corner coordinates be extracted? (See \code{\link{Rfits_methods}}).

@@ -669,7 +669,7 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
 
 Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
                           recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=1, get_length=FALSE,
-                          get_dim=FALSE, get_centre=FALSE, get_corners=FALSE, get_extremes=FALSE,
+                          get_dim=FALSE, get_centre=FALSE, get_rotation=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
                           keypass=FALSE, zap=NULL, data.table=TRUE, ...){
   if(is.null(filelist)){
@@ -719,6 +719,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     get_length = TRUE
     get_dim = TRUE
     get_centre = TRUE
+    get_rotation = TRUE
     get_corners = TRUE
     get_extremes = TRUE
     get_pixscale = TRUE
@@ -762,6 +763,16 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
           current_info = c(current_info,
                            centre_RA = temp_cen[1], centre_Dec = temp_cen[2]
                            )
+        }
+        
+        if(get_rotation){
+          temp_rot = rotation(temp_header, ...)
+          if(is.na(temp_rot[1])){
+            temp_rot = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           rotation_North = temp_rot[1], rotation_East = temp_rot[2]
+          )
         }
         
         if(get_corners){
