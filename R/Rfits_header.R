@@ -547,6 +547,8 @@ Rfits_hdr_to_keyvalues = function(hdr){
   keyvalues[hdr[c(F,T)] == 'F'] = FALSE
   keyvalues[hdr[c(F,T)] == 'NA'] = NA
   names(keyvalues) = keynames
+  class(keyvalues) = 'Rfits_keylist'
+  
   return(keyvalues)
 }
 
@@ -616,9 +618,27 @@ Rfits_header_to_raw = function(header, zap=NULL, ...){
   return(paste(formatC(substr(header,1,79), width=80, flag='-'),sep='',collapse = ''))
 }
 
-Rfits_raw_to_header = function(header){
-  nkey = nchar(header)/80
-  return(substring(header, 1+(80*((1:nkey)-1)), 80*(1:nkey)))
+Rfits_raw_to_header = function(raw){
+  nkey = nchar(raw)/80
+  return(substring(raw, 1+(80*((1:nkey)-1)), 80*(1:nkey)))
+}
+
+Rfits_raw_to_keyvalues = function(raw, remove_HIERARCH=FALSE){
+  return(Rfits_header_to_keyvalues(Rfits_raw_to_header(raw), remove_HIERARCH=FALSE))
+}
+
+Rfits_keyvalues_to_raw = function(keyvalues, keycomments=NULL, comment=NULL, history=NULL, zap=NULL, ...){
+  return(Rfits_header_to_raw(
+    Rfits_keyvalues_to_header(
+      keyvalues = keyvalues,
+      keycomments = keycomments,
+      comment = comment,
+      history = history
+    ),
+    zap = zap,
+    ...
+  )
+  )
 }
 
 Rfits_header_zap=function(header, zap=NULL, ...){
@@ -648,10 +668,10 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
 }
 
 Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, pattern=NULL,
-                          recursive=TRUE, fileinfo='All', keep_ext = TRUE, cores=1,
-                          get_length=FALSE, get_dim=FALSE, get_centre=FALSE, get_corners=FALSE, get_extremes=FALSE,
+                          recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=1, get_length=FALSE,
+                          get_dim=FALSE, get_centre=FALSE, get_rotation=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
-                          keypass=FALSE, zap=NULL, data.table=TRUE){
+                          keypass=FALSE, zap=NULL, data.table=TRUE, ...){
   if(is.null(filelist)){
     if(is.null(dirlist)){
       stop('Missing filelist and dirlist')
@@ -671,6 +691,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     }
   }
   filelist = grep(pattern='.fits$', filelist, value=TRUE)
+  filelist = unique(filelist)
   
   if(length(extlist) == 1){
     extlist = rep(extlist, length(filelist))
@@ -698,6 +719,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
     get_length = TRUE
     get_dim = TRUE
     get_centre = TRUE
+    get_rotation = TRUE
     get_corners = TRUE
     get_extremes = TRUE
     get_pixscale = TRUE
@@ -734,7 +756,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_centre){
-          temp_cen = centre(temp_header)
+          temp_cen = centre(temp_header, ...)
           if(is.na(temp_cen[1])){
             temp_cen = rep(NA, 2)
           }
@@ -743,10 +765,20 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
                            )
         }
         
+        if(get_rotation){
+          temp_rot = rotation(temp_header, ...)
+          if(is.na(temp_rot[1])){
+            temp_rot = rep(NA, 2)
+          }
+          current_info = c(current_info,
+                           rotation_North = temp_rot[1], rotation_East = temp_rot[2]
+          )
+        }
+        
         if(get_corners){
-          temp_cor = corners(temp_header)
+          temp_cor = corners(temp_header, ...)
           if(is.na(temp_cor[1])){
-            temp_cor = matrix(NA, 4,2)
+            temp_cor = matrix(NA, 4, 2)
           }
           current_info = c(current_info,
                            corner_BL_RA = temp_cor[1,1], corner_BL_Dec = temp_cor[1,2],
@@ -757,23 +789,24 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, keylist=NULL, extlist=1, 
         }
         
         if(get_extremes){
-          temp_ext = corners(temp_header)
-          if(is.na(temp_cor[1])){
-            temp_ext = matrix(NA, 4,2)
+          temp_ext = extremes(temp_header, ...)
+          if(is.na(temp_ext[1])){
+            temp_ext = matrix(NA, 3, 2)
           }
           current_info = c(current_info,
-                           min_RA = min(temp_cor[,1]), min_Dec = min(temp_cor[,2]),
-                           max_RA = max(temp_cor[,1]), max_Dec = max(temp_cor[,2])
+                           min_RA = temp_ext[1,1], min_Dec = temp_ext[1,2],
+                           max_RA = temp_ext[2,1], max_Dec = temp_ext[2,2],
+                           range_RA = temp_ext[3,1], range_Dec = temp_ext[3,2]
           )
         }
         
         if(get_pixscale){
-          temp_pixscale = pixscale(temp_header)
+          temp_pixscale = pixscale(temp_header, ...)
           current_info = c(current_info, pixscale = temp_pixscale)
         }
         
         if(get_pixarea){
-          temp_pixarea = pixarea(temp_header)
+          temp_pixarea = pixarea(temp_header, ...)
           current_info = c(current_info, pixarea = temp_pixarea)
         }
         return(as.data.frame(current_info))

@@ -1,22 +1,27 @@
-Rfits_centre = function(filename, ext=1, useraw=FALSE, ...){
+Rfits_centre = function(filename, ext=1, useraw=TRUE, ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
   return(centre(temp_header, useraw=useraw, ...))
 }
 
 Rfits_center = Rfits_centre
 
-Rfits_corners = function(filename, ext=1, useraw=FALSE, ...){
+Rfits_corners = function(filename, ext=1, useraw=TRUE, RAneg=FALSE, ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
-  return(corners(temp_header, useraw=useraw, ...))
+  return(corners(temp_header, useraw=useraw, RAneg=RAneg, ...))
 }
 
-Rfits_pixscale = function(filename, ext=1, useraw=FALSE, unit='asec', ...){
+Rfits_extremes = function(filename, ext=1, useraw=TRUE, unit='amin', RAneg=FALSE, ...){
+  temp_header = Rfits_read_header(filename=filename, ext=ext)
+  return(extremes(temp_header, useraw=useraw, unit=unit, RAneg=RAneg, ...))
+}
+
+Rfits_pixscale = function(filename, ext=1, useraw=TRUE, unit='asec', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
   return(pixscale(temp_header, useraw=useraw, unit=unit, ...))
 }
 
 
-Rfits_pixarea = function(filename, ext=1, useraw=FALSE, unit='asec2', ...){
+Rfits_pixarea = function(filename, ext=1, useraw=TRUE, unit='asec2', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
   return(pixarea(temp_header, useraw=useraw, unit=unit, ...))
 }

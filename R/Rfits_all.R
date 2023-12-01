@@ -224,6 +224,7 @@ Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
     }
   }
   filelist = grep(pattern='.fits$', filelist, value=TRUE)
+  filelist = unique(filelist)
   
   if(length(extlist) == 1){
     extlist = rep(extlist, length(filelist))
