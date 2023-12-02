@@ -278,7 +278,7 @@ Logical; should the image be scaled to compensate for sparse sampling (so roghly
   \item{extremes}{Numeric matrix; these methods return the coordinates at the absolute extremes of the spatial dimensions. Rows are min /max / range (top to bottom), where range is in units of \option{unit}. If this fails, returns NA.}
   \item{pixscale}{Numeric scalar; these methods return the pixel scale of the spatial dimensions in the specified units. If this fails, returns NA.}
   \item{pixarea}{Numeric scalar; these methods return the pixel area of the spatial dimensions in the specified units. If this fails, returns NA.}
-  \item{rotation}{Numeric vector; these methods return the image rotation in degrees for the North and East vector. This is the vector of [1] North with respect to y-axis up clockwise (so -> is 90); and East with respect to x-axis right clockwise (so East -> is 0) [2]. This should be clear when comparing to the compass drawn when making a \code{plot} of the \option{image} data. If this fails, returns NA.}
+  \item{rotation}{Numeric vector; these methods return the image rotation in degrees for the North and East vector. This is the vector of [1] North with respect to y-axis up clockwise (so ^ is 0; > is 90; < is 270); and East with respect to x-axis right clockwise (so ^ is 2700; > is 0; < is 180) [2]. This should be clear when comparing to the compass drawn when making a \code{plot} of the \option{image} data. A 'standard' projection probably has North up and East right, so the output rotation will be [0,180]. If this fails, returns NA.}
   
   \code{\link{&}}, \code{\link{|}}, \code{\link{xor}}, \code{\link{!=}}, \code{\link{==}}, 
   \code{\link{<}}, \code{\link{<=}}, \code{\link{>}}, \code{\link{>=}} return a logical vector \cr
