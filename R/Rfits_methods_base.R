@@ -21,7 +21,7 @@
 
 #plotting
 
-plot.Rfits_image = function(x, useraw=FALSE, ...){
+plot.Rfits_image = function(x, useraw=TRUE, ...){
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
@@ -37,7 +37,7 @@ plot.Rfits_image = function(x, useraw=FALSE, ...){
   }
 }
 
-plot.Rfits_cube = function(x, slice=1, useraw=FALSE, ...){
+plot.Rfits_cube = function(x, slice=1, useraw=TRUE, ...){
   if(!inherits(x, 'Rfits_cube')){
     stop('Object class is not of type Rfits_cube!')
   }
@@ -49,7 +49,7 @@ plot.Rfits_cube = function(x, slice=1, useraw=FALSE, ...){
   }
 }
 
-plot.Rfits_array = function(x, slice=c(1,1), useraw=FALSE, ...){
+plot.Rfits_array = function(x, slice=c(1,1), useraw=TRUE, ...){
   if(!inherits(x, 'Rfits_array')){
     stop('Object class is not of type Rfits_array!')
   }

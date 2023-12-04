@@ -13,12 +13,12 @@ WCS Plot Methods for Images and Cubes
 Makes a nice WCS image of a sensibly described vector / image / cube / array read in with \code{\link{Rfits_read_image}}.
 }
 \usage{
-\method{plot}{Rfits_image}(x, useraw = FALSE, ...)
-\method{plot}{Rfits_cube}(x, slice = 1, useraw = FALSE, ...)
-\method{plot}{Rfits_array}(x, slice = c(1,1), useraw = FALSE, ...)
+\method{plot}{Rfits_image}(x, useraw = TRUE, ...)
+\method{plot}{Rfits_cube}(x, slice = 1, useraw = TRUE, ...)
+\method{plot}{Rfits_array}(x, slice = c(1,1), useraw = TRUE, ...)
 \method{plot}{Rfits_vector}(x, ...)
 \method{lines}{Rfits_vector}(x, ...)
-\method{plot}{Rfits_pointer}(x, useraw = FALSE, sparse = 'auto', ...)
+\method{plot}{Rfits_pointer}(x, useraw = TRUE, sparse = 'auto', ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

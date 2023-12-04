@@ -783,7 +783,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
         }
         
         if(get_rotation){
-          temp_rot = rotation(temp_keyvalues, ...)
+          temp_rot = rotation(temp_keyvalues)
           if(is.na(temp_rot[1])){
             temp_rot = rep(NA, 2)
           }

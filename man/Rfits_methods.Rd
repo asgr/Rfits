@@ -151,12 +151,6 @@
 \method{dim}{Rfits_keylist}(x)
 \method{dim}{Rfits_pointer_hdf5}(x)
 
-centre(x, useraw=TRUE, ...)
-center(x, useraw=TRUE, ...)
-corners(x, useraw=TRUE, ...)
-pixscale(x, useraw=TRUE, unit='asec', ...)
-pixarea(x, useraw=TRUE, unit='asec2', ...)
-
 \method{centre}{Rfits_image}(x, useraw=TRUE, ...)
 \method{center}{Rfits_image}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_image}(x, useraw=TRUE, RAneg=FALSE,  ...)

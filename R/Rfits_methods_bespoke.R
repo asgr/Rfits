@@ -34,7 +34,15 @@ centre.Rfits_image = function(x, useraw=TRUE, ...){
   
   im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
+    if(useraw){
+      if(inherits(x, 'Rfits_keylist')){
+        header = Rfits_keyvalues_to_raw(x)
+      }else{
+        header = x$raw
+      }
+    }else{
+      header = NULL
+    }
     output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
@@ -57,7 +65,7 @@ center.Rfits_keylist = centre.Rfits_image
 
 #corners
 
-corners = function(x, useraw=TRUE, ...){
+corners = function(x, useraw=TRUE, RAneg=FALSE, ...){
   UseMethod("corners", x)
 }
 
@@ -91,7 +99,15 @@ corners.Rfits_image = function(x, useraw=TRUE, RAneg=FALSE, ...){
   
   im_dim = dim(x)
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
+    if(useraw){
+      if(inherits(x, 'Rfits_keylist')){
+        header = Rfits_keyvalues_to_raw(x)
+      }else{
+        header = x$raw
+      }
+    }else{
+      header = NULL
+    }
     BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
     TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
@@ -115,7 +131,7 @@ corners.Rfits_keylist = corners.Rfits_image
 
 #extremes
 
-extremes = function(x, useraw=TRUE, unit='asec', ...){
+extremes = function(x, useraw=TRUE, unit='asec', RAneg=FALSE, ...){
   UseMethod("extremes", x)
 }
 
@@ -231,7 +247,15 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', ...){
   
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
+    if(useraw){
+      if(inherits(x, 'Rfits_keylist')){
+        header = Rfits_keyvalues_to_raw(x)
+      }else{
+        header = x$raw
+      }
+    }else{
+      header = NULL
+    }
     output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
@@ -295,7 +319,15 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
   
   im_dim = dim(x) #this works on all classes
   if(requireNamespace("Rwcs", quietly=TRUE)){
-    if(useraw){header = x$raw}else{header = NULL}
+    if(useraw){
+      if(inherits(x, 'Rfits_keylist')){
+        header = Rfits_keyvalues_to_raw(x)
+      }else{
+        header = x$raw
+      }
+    }else{
+      header = NULL
+    }
     output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360

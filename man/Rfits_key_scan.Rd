@@ -87,7 +87,7 @@ Character vector; optional unique strings to zap out of the header. These elemen
 Logical; should a \code{data.table} be returned? Otherwise a data.frame is returned.
 }
   \item{\dots}{
-  
+Other arguments to pass to Rwcs relate methods (e.g. \option{useraw}).
 }
 }
 \details{

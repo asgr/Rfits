@@ -36,7 +36,7 @@ Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow
   return(invisible(output))
 }
 
-plot.Rfits_pointer=function(x, useraw=FALSE, sparse='auto', ...){
+plot.Rfits_pointer=function(x, useraw=TRUE, sparse='auto', ...){
   if(!inherits(x, 'Rfits_pointer')){
     stop('Object class is not of type Rfits_image!')
   }
