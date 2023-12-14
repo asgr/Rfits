@@ -13,12 +13,12 @@ WCS Plot Methods for Images and Cubes
 Makes a nice WCS image of a sensibly described vector / image / cube / array read in with \code{\link{Rfits_read_image}}.
 }
 \usage{
-\method{plot}{Rfits_image}(x, useraw = TRUE, ...)
+\method{plot}{Rfits_image}(x, useraw = TRUE, interactive = FALSE, ...)
 \method{plot}{Rfits_cube}(x, slice = 1, useraw = TRUE, ...)
 \method{plot}{Rfits_array}(x, slice = c(1,1), useraw = TRUE, ...)
 \method{plot}{Rfits_vector}(x, ...)
 \method{lines}{Rfits_vector}(x, ...)
-\method{plot}{Rfits_pointer}(x, useraw = TRUE, sparse = 'auto', ...)
+\method{plot}{Rfits_pointer}(x, useraw = TRUE, sparse = 'auto', interactive = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -27,6 +27,9 @@ An object of class \code{Rfits_image} / \code{Rfits_cube} / \code{Rfits_array} /
 }
   \item{useraw}{
 Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.  
+}
+  \item{interactive}{
+Logical; if TRUE then the input image (in \option{x}) is saved ready for future interaction with \code{Rwcs_interact}.  
 }
   \item{slice}{
 Integer scalar or vector; the slice/s of the FITS cube/array to display.  

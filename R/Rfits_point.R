@@ -35,19 +35,3 @@ Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow
   class(output) = 'Rfits_pointer'
   return(invisible(output))
 }
-
-plot.Rfits_pointer=function(x, useraw=TRUE, sparse='auto', ...){
-  if(!inherits(x, 'Rfits_pointer')){
-    stop('Object class is not of type Rfits_image!')
-  }
-  
-  if(sparse == 'auto'){
-    sparse = ceiling(max(dim(x)/1e3))
-  }
-  
-  if(is.null(x$keyvalues$CRVAL1)){
-    magimage(x[,,sparse=sparse,header=FALSE], sparse=1L, ...)
-  }else{
-    plot(x[,,sparse=sparse], useraw=useraw, ...)
-  }
-}

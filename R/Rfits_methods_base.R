@@ -1,27 +1,6 @@
-#utility functions
-
-.safedim = function(lo_orig=1L, hi_orig=1L, lo_tar=1L, hi_tar=1L){
-  len_orig = hi_orig - lo_orig + 1L
-  len_tar = hi_tar - lo_tar + 1L
-  
-  out_lo_orig = max(lo_tar, 1L)
-  out_hi_orig = min(hi_tar, len_orig)
-  diff = (1L - lo_tar)
-  out_lo_tar = out_lo_orig + diff
-  out_hi_tar = out_hi_orig + diff
-  safe = (out_hi_tar >= out_lo_tar) & (out_hi_orig >= out_lo_orig)
-  return(list(orig = out_lo_orig:out_hi_orig, tar = out_lo_tar:out_hi_tar, len_orig=len_orig,
-              len_tar=len_tar, safe=safe, lo_orig=lo_orig, hi_orig=hi_orig, lo_tar=lo_tar,
-              hi_tar=hi_tar, diff=diff))
-}
-
-.minmax = function(x) c(min(x), max(x))
-
-.spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))
-
 #plotting
 
-plot.Rfits_image = function(x, useraw=TRUE, ...){
+plot.Rfits_image = function(x, useraw=TRUE, interactive=FALSE, ...){
   if(!inherits(x, 'Rfits_image')){
     stop('Object class is not of type Rfits_image!')
   }
@@ -30,7 +9,7 @@ plot.Rfits_image = function(x, useraw=TRUE, ...){
   }else{
     if(requireNamespace("Rwcs", quietly=TRUE)){
       if(useraw){header = x$raw}else{header = NULL}
-      Rwcs::Rwcs_image(x$imDat, keyvalues=x$keyvalues, header=header, ...)
+      Rwcs::Rwcs_image(x, interactive=interactive, ...)
     }else{
       message('The Rwcs package is needed to plot a Rfits_image object.')
     }
@@ -81,6 +60,26 @@ plot.Rfits_vector = function(x, ...){
     plot(xref, x$imDat, type='l', ...)
   }
 }
+
+plot.Rfits_pointer=function(x, useraw=TRUE, sparse='auto', interactive=FALSE, ...){
+  if(!inherits(x, 'Rfits_pointer')){
+    stop('Object class is not of type Rfits_image!')
+  }
+  
+  if(sparse == 'auto'){
+    sparse = ceiling(max(dim(x)/1e3))
+  }
+  
+  if(is.null(x$keyvalues$CRVAL1)){
+    magimage(x[,,sparse=sparse,header=FALSE], sparse=1L, ...)
+  }else{
+    if(interactive){
+      assign(".current_image", x, envir = .GlobalEnv)
+    }
+    Rwcs::Rwcs_image(x[,,sparse=sparse], useraw=useraw, interactive=FALSE, ...)
+  }
+}
+
 
 lines.Rfits_vector = function(x, ...){
   if(!inherits(x, 'Rfits_vector')){

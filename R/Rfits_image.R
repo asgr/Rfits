@@ -246,21 +246,21 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
             hdr$keyvalues$NAXIS1 = dim(temp_image)[1]
           }
           # hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar + 1L)/sparse + (sparse - 1L)/sparse
-          hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - safex$lo_tar)/sparse + 1
+          hdr$keyvalues$CRPIX1 = (hdr$keyvalues$CRPIX1 - xlo)/sparse + 1
           
           if(Ndim >= 2){
             hdr$keyvalues$NAXIS2 = dim(temp_image)[2]
-            hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - safey$lo_tar)/sparse + 1
+            hdr$keyvalues$CRPIX2 = (hdr$keyvalues$CRPIX2 - ylo)/sparse + 1
           }
           
           if(Ndim >= 3){
             hdr$keyvalues$NAXIS3 = dim(temp_image)[3]
-            hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - safez$lo_tar)/sparse + 1
+            hdr$keyvalues$CRPIX3 = (hdr$keyvalues$CRPIX3 - zlo)/sparse + 1
           }
           
           if(Ndim >= 4){
             hdr$keyvalues$NAXIS4 = dim(temp_image)[4]
-            hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - safet$lo_tar)/sparse + 1
+            hdr$keyvalues$CRPIX4 = (hdr$keyvalues$CRPIX4 - tlo)/sparse + 1
           }
           
           hdr$keyvalues$CD1_1 = hdr$keyvalues$CD1_1 * sparse
@@ -269,6 +269,38 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
           hdr$keyvalues$CD2_2 = hdr$keyvalues$CD2_2 * sparse
           
           output = Rfits_create_image(temp_image, keyvalues = hdr$keyvalues) #scale by sparse^2 to get fluxes roughly right
+          
+          #The below isn't right- need to cutout based on sparse rescale limits
+          
+          if(Ndim == 1){
+            xlo = ceiling((1 - safex$tar[1])/sparse) + 1L
+            xhi = xlo + ceiling((safex$hi_tar - safex$lo_tar)/sparse) - 1L
+            output = output[c(xlo, xhi)]
+          }else if(Ndim >= 2){
+            xlo = ceiling((1 - safex$tar[1])/sparse) + 1L
+            xhi = xlo + ceiling((safex$hi_tar - safex$lo_tar)/sparse) - 1L
+            ylo = ceiling((1 - safey$tar[1])/sparse) + 1L
+            yhi = ylo + ceiling((safey$hi_tar - safey$lo_tar)/sparse) - 1L
+            output = output[c(xlo, xhi), c(ylo, yhi)]
+          }else if(Ndim >= 3){
+            xlo = ceiling((1 - safex$tar[1])/sparse) + 1L
+            xhi = xlo + ceiling((safex$hi_tar - safex$lo_tar)/sparse) - 1L
+            ylo = ceiling((1 - safey$tar[1])/sparse) + 1L
+            yhi = ylo + ceiling((safey$hi_tar - safey$lo_tar)/sparse) - 1L
+            zlo = ceiling((1 - safez$tar[1])/sparse) + 1L
+            zhi = zlo + ceiling((safez$hi_tar - safez$lo_tar)/sparse) - 1L
+            output = output[c(xlo, xhi), c(ylo, yhi), c(zlo, zhi)]
+          }else if(Ndim >= 4){
+            xlo = ceiling((1 - safex$tar[1])/sparse) + 1L
+            xhi = xlo + ceiling((safex$hi_tar - safex$lo_tar)/sparse) - 1L
+            ylo = ceiling((1 - safey$tar[1])/sparse) + 1L
+            yhi = ylo + ceiling((safey$hi_tar - safey$lo_tar)/sparse) - 1L
+            zlo = ceiling((1 - safez$tar[1])/sparse) + 1L
+            zhi = zlo + ceiling((safez$hi_tar - safez$lo_tar)/sparse) - 1L
+            tlo = ceiling((1 - safet$tar[1])/sparse) + 1L
+            thi = ylo + ceiling((safet$hi_tar - safet$lo_tar)/sparse) - 1L
+            output = output[c(xlo, xhi), c(ylo, yhi), c(zlo, zhi), c(tlo, thi)]
+          }
           
           return(output)
         }else{
