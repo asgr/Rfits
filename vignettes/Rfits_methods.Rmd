@@ -155,7 +155,21 @@ rotation(temp_point)
 Rfits_image objects can be usefully operated on as if they were matrices:
 
 ```{r fig.width=6, fig.height=6}
-plot(temp_image*temp_image, qdiff=TRUE)
 plot(temp_image^5, qdiff=TRUE)
 plot(temp_image - 10, qdiff=TRUE)
+```
+
+Most **R** mathematical operators will work. You can also directly operate with Rfits_image and Rfits_point objects:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image * temp_image, qdiff=TRUE)
+plot(temp_image - temp_image, qdiff=TRUE) #blank, since the image should now be 0
+plot(temp_point - temp_point, qdiff=TRUE) #blank, since the image should now be 0
+```
+
+If you mix Rfits object types you will need to convert the Rfits_pointer to a Rfits_image using the subset operation:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image * temp_point[], qdiff=TRUE)
+plot(temp_image - temp_point[], qdiff=TRUE) #blank, since the image should now be 0
 ```
