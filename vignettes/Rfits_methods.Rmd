@@ -1,0 +1,161 @@
+---
+title: "Methods in the Madness"
+author: "Aaron Robotham"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Methods in the Madness}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+**Rfits** comes with a number of useful methods that operate on Rfits_image and Rfits_pointer objects. Using these you can do a lot of useful thing!
+
+```{r}
+library(Rfits)
+library(Rwcs)
+```
+
+## Subsetting
+
+First we will load up an image in RAM (temp_image) and as a pointer to the disk object (temp_point)
+
+```{r}
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+
+temp_image = Rfits_read_image(file_image)
+temp_point = Rfits_point(file_image)
+```
+
+We can look at both of these, since they have distinct print methods by default:
+
+```{r}
+print(temp_image)
+print(temp_point)
+```
+
+The two data structures are a bit different, but we can still plot both directly:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image)
+plot(temp_point)
+```
+
+Behind the scene the S3 plot method does different things depending on the Rfits object encountered. If it is an Rfits_image then it will directly plot it using *Rwcs_image* with a WCS. If it is a Rfits_pointer then it will first fully load the data into RAM, and then plot it using *Rwcs_image*.
+
+If you have a Rfits_pointer object then you can convert it to a Rfits_image very easily:
+
+```{r}
+temp_point[]
+```
+
+This is because Rfits has special subset operation that work specifically on Rfits_image and Rfits_pointer objects. This means we can plot a subset:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image[50:150,50:150])
+plot(temp_point[50:150,50:150])
+```
+
+For convenience the following will achieve the same outcomes:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image[c(50,150),c(50,150)])
+plot(temp_point[c(50,150),c(50,150)])
+```
+
+And we can also cutout a box on a specific location:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image[101, 101, box=100])
+plot(temp_point[101, 101, box=100])
+```
+
+We can also subset based on RA/Dec coordinates:
+
+```{r}
+coords = Rwcs_p2s(101,101,temp_image$keyvalues)
+print(coords)
+```
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image[coords[1], coords[2], box=100, type='coord'])
+plot(temp_point[coords[1], coords[2], box=100, type='coord'])
+```
+
+## Useful Class Methods
+
+Rfits comes with a whole lot of specific Rfits_image and Rfits_pointer class methods (for details see ?Rfits_methods):
+
+*   print
+*   length (total length of the image/cube/array)
+*   dim (dimension of the image/cube/array)
+*   centre/center (RA, Dec of image centre)
+*   corners (RA, Dec of image corners)
+*   extremes (RA, Dec of image extremes)
+*   pixscale (pixel scale of centre of image)
+*   pixarea (pixel area of centre of image)
+*   rotation (rotation of image in degrees)
+
+They are designed to give identical results, i.e.:
+
+```{r}
+print(temp_image)
+print(temp_point)
+```
+
+```{r}
+length(temp_image)
+length(temp_point)
+```
+
+```{r}
+dim(temp_image)
+dim(temp_point)
+```
+
+```{r}
+centre(temp_image)
+centre(temp_point)
+```
+
+```{r}
+corners(temp_image)
+corners(temp_point)
+```
+
+```{r}
+extremes(temp_image)
+extremes(temp_point)
+```
+
+```{r}
+pixscale(temp_image)
+pixscale(temp_point)
+```
+
+```{r}
+pixarea(temp_image)
+pixarea(temp_point)
+```
+
+```{r}
+rotation(temp_image)
+rotation(temp_point)
+```
+
+## Pixel Manipulation Methods
+
+Rfits_image objects can be usefully operated on as if they were matrices:
+
+```{r fig.width=6, fig.height=6}
+plot(temp_image*temp_image, qdiff=TRUE)
+plot(temp_image^5, qdiff=TRUE)
+plot(temp_image - 10, qdiff=TRUE)
+```
