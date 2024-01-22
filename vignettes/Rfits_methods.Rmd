@@ -1,10 +1,10 @@
 ---
-title: "Methods in the Madness"
+title: "Rfits: Methods in the Madness"
 author: "Aaron Robotham"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Methods in the Madness}
+  %\VignetteIndexEntry{Rfits: Methods in the Madness}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
