@@ -201,7 +201,7 @@ extremes.Rfits_image = function(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...){
   row.names(output) = c('min', 'max', 'range')
   
   if(RAneg==FALSE & wrap_0){
-    output[1,1] = temp_min[1,1] + 360
+    output[1,1] = temp_min[1] + 360
   }
   
   return(output)
