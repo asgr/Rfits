@@ -14,7 +14,7 @@ License: LGPL-3
 Imports: Rcpp, bit64, checkmate, foreach, doParallel, magicaxis
 Suggests: data.table, testthat, FITSio, hdf5r, ProFound, tdigest, R.utils, Rwcs (>= 1.8.4)
 Remotes:
-  asgr/magicaxis@06eb2e0e98f303ebe2033923ec183be7afd0736a,
+  asgr/magicaxis@master,
   asgr/Rwcs@master
 Encoding: UTF-8
 LazyData: true
