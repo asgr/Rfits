@@ -468,7 +468,9 @@
   #This is Rigo's version of the above (a bit more maintainable):
   arrays = list(i, j, k, m)
   upper_limits = list(xdim, ydim, zdim, zdim)
-  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  if(all(mapply(.spans_up_to, arrays, upper_limits)) & (upper_limits[[3]] > 1 | upper_limits[[4]] > 1)){
+    return(x)
+  }
   
   safedim_i = .safedim(1, xdim, min(i), max(i))
   safedim_j = .safedim(1, ydim, min(j), max(j))

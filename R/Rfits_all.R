@@ -108,11 +108,6 @@ Rfits_read = Rfits_read_all
 
 Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Main=TRUE,
                          compress=FALSE, bad_compress=0, list_sub=NULL){
-  if(is.list(data)){
-    data_len = length(data)
-  }else{
-    data_len = 1
-  }
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertFlag(flatten)
@@ -123,6 +118,12 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
   
   if(flatten){
     data = .flatten(data)
+  }
+  
+  if(is.list(data)){
+    data_len = length(data)
+  }else{
+    data_len = 1
   }
   
   if(!is.logical(compress)){
@@ -154,7 +155,7 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
         ext = 1
       }
       
-      if(inherits(data[[i]], c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array', 'array', 'matrix', 'integer', 'numeric'))){
+      if(inherits(data[[i]], c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array', 'array', 'matrix', 'integer', 'numeric', 'logical'))){
         Rfits_write_image(data=data[[i]], filename=filename, ext=ext,
                           create_file=create_file, overwrite_file=overwrite_file, compress=compress[i], bad_compress=bad_compress[i])
         create_file = FALSE
