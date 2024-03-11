@@ -132,7 +132,13 @@ Rfits_write_all=function(data, filename='temp.fits', flatten=FALSE, overwrite_Ma
       if(inherits(data[[i]], 'Rfits_header')){
         compress_vec = c(compress_vec, FALSE)
       }else{
-        compress_vec = c(compress_vec, length(data[[i]]) > compress)
+        if(is.numeric(compress)){
+          compress_vec = c(compress_vec, length(data[[i]]) > compress)
+        }else if(is.character(compress)){
+          compress_vec = c(compress_vec, compress)
+        }else{
+          stop('compress argument is not recognised!')
+        }
       }
     }
     compress = compress_vec
