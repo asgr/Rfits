@@ -11,8 +11,11 @@ Authors@R: c(
 Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
 Description: Read and write FITS images, tables and headers.
 License: LGPL-3
-Imports: Rcpp, bit64, checkmate, magicaxis, foreach, doParallel
-Suggests: data.table, testthat, FITSio, Rwcs (>= 1.8.4), tdigest, hdf5r, R.utils, ProFound
+Imports: Rcpp, bit64, checkmate, foreach, doParallel, magicaxis
+Suggests: data.table, testthat, FITSio, hdf5r, ProFound, tdigest, R.utils, Rwcs (>= 1.8.4)
+Remotes:
+  asgr/magicaxis@master,
+  asgr/Rwcs@master
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
