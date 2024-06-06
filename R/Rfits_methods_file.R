@@ -15,15 +15,15 @@ Rfits_extremes = function(filename, ext=1, useraw=TRUE, unit='amin', RAneg=FALSE
   return(extremes(temp_header, useraw=useraw, unit=unit, RAneg=RAneg, ...))
 }
 
-Rfits_pixscale = function(filename, ext=1, useraw=TRUE, unit='asec', ...){
+Rfits_pixscale = function(filename, ext=1, useraw=TRUE, unit='asec', loc='cen', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
-  return(pixscale(temp_header, useraw=useraw, unit=unit, ...))
+  return(pixscale(temp_header, useraw=useraw, unit=unit, loc='cen', ...))
 }
 
 
-Rfits_pixarea = function(filename, ext=1, useraw=TRUE, unit='asec2', ...){
+Rfits_pixarea = function(filename, ext=1, useraw=TRUE, unit='asec2', loc='cen', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
-  return(pixarea(temp_header, useraw=useraw, unit=unit, ...))
+  return(pixarea(temp_header, useraw=useraw, unit=unit, loc='cen', ...))
 }
 
 Rfits_length = function(filename, ext=1){

@@ -316,10 +316,31 @@
     
     if(x$keyvalues$NAXIS3 == 1L & collapse){
       tar = tar[,,1]
+      
+      x$keyvalues$NAXIS = 2L
+      
       x$keyvalues$NAXIS3 = NULL
       x$keyvalues$CRPIX3 = NULL
       x$keycomments$NAXIS3 = NULL
       x$keycomments$CRPIX3 = NULL
+      
+      rm_key = c(
+        grep('3_[1-3]', names(x$keyvalues)),
+        grep('[1-3]_03', names(x$keyvalues)),
+        grep('03_0[1-3]', names(x$keyvalues)),
+        grep('0[1-3]_03', names(x$keyvalues)),
+        
+        grep('CTYPE3', names(x$keyvalues)),
+        grep('CRVAL3', names(x$keyvalues)),
+        grep('CDELT3', names(x$keyvalues)),
+        grep('CUNIT3', names(x$keyvalues))
+      )
+      
+      if(length(rm_key) > 0){
+        x$keyvalues = x$keyvalues[-rm_key]
+        x$keycomments = x$keycomments[-rm_key]
+      }
+      
       class_out = "Rfits_image"
     }else{
       class_out = "Rfits_cube"
@@ -509,6 +530,9 @@
     
     if(x$keyvalues$NAXIS3 == 1L & x$keyvalues$NAXIS4 == 1L & collapse){
       tar = tar[,,1,1]
+      
+      x$keyvalues$NAXIS = 2L
+      
       x$keyvalues$NAXIS3 = NULL
       x$keyvalues$CRPIX3 = NULL
       x$keyvalues$CRPIX4 = NULL
@@ -518,9 +542,40 @@
       x$keycomments$CRPIX3 = NULL
       x$keycomments$CRPIX4 = NULL
       x$keycomments$NAXIS4 = NULL
+      
+      rm_key = c(
+        grep('3_[1-4]', names(x$keyvalues)),
+        grep('[1-4]_03', names(x$keyvalues)),
+        grep('03_0[1-4]', names(x$keyvalues)),
+        grep('0[1-4]_03', names(x$keyvalues)),
+        
+        grep('4_[1-4]', names(x$keyvalues)),
+        grep('[1-4]_04', names(x$keyvalues)),
+        grep('04_0[1-4]', names(x$keyvalues)),
+        grep('0[1-4]_04', names(x$keyvalues)),
+        
+        grep('CTYPE3', names(x$keyvalues)),
+        grep('CRVAL3', names(x$keyvalues)),
+        grep('CDELT3', names(x$keyvalues)),
+        grep('CUNIT3', names(x$keyvalues)),
+        
+        grep('CTYPE4', names(x$keyvalues)),
+        grep('CRVAL4', names(x$keyvalues)),
+        grep('CDELT4', names(x$keyvalues)),
+        grep('CUNIT4', names(x$keyvalues))
+      )
+      
+      if(length(rm_key) > 0){
+        x$keyvalues = x$keyvalues[-rm_key]
+        x$keycomments = x$keycomments[-rm_key]
+      }
+      
       class_out = "Rfits_image"
     }else if(x$keyvalues$NAXIS4 == 1L & collapse){
       tar = tar[,,,1]
+      
+      x$keyvalues$NAXIS = 3L
+      
       x$keyvalues$NAXIS4 = NULL
       x$keyvalues$CRPIX4 = NULL
       

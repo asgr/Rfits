@@ -155,32 +155,32 @@
 \method{center}{Rfits_image}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_image}(x, useraw=TRUE, RAneg=FALSE,  ...)
 \method{extremes}{Rfits_image}(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
-\method{pixscale}{Rfits_image}(x, useraw=TRUE, unit='asec',  ...)
-\method{pixarea}{Rfits_image}(x, useraw=TRUE, unit='asec2',  ...)
+\method{pixscale}{Rfits_image}(x, useraw=TRUE, unit='asec', loc='cen',  ...)
+\method{pixarea}{Rfits_image}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
 \method{rotation}{Rfits_image}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_pointer}(x, useraw=TRUE, ...)
 \method{center}{Rfits_pointer}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_pointer}(x, useraw=TRUE, RAneg=FALSE,  ...)
 \method{extremes}{Rfits_pointer}(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
-\method{pixscale}{Rfits_pointer}(x, useraw=TRUE, unit='asec',  ...)
-\method{pixarea}{Rfits_pointer}(x, useraw=TRUE, unit='asec2',  ...)
+\method{pixscale}{Rfits_pointer}(x, useraw=TRUE, unit='asec', loc='cen',  ...)
+\method{pixarea}{Rfits_pointer}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
 \method{rotation}{Rfits_pointer}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_header}(x, useraw=TRUE, ...)
 \method{center}{Rfits_header}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_header}(x, useraw=TRUE, RAneg=FALSE,  ...)
 \method{extremes}{Rfits_header}(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
-\method{pixscale}{Rfits_header}(x, useraw=TRUE, unit='asec',  ...)
-\method{pixarea}{Rfits_header}(x, useraw=TRUE, unit='asec2',  ...)
+\method{pixscale}{Rfits_header}(x, useraw=TRUE, unit='asec', loc='cen',  ...)
+\method{pixarea}{Rfits_header}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
 \method{rotation}{Rfits_header}(x, keypass=TRUE, ...)
 
 \method{centre}{Rfits_keylist}(x, useraw=TRUE, ...)
 \method{center}{Rfits_keylist}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_keylist}(x, useraw=TRUE, RAneg=FALSE,  ...)
 \method{extremes}{Rfits_keylist}(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
-\method{pixscale}{Rfits_keylist}(x, useraw=TRUE, unit='asec',  ...)
-\method{pixarea}{Rfits_keylist}(x, useraw=TRUE, unit='asec2',  ...)
+\method{pixscale}{Rfits_keylist}(x, useraw=TRUE, unit='asec', loc='cen',  ...)
+\method{pixarea}{Rfits_keylist}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
 \method{rotation}{Rfits_keylist}(x, keypass=TRUE, ...)
 
 Rfits_length(filename, ext=1)
@@ -189,8 +189,8 @@ Rfits_centre(filename, ext=1, useraw=TRUE, ...)
 Rfits_center(filename, ext=1, useraw=TRUE, ...)
 Rfits_corners(filename, ext=1, useraw=TRUE, RAneg=FALSE, ...)
 Rfits_extremes(filename, ext=1, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
-Rfits_pixscale(filename, ext=1, useraw=TRUE, unit='asec', ...)
-Rfits_pixarea(filename, ext=1, useraw=TRUE, unit='asec2', ...)
+Rfits_pixscale(filename, ext=1, useraw=TRUE, unit='asec', loc='cen', ...)
+Rfits_pixarea(filename, ext=1, useraw=TRUE, unit='asec2', loc='cen', ...)
 Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 
 \method{[}{Rfits_vector}(x, i, header=TRUE)
@@ -238,31 +238,75 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 
 }
 \arguments{
-  \item{filename}{Character scalar; path to FITS file to operate the method on.}
-  \item{i}{Integer/numeric vector/matrix, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted. If \option{i} is a matrix then it allows non-contiguous random access with Rfits_pointer objects (see \code{\link{Rfits_point}}).}
-  \item{j}{Integer/numeric vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{k}{Integer/numeric vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{m}{Integer/numeric vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.}
-  \item{useraw}{Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.}
-  \item{unit}{Character scalar; for \code{pixscale} / \code{extremes} must be one of asec / amin / deg / rad, for \code{pixarea} must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are noth steradians).}
-  \item{RAneg}{When the \option{image} wraps through RA = 0, should values 'below' 0 (so 359) be treated as -ve (so -1). This is useful sometimes to not produce weird results when dealing with image corners in plots etc.}
-  \item{keypass}{Logical; should \code{Rwcs_keypass} be used to clean up the header?}
-  \item{header}{Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.}
-  \item{collapse}{Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.}
-  \item{type}{For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.}
-  \item{box}{If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2}
-  \item{x}{An object of a relevant class.}
-  \item{value}{The replacement data to write to disk.}
-  \item{e1}{An object of class 'Rfits_image', where operation happens on e1$imDat}
-  \item{e2}{An object of class 'Rfits_image, or a sensible scalar, vector or matrix}
-  \item{sparse}{Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
-  }
+  \item{filename}{
+Character scalar; path to FITS file to operate the method on.
+}
+  \item{i}{
+Integer/numeric vector/matrix, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted. If \option{i} is a matrix then it allows non-contiguous random access with Rfits_pointer objects (see \code{\link{Rfits_point}}).
+}
+  \item{j}{
+Integer/numeric vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.
+}
+  \item{k}{
+Integer/numeric vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.
+}
+  \item{m}{
+Integer/numeric vector, a contiguous vector of desired m indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.
+}
+  \item{useraw}{
+Logical; should the full raw header be used and passed to CFITSIO? This is often good (uses all the distortion terms etc), but there are failing cases with long messy headers so sometimes this cannot be used.
+}
+  \item{unit}{
+Character scalar; for \code{pixscale} / \code{extremes} must be one of asec / amin / deg / rad, for \code{pixarea} must be one of asec2 / amin2 / deg2 / rad2 / str (where rad2 and str are both steradians).
+}
+  \item{loc}{
+Character scalar / integer vector; defines the location to calculate the pixel scale or pixel area. Character options are 'cen'; 'bl' (bottom-left); 'tl' (top-left); 'tr' (top-right); 'br' (bottom-right). Supplying a two element integer vector will mean this loc[x,y] position is used (in R coordinates).
+}
+  \item{RAneg}{
+When the \option{image} wraps through RA = 0, should values 'below' 0 (so 359) be treated as -ve (so -1). This is useful sometimes to not produce weird results when dealing with image corners in plots etc.}
+
+  \item{keypass}{
+Logical; should \code{Rwcs_keypass} be used to clean up the header?
+}
+  \item{header}{
+Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.
+}
+  \item{collapse}{
+Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.
+}
+  \item{type}{
+  For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.
+}
+  \item{box}{
+If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2.
+}
+  \item{x}{
+An object of a relevant class.
+}
+  \item{value}{
+The replacement data to write to disk.
+}
+  \item{e1}{
+An object of class 'Rfits_image', where operation happens on e1$imDat.
+}
+  \item{e2}{
+An object of class 'Rfits_image, or a sensible scalar, vector or matrix.
+}
+  \item{sparse}{
+Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
+}
   \item{scale_sparse}{
 Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
 }
-  \item{allow_write}{Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.}
-  \item{ext}{Integer scalar; the extension to operate the method on.}
-  \item{\dots}{Either unused, or pass on WCS related information for \code{Rwcs} related methods (centre, corners, pixscale etc).}
+  \item{allow_write}{
+Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.
+}
+  \item{ext}{
+Integer scalar; the extension to operate the method on.
+}
+  \item{\dots}{
+Either unused, or pass on WCS related information for \code{Rwcs} related methods (centre, corners, pixscale etc).
+}
 }
 \value{
   \item{length}{Integer scalar; these methods return the total number of elements present in the target object (so pixels in an image, spaxels in a cube, cells in a table etc.)}
@@ -270,8 +314,8 @@ Logical; should the image be scaled to compensate for sparse sampling (so roghly
   \item{centre / center}{Numeric vector; these methods return the coordinates at the centre of the spatial dimensions. If this fails, returns NA.}
   \item{corners}{Numeric matrix; these methods return the coordinates at the corners of the spatial dimensions. Rows are TL / BL / TR / BR (top to bottom). If this fails, returns NA.}
   \item{extremes}{Numeric matrix; these methods return the coordinates at the absolute extremes of the spatial dimensions. Rows are min /max / range (top to bottom), where range is in units of \option{unit}. If this fails, returns NA. Note if the RA range crosses 0/360 then the min RA will be the larger value (say 359.9) and the max will be the smaller one (say 0.1), since that captures the correct sense of the low RA being West (effectively like having a -ve RA) of the high RA but correctly converts -ve RA to -ve \%\% 360.}
-  \item{pixscale}{Numeric scalar; these methods return the pixel scale of the spatial dimensions in the specified units. If this fails, returns NA.}
-  \item{pixarea}{Numeric scalar; these methods return the pixel area of the spatial dimensions in the specified units. If this fails, returns NA.}
+  \item{pixscale}{Numeric scalar; these methods return the pixel scale of the spatial dimensions in the specified units at the specified \option{loc}. If this fails, returns NA.}
+  \item{pixarea}{Numeric scalar; these methods return the pixel area of the spatial dimensions in the specified units at the specified \option{loc}. If this fails, returns NA.}
   \item{rotation}{Numeric vector; these methods return the image rotation in degrees for the North and East vector. This is the vector of [1] North with respect to y-axis up clockwise (so ^ is 0; > is 90; < is 270); and East with respect to x-axis right clockwise (so ^ is 2700; > is 0; < is 180) [2]. This should be clear when comparing to the compass drawn when making a \code{plot} of the \option{image} data. A 'standard' projection probably has North up and East right, so the output rotation will be [0,180]. If this fails, returns NA.}
   
   \code{\link{&}}, \code{\link{|}}, \code{\link{xor}}, \code{\link{!=}}, \code{\link{==}}, 

@@ -213,11 +213,11 @@ extremes.Rfits_keylist = extremes.Rfits_image
 
 #pixscale
 
-pixscale = function(x, useraw=TRUE, unit='asec', ...){
+pixscale = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
   UseMethod("pixscale", x)
 }
 
-pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', ...){
+pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
@@ -245,22 +245,51 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', ...){
     }
   }
   
-  im_dim = dim(x) #this works on all classes
+  if(is.character(loc)){
+    im_dim = dim(x) #this works on all classes
+    loc = tolower(loc)
+    
+    if(loc == 'cen'){
+      loc_x = im_dim[1]/2
+      loc_y = im_dim[2]/2
+    }else if(loc == 'bl'){
+      loc_x = 0.5
+      loc_y = 0.5
+    }else if(loc == 'tl'){
+      loc_x = 0.5
+      loc_y = im_dim[2] - 0.5
+    }else if(loc == 'tr'){
+      loc_x = im_dim[1] - 0.5
+      loc_y = im_dim[2] - 0.5
+    }else if(loc == 'br'){
+      loc_x = im_dim[1] - 0.5
+      loc_y = 0.5
+    }
+  }else if(is.numeric(loc)){
+    if(length(loc) == 1L){
+      loc_x = loc
+      loc_y = loc
+    }else{
+      loc_x = loc[1]
+      loc_y = loc[2]
+    }
+  }
+  
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){
-      if(inherits(x, 'Rfits_keylist')){
-        header = Rfits_keyvalues_to_raw(x)
+      if(inherits(keyvalues, 'Rfits_keylist')){
+        header = Rfits_keyvalues_to_raw(keyvalues)
       }else{
         header = x$raw
       }
     }else{
       header = NULL
     }
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
-    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
+    output[,1] = output[,1] * cos(output[,2]*pi/180)
     scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2) # 0.7071068 = 1/sqrt(2)
     
     if(unit=='deg'){
@@ -275,7 +304,7 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', ...){
       message('Not a valid unit, must be one of asec / amin / deg / rad')
     }
   }else{
-    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
+    message('The Rwcs package is needed to find the pixel scale of a Rfits_image object.')
   }
 }
 
@@ -285,11 +314,11 @@ pixscale.Rfits_keylist = pixscale.Rfits_image
 
 #pixarea
 
-pixarea = function(x, useraw=TRUE, unit='asec2', ...){
+pixarea = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
   UseMethod("pixarea", x)
 }
 
-pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
+pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
   }
@@ -317,7 +346,36 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
     }
   }
   
-  im_dim = dim(x) #this works on all classes
+  if(is.character(loc)){
+    im_dim = dim(x) #this works on all classes
+    loc = tolower(loc)
+    
+    if(loc == 'cen'){
+      loc_x = im_dim[1]/2
+      loc_y = im_dim[2]/2
+    }else if(loc == 'bl'){
+      loc_x = 0.5
+      loc_y = 0.5
+    }else if(loc == 'tl'){
+      loc_x = 0.5
+      loc_y = im_dim[2] - 0.5
+    }else if(loc == 'tr'){
+      loc_x = im_dim[1] - 0.5
+      loc_y = im_dim[2] - 0.5
+    }else if(loc == 'br'){
+      loc_x = im_dim[1] - 0.5
+      loc_y = 0.5
+    }
+  }else if(is.numeric(loc)){
+    if(length(loc) == 1L){
+      loc_x = loc
+      loc_y = loc
+    }else{
+      loc_x = loc[1]
+      loc_y = loc[2]
+    }
+  }
+  
   if(requireNamespace("Rwcs", quietly=TRUE)){
     if(useraw){
       if(inherits(x, 'Rfits_keylist')){
@@ -328,11 +386,11 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
     }else{
       header = NULL
     }
-    output = Rwcs::Rwcs_p2s(im_dim[1]/2 + c(-0.5,0.5,-0.5), im_dim[2]/2 + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
+    output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
-    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
+    output[,1] = output[,1] * cos(output[,2]*pi/180)
     area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
     
     if(unit=='deg2'){
@@ -347,7 +405,7 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', ...){
       message('Not a valid unit, must be one of asec2 / amin2 / deg2 / rad2 / str')
     }
   }else{
-    message('The Rwcs package is needed to find the centre of a Rfits_image object.')
+    message('The Rwcs package is needed to find the pixel area of a Rfits_image object.')
   }
 }
 
