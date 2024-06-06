@@ -43,6 +43,7 @@ jobs:
         run: |
           install.packages('remotes')
           install.packages('hdf5r')
+          install.packages('knitr')
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
           remotes::install_github("asgr/Rwcs", ref="master")
