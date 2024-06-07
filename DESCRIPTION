@@ -1,7 +1,7 @@
 Package: Rfits
 Type: Package
 Title: FITS Readers and Writers
-Version: 1.10.13
+Version: 1.10.14
 Date: 2024-06-06
 Authors@R: c(
     person(given='Aaron', family='Robotham', email='aaron.robotham@uwa.edu.au',
@@ -9,7 +9,7 @@ Authors@R: c(
     person(given='Rodrigo', family='Tobar', email='rtobar@icrar.org',
         role='aut', comment=c(ORCID='0000-0002-1052-0611')))
 Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
-Description: Read and write FITS images, tables and headers.
+Description: Read and write FITS images, tables and headers. Has a mixture of fairly low level and very high level routines. Many methods for conveniently operating on FITS files are included.
 License: LGPL-3
 Imports: Rcpp, bit64, checkmate, foreach, doParallel, magicaxis
 Suggests: data.table, testthat, FITSio, hdf5r, ProFound, tdigest, R.utils, Rwcs (>= 1.8.4)

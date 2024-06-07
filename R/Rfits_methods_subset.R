@@ -545,12 +545,12 @@
       
       rm_key = c(
         grep('3_[1-4]', names(x$keyvalues)),
-        grep('[1-4]_03', names(x$keyvalues)),
+        grep('[1-4]_3', names(x$keyvalues)),
         grep('03_0[1-4]', names(x$keyvalues)),
         grep('0[1-4]_03', names(x$keyvalues)),
         
         grep('4_[1-4]', names(x$keyvalues)),
-        grep('[1-4]_04', names(x$keyvalues)),
+        grep('[1-4]_4', names(x$keyvalues)),
         grep('04_0[1-4]', names(x$keyvalues)),
         grep('0[1-4]_04', names(x$keyvalues)),
         
