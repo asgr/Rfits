@@ -717,6 +717,9 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
             keyval = Rfits_read_key(filename=filelist[i], keyname=key, keytype='auto', ext=extlist[i])
           }else{
             keyval = image_list[[i]]$keyvalues[[key]]
+            if(is.null(keyval)){
+              keyval = NA
+            }
           }
         current_info = c(current_info, key=keyval)
       }
