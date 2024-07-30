@@ -33,7 +33,7 @@ Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = NULL,
 Character scalar; path to FITS file, either to be written to or read. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
 }
   \item{pointer}{
-Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory (tables are always loaded into memory). See \code{\link{Rfits_point}} for more details. For small datasets that easily fit within memory, this should probably be set as FALSE, but for very large multi-extension FITS image files (especially those which contain compressed images) setting to TRUE will hugely reduce memory consumption and speed up access times of subsets. The default of 'auto' will set to TRUE if the target FITS file is larger than 100 MB (perhaps a bit unwieldy and slow to load in) and FALSE if it is smaller than this. For \code{Rfits_make_list} the only allowed values are TRUE (default) and FALSE, no 'auto' option is available.
+Logical scalar; specifies whether the images in each extension should be pointers rather than loaded into memory (tables are always loaded into memory). See \code{\link{Rfits_point}} for more details. For small data sets that easily fit within memory, this should probably be set as FALSE, but for very large multi-extension FITS image files (especially those which contain compressed images) setting to TRUE will hugely reduce memory consumption and speed up access times of subsets. The default of 'auto' will set to TRUE if the target FITS file is larger than 100 MB (perhaps a bit unwieldy and slow to load in) and FALSE if it is smaller than this. For \code{Rfits_make_list} the only allowed values are TRUE (default) and FALSE, no 'auto' option is available.
 }
   \item{data}{
 List; a list of images and tables to be written out to a target FITS file. Supported types are: Rfits_vector, Rfits_image, Rfits_cube, Rfits_array, array, matrix, integer, numeric, Rfits_table, data.frame, data.table, Rfits_header and Rfits_pointer. The format of this should look like the output of \code{Rfits_read_all}. If building more manually, this should be a list where each element has much the same format as the \option{data} and \option{table} arguments for \code{\link{Rfits_write_image}} and \code{\link{Rfits_write_table}} respectively (which is pretty much the format created by \code{\link{Rfits_read_image}} and \code{\link{Rfits_read_table}}).
@@ -69,10 +69,10 @@ Numeric vector; non-numeric replacement value to use when compression is being d
 Character vector; if supplied the output list elements will be limited to those named here. This is a convenient way to only write out a subset of a large list by list component name.  
 }
   \item{filelist}{
-Character vector; vector of full paths of FITS files to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is used. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
+Character vector; vector of full paths of FITS files to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique super-set of both is used. This is written as an attribute (called \option{filename}) to the output 'Rfits_list' object.
 }
   \item{dirlist}{
-Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique superset of both is used.
+Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique super-set of both is used.
 }
   \item{extlist}{
 Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}
