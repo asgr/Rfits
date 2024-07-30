@@ -260,6 +260,9 @@
         k = eval(parse(text=paste0(start,':',end)))
       }
     }
+    k_prov = TRUE
+  }else{
+    k_prov = FALSE
   }
   
   if(missing(i)){i = c(1,xdim)}
@@ -314,7 +317,7 @@
       x$keyvalues$CRPIX3 = x$keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
     }
     
-    if(x$keyvalues$NAXIS3 == 1L & collapse){
+    if(x$keyvalues$NAXIS3 == 1L & k_prov & collapse){
       tar = tar[,,1]
       
       x$keyvalues$NAXIS = 2L
@@ -449,6 +452,9 @@
         k = eval(parse(text=paste0(start,':',end)))
       }
     }
+    k_prov = TRUE
+  }else{
+    k_prov = FALSE
   }
   
   if(!missing(m)){
@@ -461,6 +467,9 @@
         m = eval(parse(text=paste0(start,':',end)))
       }
     }
+    m_prov = TRUE
+  }else{
+    m_prov = FALSE
   }
   
   if(missing(i)){i = c(1,xdim)}
@@ -528,7 +537,7 @@
       x$keyvalues$CRPIX4 = x$keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
     }
     
-    if(x$keyvalues$NAXIS3 == 1L & x$keyvalues$NAXIS4 == 1L & collapse){
+    if(x$keyvalues$NAXIS3 == 1L & x$keyvalues$NAXIS4 == 1L & k_prov & m_prov & collapse){
       tar = tar[,,1,1]
       
       x$keyvalues$NAXIS = 2L
@@ -571,7 +580,7 @@
       }
       
       class_out = "Rfits_image"
-    }else if(x$keyvalues$NAXIS4 == 1L & collapse){
+    }else if(x$keyvalues$NAXIS4 == 1L & m_prov & collapse){
       tar = tar[,,,1]
       
       x$keyvalues$NAXIS = 3L
@@ -654,7 +663,7 @@
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE){
   
   xdim = dim(x)[1]
   ydim = dim(x)[2]
@@ -667,13 +676,15 @@
   }
   
   if(!missing(i)){
-    express = as.character(substitute(i))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(i))[3]){
-        start = express[2]
-        end = xdim
-        i = eval(parse(text=paste0(start,':',end)))
+    if(!is.matrix(i)){
+      express = as.character(substitute(i))
+      
+      if(express[1] == ':' & length(express) == 3L){
+        if(grepl('end',substitute(i))[3]){
+          start = express[2]
+          end = xdim
+          i = eval(parse(text=paste0(start,':',end)))
+        }
       }
     }
   }
@@ -700,6 +711,9 @@
         k = eval(parse(text=paste0(start,':',end)))
       }
     }
+    k_prov = TRUE
+  }else{
+    k_prov = FALSE
   }
   
   if(!missing(m)){
@@ -712,6 +726,9 @@
         m = eval(parse(text=paste0(start,':',end)))
       }
     }
+    m_prov = TRUE
+  }else{
+    m_prov = FALSE
   }
   
   if(!missing(i)){
@@ -831,9 +848,28 @@
     }
   }
   
-  return(Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
+  output = Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                          tlo=tlo, thi=thi, sparse=sparse, scale_sparse=scale_sparse))
+                          tlo=tlo, thi=thi, sparse=sparse, scale_sparse=scale_sparse,
+                          collapse=FALSE)
+  
+  if(collapse){
+    if(length(dim(output)) == 3){
+      if(dim(output)[3] == 1L & k_prov){
+        output = output[,,1, collapse=TRUE]
+      }
+    }
+    
+    if(length(dim(output)) == 4){
+      if(dim(output)[3] == 1L & dim(output)[4] == 1L & k_prov & m_prov){
+        output = output[,,1,1, collapse=TRUE]
+      }else if(dim(output)[4] == 1L & m_prov){
+        output = output[,,,1, collapse=TRUE]
+      }
+    }
+  }
+  
+  return(output)
 }
 
 `[<-.Rfits_pointer` = function(x, i, j, k, m, allow_write=x$allow_write, value){

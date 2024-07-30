@@ -52,7 +52,8 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L, scale_sparse=FALSE){
+                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L,
+                          scale_sparse=FALSE, collapse=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -542,7 +543,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   extname = hdr$keyvalues$EXTNAME,
                   WCSref = WCSref
                   )
-
+      
     if(Ndim == 1){
       class(output) = c('Rfits_vector', 'list')
     }else if(Ndim == 2){
@@ -552,10 +553,27 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }else if(Ndim == 4){
       class(output) = c('Rfits_array', 'list')
     }
-    return(invisible(output))
   }else{
-    return(invisible(image)) 
+    output = image
   }
+  
+  if(collapse){
+    if(length(dim(output)) == 3){
+      if(dim(output)[3] == 1L){
+        output = output[,,1, collapse=TRUE]
+      }
+    }
+    
+    if(length(dim(output)) == 4){
+      if(dim(output)[3] == 1L & dim(output)[4] == 1L){
+        output = output[,,1,1, collapse=TRUE]
+      }else if(dim(output)[4] == 1L){
+        output = output[,,,1, collapse=TRUE]
+      }
+    }
+  }
+  
+  return(invisible(output))
 }
 
 Rfits_read_vector = Rfits_read_image

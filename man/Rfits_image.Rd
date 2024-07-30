@@ -24,22 +24,22 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE)
+  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -151,6 +151,9 @@ Integer scalar; default reads in a dense matrix (so all pixels in the rectangula
 }
   \item{scale_sparse}{
 Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
+}
+  \item{collapse}{
+Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate. Note the user needs to specify the dimension slice to be '1', so it is more specific than just relying on the dimension only having size 1. E.g. if ex is a 10x10x1 cube then ex[,,1,collapse=TRUE] would become a 10x10 image, but ex[,,,collapse=TRUE] would not, instead it would still return a 10x10x1 cube. This is really to stop users accidentally collapsing things, and deliberately forces active input (so a feature not a bug).
 }
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
