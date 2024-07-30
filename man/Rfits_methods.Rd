@@ -198,7 +198,7 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 \method{[}{Rfits_cube}(x, i, j, k, header=TRUE, collapse=TRUE)
 \method{[}{Rfits_array}(x, i, j, k, m, header=TRUE, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, box=201, type='pix', header=x$header,
-  sparse=x$sparse, scale_sparse=x$scale_sparse)
+  sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 \method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
 
@@ -216,7 +216,7 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 \method{/}{Rfits_image}(e1, e2)
 \method{^}{Rfits_image}(e1, e2)
 \method{\%\%}{Rfits_image}(e1, e2)
-\method{\%*\%}{Rfits_image}(e1, e2)
+\method{\%*\%}{Rfits_image}(x, y)
 \method{\%/\%}{Rfits_image}(e1, e2)
 
 \method{&}{Rfits_pointer}(e1, e2)
@@ -233,7 +233,7 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 \method{/}{Rfits_pointer}(e1, e2)
 \method{^}{Rfits_pointer}(e1, e2)
 \method{\%\%}{Rfits_pointer}(e1, e2)
-\method{\%*\%}{Rfits_pointer}(e1, e2)
+\method{\%*\%}{Rfits_pointer}(x, y)
 \method{\%/\%}{Rfits_pointer}(e1, e2)
 
 }
@@ -272,7 +272,7 @@ Logical; should \code{Rwcs_keypass} be used to clean up the header?
 Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.
 }
   \item{collapse}{
-Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate.
+Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate. Note the user needs to specify the dimension slice to be '1', so it is more specific than just relying on the dimension only having size 1. E.g. if ex is a 10x10x1 cube then ex[,,1,collapse=TRUE] would become a 10x10 image, but ex[,,,collapse=TRUE] would not, instead it would still return a 10x10x1 cube. This is really to stop users accidentally collapsing things, and deliberately forces active input (so a feature not a bug).
 }
   \item{type}{
   For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.
@@ -281,6 +281,9 @@ Logical; should the array or cube be collapsed down dimensions if the 3rd/4th di
 If \option{i}/\option{j} are length 1 then box[1] and box[2] specifies how big the cutouts will be, where it will be \option{i} +/- (box[1]-1)/2 and \option{j} +/- (box[2]-1)/2.
 }
   \item{x}{
+An object of a relevant class.
+}
+  \item{y}{
 An object of a relevant class.
 }
   \item{value}{

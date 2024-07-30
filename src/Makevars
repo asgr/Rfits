@@ -7,11 +7,11 @@ all: $(SHLIB)
 $(SHLIB): cfitsio
 
 cfitsio:
-	(cd cfitsio && make libcfitsio.a)
+	(cd cfitsio && $(MAKE) libcfitsio.a)
 
 shlib-clean: clean
 
 clean:
-	(cd cfitsio; make clean)
+	(cd cfitsio; $(MAKE) clean)
 
 OBJECTS = RcppExports.o Rfits.o
