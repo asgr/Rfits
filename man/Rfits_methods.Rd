@@ -245,7 +245,7 @@ Character scalar; path to FITS file to operate the method on.
 Integer/numeric vector/matrix, a contiguous vector of desired i indices to extract. Or Numeric scalar RA value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted. If \option{i} is a matrix then it allows non-contiguous random access with Rfits_pointer objects (see \code{\link{Rfits_point}}).
 }
   \item{j}{
-Integer/numeric vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'.If the second element y of x:y is 'end' then the upper dimension is substituted.
+Integer/numeric vector, a contiguous vector of desired j indices to extract. Or Numeric scalar Dec value if \option{type} = 'coord'. If the second element y of x:y is 'end' then the upper dimension is substituted.
 }
   \item{k}{
 Integer/numeric vector, a contiguous vector of desired k indices to extract. If the second element y of x:y is 'end' then the upper dimension is substituted.
@@ -269,7 +269,7 @@ When the \option{image} wraps through RA = 0, should values 'below' 0 (so 359) b
 Logical; should \code{Rwcs_keypass} be used to clean up the header?
 }
   \item{header}{
-Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when subsetting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.
+Logical, should a modified \code{Rfits} object be output with a fixed header, making the coordinate system consistent with the cutout? If FALSE (default) then just the raw object type (e.g. vector, image, cube, array) is output. For \code{\link{Rfits_pointer}}, should the header also be extracted when sub-setting the pointer? Default inherits from the original call to \code{\link{Rfits_pointer}}.
 }
   \item{collapse}{
 Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate. Note the user needs to specify the dimension slice to be '1', so it is more specific than just relying on the dimension only having size 1. E.g. if ex is a 10x10x1 cube then ex[,,1,collapse=TRUE] would become a 10x10 image, but ex[,,,collapse=TRUE] would not, instead it would still return a 10x10x1 cube. This is really to stop users accidentally collapsing things, and deliberately forces active input (so a feature not a bug).
@@ -299,7 +299,7 @@ An object of class 'Rfits_image, or a sensible scalar, vector or matrix.
 Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension.  
 }
   \item{scale_sparse}{
-Logical; should the image be scaled to compensate for sparse sampling (so roghly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
+Logical; should the image be scaled to compensate for sparse sampling (so roughly conserve flux). In an 2D image this would mean pixels are scaled by \option{sparse}^2, and more generally a N dimensional array is scaled by \option{sparse}^N. The default is to return just the native values unscaled.
 }
   \item{allow_write}{
 Logical; flag to indicate whether we should allow writing back into an on-disk pointer object. Default inherits from the original call to \code{\link{Rfits_pointer}}.
@@ -374,7 +374,7 @@ temp_cube[26:30,26:30,1:2] #convenient
 print(temp_cube)
 dim(temp_cube)
 
-#For convenience we can access the end dimension limit without explictly checking:
+#For convenience we can access the end dimension limit without explicitly checking:
 temp_cube[46:end,46:end,3:end]$imDat #The dim is 50x50x4, so this creates a 5x5x2 array
 }
 \keyword{ classes }

@@ -317,15 +317,21 @@
       x$keyvalues$CRPIX3 = x$keyvalues$CRPIX3 - safedim_k$lo_tar + 1L
     }
     
-    if(x$keyvalues$NAXIS3 == 1L & k_prov & collapse){
-      tar = tar[,,1]
+    if(safedim_k$len_tar == 1L & k_prov & collapse){
+      dim(tar) = dim(tar)[1:2]
       
       x$keyvalues$NAXIS = 2L
-      
       x$keyvalues$NAXIS3 = NULL
       x$keyvalues$CRPIX3 = NULL
+      
       x$keycomments$NAXIS3 = NULL
       x$keycomments$CRPIX3 = NULL
+      
+      if(isTRUE(x$keyvalues$ZIMAGE)){
+        x$keyvalues$ZNAXIS = 2L
+        x$keyvalues$ZNAXIS3 = NULL
+        x$keycomments$ZNAXIS3 = NULL
+      }
       
       rm_key = c(
         grep('3_[1-3]', names(x$keyvalues)),
@@ -407,6 +413,11 @@
     
     return(output)
   }else{
+    
+    if(safedim_k$len_tar == 1L & k_prov & collapse){
+      dim(tar) = dim(tar)[1:2]
+    }
+    
     return(tar)
   }
 }
@@ -537,20 +548,29 @@
       x$keyvalues$CRPIX4 = x$keyvalues$CRPIX4 - safedim_m$lo_tar + 1L
     }
     
-    if(x$keyvalues$NAXIS3 == 1L & x$keyvalues$NAXIS4 == 1L & k_prov & m_prov & collapse){
-      tar = tar[,,1,1]
+    if(safedim_k$len_tar == 1L & safedim_m$len_tar == 1L & k_prov & m_prov & collapse){
+      dim(tar) = dim(tar)[1:2]
       
       x$keyvalues$NAXIS = 2L
       
       x$keyvalues$NAXIS3 = NULL
+      x$keyvalues$NAXIS4 = NULL
       x$keyvalues$CRPIX3 = NULL
       x$keyvalues$CRPIX4 = NULL
-      x$keyvalues$NAXIS4 = NULL
       
       x$keycomments$NAXIS3 = NULL
+      x$keycomments$NAXIS4 = NULL
       x$keycomments$CRPIX3 = NULL
       x$keycomments$CRPIX4 = NULL
-      x$keycomments$NAXIS4 = NULL
+      
+      if(isTRUE(x$keyvalues$ZIMAGE)){
+        x$keyvalues$ZNAXIS = 2L
+        x$keyvalues$ZNAXIS3 = NULL
+        x$keyvalues$ZNAXIS4 = NULL
+        
+        x$keycomments$ZNAXIS3 = NULL
+        x$keycomments$ZNAXIS4 = NULL
+      }
       
       rm_key = c(
         grep('3_[1-4]', names(x$keyvalues)),
@@ -580,8 +600,8 @@
       }
       
       class_out = "Rfits_image"
-    }else if(x$keyvalues$NAXIS4 == 1L & m_prov & collapse){
-      tar = tar[,,,1]
+    }else if(safedim_m$len_tar == 1L & m_prov & collapse){
+      dim(tar) = dim(tar)[1:3]
       
       x$keyvalues$NAXIS = 3L
       
@@ -590,6 +610,14 @@
       
       x$keycomments$NAXIS4 = NULL
       x$keycomments$CRPIX4 = NULL
+      
+      if(isTRUE(x$keyvalues$ZIMAGE)){
+        x$keyvalues$ZNAXIS = 3L
+        x$keyvalues$ZNAXIS4 = NULL
+        
+        x$keycomments$ZNAXIS4 = NULL
+      }
+      
       class_out = "Rfits_cube"
     }else{
       class_out = "Rfits_array"
@@ -659,11 +687,19 @@
     
     return(output)
   }else{
+    
+    if(safedim_k$len_tar == 1L & safedim_m$len_tar == 1L & k_prov & m_prov & collapse){
+      dim(tar) = dim(tar)[1:2]
+    }else if(safedim_m$len_tar == 1L & k_prov & m_prov & collapse){
+      dim(tar) = dim(tar)[1:3]
+    }
+    
     return(tar)
   }
 }
 
-`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header, sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE){
+`[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header,
+                             sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE){
   
   xdim = dim(x)[1]
   ydim = dim(x)[2]
