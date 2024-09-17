@@ -390,7 +390,7 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
-    output[,1] = output[,1] * cos(output[,2]*pi/180)
+    output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
     area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
     
     if(unit=='deg2'){
