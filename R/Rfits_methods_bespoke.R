@@ -290,7 +290,11 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180) #this should be the mean! Don't touch it (already made that mistake once)
-    scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2) # 0.7071068 = 1/sqrt(2)
+    #old code, probably ignore. Work the same on square pixels:
+    #scale_deg = 0.7071068*sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2 + diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2) # 0.7071068 = 1/sqrt(2)
+    
+    #new code to work with distorted pixels better
+    scale_deg = (sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2) + sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2))/2
     
     if(unit=='deg'){
       return(scale_deg)
@@ -391,7 +395,11 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
     output[,1] = output[,1] * cos(mean(output[,2])*pi/180)
-    area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
+    #old code, probably ignore. Work the same on square pixels:
+    #area_deg = sqrt(diff(output[1:2,1])^2 + diff(output[1:2,2])^2)*sqrt(diff(output[c(1,3),1])^2 + diff(output[c(1,3),2])^2)
+    
+    #new code to work with distorted pixels better, use the parallelogram cross product area:
+    area_deg = abs(sum(diff(output[1:2,1])*diff(output[c(1,3),2]) - diff(output[1:2,2])*diff(output[c(1,3),1])))
     
     if(unit=='deg2'){
       return(area_deg)
