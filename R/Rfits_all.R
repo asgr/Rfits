@@ -1,4 +1,5 @@
-Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.table=TRUE, anycompress=TRUE, bad=NULL, zap=NULL){
+Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.table=TRUE,
+                        anycompress=TRUE, bad=NULL, zap=NULL, zaptype='full'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = Rfits_gunzip(filename)
@@ -36,9 +37,9 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   if(!is.null(info$headers[[1]]$keyvalues$NAXIS)){
     if(info$headers[[1]]$keyvalues$NAXIS > 0){
       if(pointer){
-        data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap)
+        data[[1]] = Rfits_point(filename, ext=1, header=header[1], zap=zap, zaptype=zaptype)
       }else{
-        data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap)
+        data[[1]] = Rfits_read_image(filename, ext=1, header=header[1], bad=bad[1], zap=zap, zaptype=zaptype)
       }
     }
   }
@@ -48,9 +49,9 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   if(length(sel_images)>0){
     for(i in sel_images){
       if(pointer){
-        data[[i]] = Rfits_point(filename, ext=i, header=header[i], zap=zap)
+        data[[i]] = Rfits_point(filename, ext=i, header=header[i], zap=zap, zaptype=zaptype)
       }else{
-        data[[i]] = Rfits_read_image(filename, ext=i, header=header[i], bad=bad[i], zap=zap)
+        data[[i]] = Rfits_read_image(filename, ext=i, header=header[i], bad=bad[i], zap=zap, zaptype=zaptype)
       }
     }
   }
@@ -61,13 +62,13 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   if(length(sel_tables)>0){
     for(i in sel_tables){
       if(anycompress==FALSE | is.null(info$headers[[i]]$keyvalues$ZIMAGE) | isFALSE(info$headers[[i]]$keyvalues$ZIMAGE)){ #this is to catch for standard compressed images (stored as tables)
-        data[[i]] = Rfits_read_table(filename, ext=i, header=header[i], data.table=data.table, zap=zap)
+        data[[i]] = Rfits_read_table(filename, ext=i, header=header[i], data.table=data.table, zap=zap, zaptype=zaptype)
       }else{
         if(pointer){
           #This is where we read compressed images
-          data[[i]] = Rfits_point(filename, ext=i, header=header[i], zap=zap)
+          data[[i]] = Rfits_point(filename, ext=i, header=header[i], zap=zap, zaptype=zaptype)
         }else{
-          data[[i]] = Rfits_read_image(filename, ext=i, header=header[i], bad=bad[i], zap=zap)
+          data[[i]] = Rfits_read_image(filename, ext=i, header=header[i], bad=bad[i], zap=zap, zaptype=zaptype)
         }
       }
     }
@@ -76,11 +77,11 @@ Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.
   #NULL
   
   if(length(data) == 0){
-    data = list(Rfits_read_header(filename, ext=1, zap=zap))
+    data = list(Rfits_read_header(filename, ext=1, zap=zap, zaptype=zaptype))
   }else{
     for(i in 1:length(data)){
       if(is.null(data[[i]])){
-        data[[i]] = Rfits_read_header(filename, ext=i, zap=zap)
+        data[[i]] = Rfits_read_header(filename, ext=i, zap=zap, zaptype=zaptype)
       }
     }
   }

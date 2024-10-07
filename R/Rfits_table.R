@@ -51,7 +51,7 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
-                          header=FALSE, remove_HIERARCH=FALSE, nrow=0L, zap=NULL){
+                          header=FALSE, remove_HIERARCH=FALSE, nrow=0L, zap=NULL, zaptype='full'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -105,7 +105,7 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   colnames(output) = colnames
   
   if(header){
-    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, zap=zap)
+    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, zap=zap, zaptype=zaptype)
     
     attributes(output) = c(attributes(output), 
                            hdr,

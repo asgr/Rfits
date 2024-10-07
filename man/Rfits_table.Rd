@@ -13,7 +13,7 @@ Generic table readers and writers. Works with a wide range of data types includi
 \usage{
 Rfits_read_table(filename = 'temp.fits', ext = 2, data.table = TRUE,
     cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE, nrow = 0L,
-    zap = NULL)
+    zap = NULL, zaptype = 'full')
 
 Rfits_read_colnames(filename = 'temp.fits', ext = 2)
 
@@ -53,7 +53,10 @@ Logical, should the leading 'HIERARCH' be removed for extended keyword names (lo
 Integer scalar; explicitly specify how many rows to read in. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEM being used in the header to specify the number of rows).
 }
   \item{zap}{
-Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. By default the full 80 character header per key is scanned for matches, but this can be changed with \option{zaptype}.
+}
+  \item{zaptype}{
+Character scalar; the type of zap to carry out. Either the grep is done on the full 80 character string ('full'; the default) or just the keynames ('name'). The latter might be useful when you are certain a simpler grep can be made if just using the keynames. The former is useful if some other flag in the key entry (a comment etc) can help flag keys to be zapped.  
 }
   \item{extname}{
 Character scalar; name of the table extension. 

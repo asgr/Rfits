@@ -15,9 +15,9 @@ Simple functions that either read in or write out all supported FITS extensions.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL)
+  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full')
 Rfits_read(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL)
+  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full')
   
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
   compress = FALSE, bad_compress = 0, list_sub = NULL)
@@ -57,7 +57,10 @@ Logical; might some of the extensions be compressed images? If this is definitel
 Vector; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This can be useful since CFITSIO converts R NA to NaN when writing and reading, and within R NA is usually the preferable representation. If set to a single value then this is used for all images, otherwise you can specify a vector specifying the value for each extension (although only actually used for images).
 }
   \item{zap}{
-Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings.
+Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. By default the full 80 character header per key is scanned for matches, but this can be changed with \option{zaptype}.
+}
+  \item{zaptype}{
+Character scalar; the type of zap to carry out. Either the grep is done on the full 80 character string ('full'; the default) or just the keynames ('name'). The latter might be useful when you are certain a simpler grep can be made if just using the keynames. The former is useful if some other flag in the key entry (a comment etc) can help flag keys to be zapped.  
 }
   \item{compress}{
 Logical vector; option to specify per extension image compression. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images). A semi-hidden convenience feature is to set this to a value, and only extensions with lengths longer than this will be compressed. E.g. you might want to use 1e4 to ensure images larger than 100x100 are compressed, but small distortion matrices are not.

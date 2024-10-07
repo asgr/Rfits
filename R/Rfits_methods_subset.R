@@ -886,8 +886,8 @@
   
   output = Rfits_read_image(filename=x$filename, ext=x$ext, header=header,
                           xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                          tlo=tlo, thi=thi, sparse=sparse, scale_sparse=scale_sparse,
-                          collapse=FALSE)
+                          tlo=tlo, thi=thi, zap=x$zap, zaptype=x$zaptype, sparse=sparse,
+                          scale_sparse=scale_sparse, collapse=FALSE)
   
   if(collapse){
     if(length(dim(output)) == 3){

@@ -52,7 +52,7 @@
 
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
-                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, sparse=1L,
+                          force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, zaptype='full', sparse=1L,
                           scale_sparse=FALSE, collapse=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
@@ -81,7 +81,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   
   if(!is.null(xlo) | !is.null(xhi) | !is.null(ylo) | !is.null(yhi) | !is.null(zlo) | !is.null(zhi) | !is.null(tlo) | !is.null(thi) | sparse > 1 | header){
     
-    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+    hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap, zaptype=zaptype)
     
     #Have to check for NAXIS1 directly, because I've come across images missing NAXIS :-(
     if(isTRUE(hdr$keyvalues$ZIMAGE)){
@@ -95,7 +95,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       if(isTRUE(hdr$keyvalues$NAXIS == 0L) & isTRUE(hdr$keyvalues$EXTEND)){
         message('Trying ext = 2')
         ext = 2
-        hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap)
+        hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, keypass=keypass, zap=zap, zaptype=zaptype)
         if(isTRUE(hdr$keyvalues$NAXIS > 0L)){
           message('New NAXIS > 0, continuing with ext = 2')
         }else{

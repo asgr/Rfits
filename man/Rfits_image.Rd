@@ -24,22 +24,26 @@ Generic image, cube and array (4D) readers and writers. Currently reading and wr
 Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
+  keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
+  collapse = FALSE)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
+  keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
+  collapse = FALSE)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
+  keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
+  collapse = FALSE)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
-  keypass = FALSE, zap = NULL, sparse = 1L, scale_sparse = FALSE, collapse = FALSE)
+  keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
+  collapse = FALSE)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",
@@ -144,7 +148,10 @@ Scalar; replacement scalar (e.g. NA, NaN etc) for all non-finite values. This ca
 Logical; if you have the Rwcs package installed, then you can execute an extra keypass step where the \option{keyvalues} provided have various safety checks made, and standard mistakes are corrected to make a fully FITS legal WCS.  
 }
   \item{zap}{
-Character vector; optional unique strings to zap out of the header. These elements are passed through \code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords.
+Character vector; optional unique strings to zap out of the header. These elements are passed through \code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. For HST data we have often need to use \option{zap} = c('LOOKUP', 'DP[1-2]') because of the presence of non-compliant WCS keywords. By default the full 80 character header per key is scanned for matches, but this can be changed with \option{zaptype}.
+}
+  \item{zaptype}{
+Character scalar; the type of zap to carry out. Either the grep is done on the full 80 character string ('full'; the default) or just the keynames ('name'). The latter might be useful when you are certain a simpler grep can be made if just using the keynames. The former is useful if some other flag in the key entry (a comment etc) can help flag keys to be zapped.  
 }
   \item{sparse}{
 Integer scalar; default reads in a dense matrix (so all pixels in the rectangular region requested). Setting sparse to higher values means few pixels are read in, i.e. it skips every \option{sparse} pixels in each dimension. This can be useful for having a quick look at the data from a large image (since it is quick to read in). Note currently this is just for quick views of the pixels with a fairly rough WCS conversion, so do not treat with critical accuracy.

@@ -1,4 +1,5 @@
-Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow_write=FALSE, sparse=1L, scale_sparse=FALSE){
+Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, zaptype='full',
+                       allow_write=FALSE, sparse=1L, scale_sparse=FALSE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   assertAccess(filename, access='r')
@@ -7,7 +8,7 @@ Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow
   assertIntegerish(ext, len=1)
   assertFlag(header)
   
-  temp = Rfits_read_header(filename=filename, ext=ext, zap=zap)
+  temp = Rfits_read_header(filename=filename, ext=ext, zap=zap, zaptype=zaptype)
   keyvalues = temp$keyvalues
   raw = temp$raw
   
@@ -31,7 +32,8 @@ Rfits_point = function(filename='temp.fits', ext=1, header=TRUE, zap=NULL, allow
   if(!is.null(naxis4)){dim = c(dim, naxis4); type='array'}
   
   output = list(filename=filename, ext=ext, keyvalues=keyvalues, raw=raw, header=header,
-                zap=zap, allow_write=allow_write, sparse=sparse, scale_sparse=scale_sparse, dim=dim, type=type)
+                zap=zap, zaptype=zaptype, allow_write=allow_write, sparse=sparse,
+                scale_sparse=scale_sparse, dim=dim, type=type)
   class(output) = 'Rfits_pointer'
   return(invisible(output))
 }

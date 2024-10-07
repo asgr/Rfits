@@ -207,7 +207,7 @@ Rfits_delete_key=function(filename='temp.fits', keyname, ext=1){
   try(Cfits_delete_key(filename=filename, keyname=keyname, ext=ext))
 }
 
-Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE, zap=NULL){
+Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, keypass=FALSE, zap=NULL, zaptype='full'){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -221,7 +221,7 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   header = Cfits_read_header(filename=filename, ext=ext)
   
   if(!is.null(zap)){
-    header = Rfits_header_zap(header, zap=zap)
+    header = Rfits_header_zap(header, zap=zap, zaptype=zaptype)
   }
   
   #read nkey
@@ -613,8 +613,8 @@ Rfits_header_to_keyvalues=function(header, remove_HIERARCH=FALSE){
   return(Rfits_hdr_to_keyvalues(Rfits_header_to_hdr(header=header, remove_HIERARCH=remove_HIERARCH)))
 }
 
-Rfits_header_to_raw = function(header, zap=NULL, ...){
-  header = Rfits_header_zap(header=header, zap=zap, ...)
+Rfits_header_to_raw = function(header, zap=NULL, zaptype='full'){
+  header = Rfits_header_zap(header=header, zap=zap, zaptype=zaptype)
   return(paste(formatC(substr(header,1,79), width=80, flag='-'),sep='',collapse = ''))
 }
 
@@ -627,7 +627,7 @@ Rfits_raw_to_keyvalues = function(raw, remove_HIERARCH=FALSE){
   return(Rfits_header_to_keyvalues(Rfits_raw_to_header(raw), remove_HIERARCH=FALSE))
 }
 
-Rfits_keyvalues_to_raw = function(keyvalues, keycomments=NULL, comment=NULL, history=NULL, zap=NULL, ...){
+Rfits_keyvalues_to_raw = function(keyvalues, keycomments=NULL, comment=NULL, history=NULL, zap=NULL, zaptype='full'){
   return(Rfits_header_to_raw(
     Rfits_keyvalues_to_header(
       keyvalues = keyvalues,
@@ -636,17 +636,27 @@ Rfits_keyvalues_to_raw = function(keyvalues, keycomments=NULL, comment=NULL, his
       history = history
     ),
     zap = zap,
-    ...
+    zaptype = zaptype
   )
   )
 }
 
-Rfits_header_zap=function(header, zap=NULL, ...){
+Rfits_header_zap=function(header, zap=NULL, zaptype='full', remove_HIERARCH=FALSE, ...){
   if(!is.null(zap)){
-    for(i in 1:length(zap)){
-      zaplocs = grep(zap[i], header, ...)
-      if(length(zaplocs) > 0){
-        header = header[-zaplocs]
+    if(zaptype == 'full'){
+      for(i in 1:length(zap)){
+        zaplocs = grep(zap[i], header, ...)
+        if(length(zaplocs) > 0){
+          header = header[-zaplocs]
+        }
+      }
+    }else if(zaptype == 'name' | zaptype == 'keyname' | zaptype == 'names' | zaptype == 'keynames'){
+      keynames = names(Rfits_header_to_keyvalues(header, remove_HIERARCH=remove_HIERARCH))
+      for(i in 1:length(zap)){
+        zaplocs = grep(zap[i], keynames, ...)
+        if(length(zaplocs) > 0){
+          header = header[-zaplocs]
+        }
       }
     }
   }
@@ -692,7 +702,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
         filelist = grep(pattern=i, filelist, value=TRUE)
       }
     }
-    filelist = grep(pattern='.fits$', filelist, value=TRUE)
+    filelist = grep(pattern='.fits$|.FITS$|.fit$|.FIT$', filelist, value=TRUE)
     filelist = unique(filelist)
     
     Nscan = length(filelist)
@@ -853,7 +863,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
   }
   
   file = basename(filelist)
-  stub = gsub('.fits$','',file)
+  stub = gsub(pattern='.fits$|.FITS$|.fit$|.FIT$', '', file)
   path = dirname(filelist)
   
   fileinfo = tolower(fileinfo)
