@@ -335,7 +335,7 @@
       
       rm_key = c(
         grep('3_[1-3]', names(x$keyvalues)),
-        grep('[1-3]_03', names(x$keyvalues)),
+        grep('[1-3]_3', names(x$keyvalues)),
         grep('03_0[1-3]', names(x$keyvalues)),
         grep('0[1-3]_03', names(x$keyvalues)),
         
