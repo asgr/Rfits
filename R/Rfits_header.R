@@ -702,7 +702,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
         filelist = grep(pattern=i, filelist, value=TRUE)
       }
     }
-    filelist = grep(pattern='.fits$|.FITS$|.fit$|.FIT$', filelist, value=TRUE)
+    filelist = grep(pattern='.fits$|.FITS$|.fit$|.FIT$|.fits.gz$|.FITS.gz$|.fit.gz$|.FIT.gz$', filelist, value=TRUE)
     filelist = unique(filelist)
     
     Nscan = length(filelist)
