@@ -233,14 +233,14 @@ Rfits_read_header=function(filename='temp.fits', ext=1, remove_HIERARCH=FALSE, k
   
   if(length(loc_comment)>0){
     comment = gsub('COMMENT ', '', header[loc_comment])
-    #comment = gsub('  ','',comment) #not sure this works generically, probably better to keep it raw-er.
+    comment = trimws(comment)
   }else{
     comment = NULL
   }
   
   if(length(loc_history)>0){
     history = gsub('HISTORY ', '', header[loc_history])
-    #history = gsub('  ','',history) #not sure this works generically, probably better to keep it raw-er.
+    history = trimws(history)
   }else{
     history = NULL
   }
