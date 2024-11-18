@@ -1,4 +1,5 @@
 \name{Rfits_header_convert}
+\alias{Rfits_header_convert}
 \alias{Rfits_header_to_hdr}
 \alias{Rfits_hdr_to_keyvalues}
 \alias{Rfits_header_to_keyvalues}
