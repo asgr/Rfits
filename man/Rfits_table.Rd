@@ -44,7 +44,7 @@ Vector; either a vector of integer column numbers to be extracted from the targe
 Logical; should the progress of table reading and writing be displayed? This is probably only useful for very large (many GB) that might take a long time to read or write.
 }
   \item{header}{
-Logical; if TRUE then output gains attributes containing the header information from a call to \code{\link{Rfits_read_header}} (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
+Logical; if TRUE then output gains attributes containing the header information (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header} = TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though). When \option{header} = TRUE the attributes also gain a \option{meta_col} list item, which is a nicely formatted data.frame containing the key column meta data (see Examples).
 }
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
@@ -99,7 +99,7 @@ R FITS table readers and writers that uses CFITSIO to do the interfacing with fi
 \code{Rfits_read_table} will apply TSCALn and TZEROn scaling, since this is applied at the CFITSIO level, so the column values will be VALn = (RAWn x TSCALn) + TZEROn, where VALn is what is seen in the R \code{data.frame} or \code{data.table} and RAWn is what you would find if inspecting the binary values stored on disk. The \code{Rfits_write_table} will only scale if you pass the TSCALn and TZEROn key values into the \option{tadd} argument (see Examples).
 }
 \value{
-\code{Rfits_read_table} reads in tabular data from a FITS file, either as a data.frame or data.table. Also gains an attribute of type \option{info}, which is the header information from a call to \code{\link{Rfits_info}} (see examples). It is done this way so carrying the header info does not affect the data.frame or data.table class of the table (which is still just a normal table in every other respect). This meets the principle of least surprise since people nearly always just want to work with the table and rarely care about table header info (which is really there to help read in the table in CFITSIO).
+\code{Rfits_read_table} reads in tabular data from a FITS file, either as a data.frame, data.table or optionally as an object of class Rfits_table if \option{header} = TRUE. If \option{header} = TRUE, also gains attributes containing header information from a call to \code{\link{Rfits_read_header}} (see Examples). It is done this way so carrying the header info does not affect the data.frame or data.table class of the table (which is still just a normal table in every other respect). This meets the principle of least surprise since people nearly always just want to work with the table and rarely care about table header info (which is really there to help read in the table in CFITSIO). When \option{header} = TRUE the attributes also gain a \option{meta_col} list item, which is a nicely formatted data.frame containing the key column meta data (see Examples).
 
 \code{Rfits_write_table_} writes tabular data (data.frames and data.tables) to a FITS file. Note that when writing extensions are always added onto the end of the current FITS file. If doing this you should use settings \option{overwrite_file} = FALSE (we do not want to delete the current file), \option{create_file} = FALSE (we do not want to create a new file), \option{create_ext} = FALSE (we do not want to simply append an extension to the end of the current file), \option{ext} = N (we want to delete extension N, and add a new one to the end of the file).
 }
@@ -122,6 +122,7 @@ temp_table[1:5,]
 
 #Extra header attributes (does not affect the data.frame or data.table class)
 attributes(temp_table)$header[1:5]
+attributes(temp_table)$meta_col #more human readable version of column meta data
 
 #Check write and read consistency
 file_table_temp = tempfile()

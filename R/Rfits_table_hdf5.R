@@ -77,8 +77,14 @@ Rfits_read_table_hdf5 = function(filename='temp.h5', extname='table1', ext=NULL,
                    history = history
         )
         
+        meta_col = try(.header_to_meta_col(output, hdr$keyvalues))
+        if(inherits(meta_col, "try-error")){
+          meta_col = NULL
+        }
+        
         attributes(output) = c(attributes(output), 
                                hdr,
+                               meta_col = list(meta_col),
                                filename = filename,
                                ext = ext,
                                extname = hdr$keyvalues$EXTNAME
