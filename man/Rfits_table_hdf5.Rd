@@ -33,7 +33,7 @@ Integer scalar; the extension to read. If proved this takes precedence over \opt
 Logical; should a \code{data.table} be returned?
 }
   \item{header}{
-Logical; if TRUE then output gains attributes containing the header information (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
+Logical; if TRUE then output gains attributes containing the header information (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header} = TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though). When \option{header} = TRUE the attributes also gain a \option{meta_col} list item, which is a nicely formatted data.frame containing the key column meta data (see Examples).
 }
   \item{remove_HIERARCH}{
 Logical scalar, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
@@ -49,7 +49,7 @@ Logical scalar; if file exists at location \option{filename}, should it be overw
 This funcation attempted to mimic a FITS like data stucture using HDF5, making use to the attributes of the group for writing the header.
 }
 \value{
-\code{Rfits_read_table_hdf5} reads in table data from a HDF5 file.
+\code{Rfits_read_table_hdf5} reads in table data from a HDF5 file, optionally as an object of class Rfits_table if \option{header} = TRUE. See \code{\link{Rfits_table}} for more details on the internal format etc.
 
 \code{Rfits_write_table_hdf5} writes table data to a HDF5 file. This funcation will not allow you to write an extension with the same name as one that is currently present (you will need to manually delete it).
 }

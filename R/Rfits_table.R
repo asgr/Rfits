@@ -97,7 +97,6 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   
   if(data.table){
     data.table::setDT(output)
-    
   }else{
     output = as.data.frame(output)
   }
@@ -107,8 +106,14 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   if(header){
     hdr = Rfits_read_header(filename=filename, ext=ext, remove_HIERARCH=remove_HIERARCH, zap=zap, zaptype=zaptype)
     
+    meta_col = try(.header_to_meta_col(output, hdr$keyvalues))
+    if(inherits(meta_col, "try-error")){
+      meta_col = NULL
+    }
+    
     attributes(output) = c(attributes(output), 
                            hdr,
+                           meta_col = list(meta_col),
                            filename = filename,
                            ext = ext,
                            extname = hdr$keyvalues$EXTNAME
@@ -282,4 +287,58 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     }
     Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
+}
+
+.header_to_meta_col = function(table, keyvalues){
+  
+  keynames = names(keyvalues)
+  field_name = unlist(keyvalues[grep('TTYPE', keynames)])
+  Nfield = length(field_name)
+  
+  #field_unit = unlist(keyvalues[grep('TUNIT', keynames)])
+  field_unit = rep(NA_character_, Nfield)
+  field_sel = grep('TUNIT', keynames)
+  subset = as.integer(unlist(strsplit(keynames[field_sel], 'TUNIT'))[c(F,T)])
+  field_unit[subset] = unlist(keyvalues[field_sel])
+  
+  #field_descrip = unlist(keyvalues[grep('TCOMM', keynames)])
+  field_descrip = rep(NA_character_, Nfield)
+  field_sel = grep('TCOMM', keynames)
+  subset = as.integer(unlist(strsplit(keynames[field_sel], 'TCOMM'))[c(F,T)])
+  field_descrip[subset] = unlist(keyvalues[field_sel])
+  
+  #field_ucd = unlist(keyvalues[grep('TUCD', keynames)])
+  field_ucd = rep(NA_character_, Nfield)
+  field_sel = grep('TUCD', keynames)
+  subset = as.integer(unlist(strsplit(keynames[field_sel], 'TUCD'))[c(F,T)])
+  field_ucd[subset] = unlist(keyvalues[field_sel])
+  
+  field_datatype = foreach(i = 1:ncol(table), .combine='c')%do%{
+    switch(class(table[[i]])[1],
+    integer = "int",
+    integer64 = "long",
+    numeric = "double",
+    character = "char",
+    "char")
+  }
+  
+  #field_form = unlist(keyvalues[grep('TFORM', keynames)])
+  field_form = rep(NA_character_, Nfield)
+  field_sel = grep('TFORM', keynames)
+  subset = as.integer(unlist(strsplit(keynames[field_sel], 'TFORM'))[c(F,T)])
+  field_form[subset] = unlist(keyvalues[field_sel])
+  
+  field_arraysize = rep(NA_integer_, Nfield)
+  for(i in which(field_datatype == 'char')){
+    field_arraysize[i] = as.integer(strsplit(field_form[[i]], 'A')[[1]])
+  }
+  
+  meta_col = data.frame(Name = field_name,
+                        Units = field_unit,
+                        Description = field_descrip,
+                        UCD = field_ucd,
+                        Datatype = field_datatype,
+                        Arraysize = field_arraysize)
+  
+  return(meta_col)
 }
