@@ -582,11 +582,27 @@ typename Rcpp::Vector<RTYPE>::stored_type* start_of(Rcpp::Vector<RTYPE> &output)
 template <typename OutputT>
 static inline void do_read_img(Rcpp::String filename, int ext, int data_type, OutputT &output, int nthreads)
 {
-  int anynull = 0;
-  int hdutype = 0;
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
-  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(read_img, fptr, data_type, 1, output.size(), nullptr, start_of(output), &anynull);
+#ifndef _OPENMP
+  nthreads = 1;
+#endif
+
+  auto total_elements = output.size();
+  auto elements_per_thread = total_elements / nthreads;
+  auto remainder = total_elements % nthreads;
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) num_threads(nthreads)
+#endif
+  for (int i = 0; i != nthreads; i++) {
+    int anynull = 0;
+    int hdutype = 0;
+    auto extra = (i < remainder) ? 1 : 0;
+    auto offset = elements_per_thread * i + extra;
+    auto count = elements_per_thread + extra;
+    fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+    fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+    fits_invoke(read_img, fptr, data_type, 1, count, nullptr, start_of(output) + offset, &anynull);
+  }
 }
 
 // [[Rcpp::export]]
