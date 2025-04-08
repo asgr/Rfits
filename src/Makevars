@@ -1,5 +1,5 @@
-PKG_CPPFLAGS = -Icfitsio
-PKG_LIBS = cfitsio/.libs/libcfitsio.a
+PKG_CPPFLAGS = -Icfitsio $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS = cfitsio/.libs/libcfitsio.a $(SHLIB_OPENMP_CXXFLAGS)
 
 .PHONY: all cfitsio clean shlib-clean
 
