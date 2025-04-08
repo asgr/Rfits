@@ -20,4 +20,4 @@ echo "- CFLAGS: $CFLAGS"
 echo "- AR: $R_AR"
 
 cd src/cfitsio
-./configure --disable-curl CC="$CC" CFLAGS="$CFLAGS" AR="$R_AR"
+./configure --enable-reentrant --disable-curl CC="$CC" CFLAGS="$CFLAGS" AR="$R_AR"
