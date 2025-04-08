@@ -579,14 +579,37 @@ typename Rcpp::Vector<RTYPE>::stored_type* start_of(Rcpp::Vector<RTYPE> &output)
 	return &(output[0]);
 }
 
-template <typename OutputT>
-static inline void do_read_img(Rcpp::String filename, int ext, int data_type, OutputT &output, int nthreads)
+static inline void do_read_img(Rcpp::String filename, int ext, int data_type, long start, long count, void *output)
 {
   int anynull = 0;
   int hdutype = 0;
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(read_img, fptr, data_type, 1, output.size(), nullptr, start_of(output), &anynull);
+  fits_invoke(read_img, fptr, data_type, start, count, nullptr, output, &anynull);
+}
+
+template <typename OutputT>
+static inline void do_read_img(Rcpp::String filename, int ext, int data_type, OutputT &output, int nthreads)
+{
+#ifndef _OPENMP
+  nthreads = 1;
+#endif
+
+  R_xlen_t total_elements = output.size();
+  R_xlen_t elements_per_thread = total_elements / nthreads;
+  R_xlen_t remainder = total_elements % nthreads;
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) num_threads(nthreads)
+  for (R_xlen_t i = 0; i != nthreads; i++) {
+    auto extra = (i < remainder) ? 1 : 0;
+    auto start = elements_per_thread * i + std::min(remainder, i);
+    auto count = elements_per_thread + extra;
+    do_read_img(filename, ext, data_type, start + 1, count, start_of(output) + start);
+  }
+#else
+  do_read_img(filename, ext, data_type, 1, total_elements, start_of(output));
+#endif
 }
 
 // [[Rcpp::export]]
