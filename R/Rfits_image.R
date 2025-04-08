@@ -53,7 +53,7 @@
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
                           force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, zaptype='full', sparse=1L,
-                          scale_sparse=FALSE, collapse=FALSE){
+                          scale_sparse=FALSE, collapse=FALSE, NAcheck=TRUE){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -388,7 +388,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
   }
   
-  if(is.numeric(image) & (datatype == -16 | datatype == -32)){
+  if(is.numeric(image) & (datatype == -16 | datatype == -32) & NAcheck){
     if(anyNA(image)){
       image[is.nan(image)] = NA
     }
@@ -422,13 +422,19 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     #do nothing
   }else if(Ndim == 2){
     #dim(image) =c(naxis1, naxis2)
-    attr(image, 'dim') = c(naxis1, naxis2)
+    #attr(image, 'dim') = c(naxis1, naxis2)
+    #for reasons not obvious to me, the structure function is the only one that avoids a copy
+    image = structure(image, .Dim=c(naxis1, naxis2))
+    #attributes(image)$dim = c(naxis1, naxis2)
+    #attributes(temp$imDat) = list(dim=c(naxis1, naxis2))
   }else if(Ndim == 3){
     #dim(image) =c(naxis1, naxis2, naxis3)
-    attr(image, 'dim') = c(naxis1, naxis2, naxis3)
+    #attr(image, 'dim') = c(naxis1, naxis2, naxis3)
+    image = structure(image, .Dim=c(naxis1, naxis2, naxis3))
   }else if(Ndim == 4){
     #dim(image) =c(naxis1, naxis2, naxis3, naxis4)
-    attr(image, 'dim') = c(naxis1, naxis2, naxis3, naxis4)
+    #attr(image, 'dim') = c(naxis1, naxis2, naxis3, naxis4)
+    image = structure(image, .Dim=c(naxis1, naxis2, naxis3, naxis4))
   }else{
     stop('Cannot determine the dimensions of the image, or more than 4!')
   }
