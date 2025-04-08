@@ -569,7 +569,7 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
 
 // [[Rcpp::export]]
 SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
-                    long naxis1=100, long naxis2=100, long naxis3=1, long naxis4=1)
+                    long naxis1=100, long naxis2=100, long naxis3=1, long naxis4=1, int nthreads=1)
 {
   int anynull, nullvals = 0, hdutype;
 

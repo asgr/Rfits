@@ -25,7 +25,7 @@ Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
   keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
-  collapse = FALSE, NAcheck = TRUE)
+  collapse = FALSE, NAcheck = TRUE, nthreads = 1)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
@@ -203,6 +203,9 @@ Integer scalar; pixels in dimension 3 for the blank image.
 }
   \item{naxis4}{
 Integer scalar; pixels in dimension 4 for the blank image.
+}
+  \item{nthreads}{
+Number of threads used to read images in parallel.
 }
   \item{\dots}{
 Other arguments to pass to Rwcs_keypass.

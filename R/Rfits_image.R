@@ -53,7 +53,7 @@
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
                           force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, zaptype='full', sparse=1L,
-                          scale_sparse=FALSE, collapse=FALSE, NAcheck=TRUE){
+                          scale_sparse=FALSE, collapse=FALSE, NAcheck=TRUE, nthreads=1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -380,7 +380,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     }
     try({
       image = Cfits_read_img(filename=filename, ext=ext, datatype=datatype,
-                             naxis1=naxis1, naxis2=naxis2, naxis3=naxis3, naxis4=naxis4)
+                             naxis1=naxis1, naxis2=naxis2, naxis3=naxis3, naxis4=naxis4, nthreads=nthreads)
     })
     if(!is.numeric(image)){
       message(paste0('Image read failed for extension '), ext, '. Replacing values with NA!')
