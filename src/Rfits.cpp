@@ -579,7 +579,7 @@ typename Rcpp::Vector<RTYPE>::stored_type* start_of(Rcpp::Vector<RTYPE> &output)
 	return &(output[0]);
 }
 
-static inline void do_read_img(Rcpp::String filename, int ext, int data_type, void *output, long start, long count)
+static inline void do_read_img(Rcpp::String filename, int ext, int data_type, long start, long count, void *output)
 {
   int anynull = 0;
   int hdutype = 0;
@@ -603,12 +603,12 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
 #pragma omp parallel for schedule(static) num_threads(nthreads)
   for (int i = 0; i != nthreads; i++) {
     auto extra = (i < remainder) ? 1 : 0;
-    auto start = elements_per_thread * i + extra * i + 1;
+    auto start = elements_per_thread * i + extra;
     auto count = elements_per_thread + extra;
-    do_read_img(filename, ext, data_type, start_of(output) + start, start, count);
+    do_read_img(filename, ext, data_type, start + 1, count, start_of(output) + start);
   }
 #else
-  do_read_img(filename, ext, data_type, start_of(output), 1, total_elements);
+  do_read_img(filename, ext, data_type, 1, total_elements, start_of(output));
 #endif
 }
 
