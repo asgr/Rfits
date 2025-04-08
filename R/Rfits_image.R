@@ -418,13 +418,17 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
   #   stop('Cannot determine the dimensions of the image!')
   # }
   if(Ndim == 1){
-    image = as.vector(image)
+    #image = as.vector(image)
+    #do nothing
   }else if(Ndim == 2){
-    dim(image) =c(naxis1, naxis2)
+    #dim(image) =c(naxis1, naxis2)
+    attr(image, 'dim') = c(naxis1, naxis2)
   }else if(Ndim == 3){
-    dim(image) =c(naxis1, naxis2, naxis3)
+    #dim(image) =c(naxis1, naxis2, naxis3)
+    attr(image, 'dim') = c(naxis1, naxis2, naxis3)
   }else if(Ndim == 4){
-    dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+    #dim(image) =c(naxis1, naxis2, naxis3, naxis4)
+    attr(image, 'dim') = c(naxis1, naxis2, naxis3, naxis4)
   }else{
     stop('Cannot determine the dimensions of the image, or more than 4!')
   }

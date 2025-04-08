@@ -117,3 +117,7 @@ Cfits_read_nkey <- function(filename, ext = 1L) {
     .Call(`_Rfits_Cfits_read_nkey`, filename, ext)
 }
 
+Cfits_read_img_omp <- function(filename, ext = 1L, datatype = -32L, naxis1 = 100L, naxis2 = 100L, naxis3 = 1L, naxis4 = 1L, nthreads = 2L) {
+    .Call(`_Rfits_Cfits_read_img_omp`, filename, ext, datatype, naxis1, naxis2, naxis3, naxis4, nthreads)
+}
+
