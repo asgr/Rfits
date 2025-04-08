@@ -220,8 +220,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_read_img
-SEXP Cfits_read_img(Rcpp::String filename, int ext, int datatype, long naxis1, long naxis2, long naxis3, long naxis4);
-RcppExport SEXP _Rfits_Cfits_read_img(SEXP filenameSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP naxis4SEXP) {
+SEXP Cfits_read_img(Rcpp::String filename, int ext, int datatype, long naxis1, long naxis2, long naxis3, long naxis4, int nthreads);
+RcppExport SEXP _Rfits_Cfits_read_img(SEXP filenameSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP naxis1SEXP, SEXP naxis2SEXP, SEXP naxis3SEXP, SEXP naxis4SEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -232,7 +232,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< long >::type naxis2(naxis2SEXP);
     Rcpp::traits::input_parameter< long >::type naxis3(naxis3SEXP);
     Rcpp::traits::input_parameter< long >::type naxis4(naxis4SEXP);
-    rcpp_result_gen = Rcpp::wrap(Cfits_read_img(filename, ext, datatype, naxis1, naxis2, naxis3, naxis4));
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_img(filename, ext, datatype, naxis1, naxis2, naxis3, naxis4, nthreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -442,7 +443,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_write_date", (DL_FUNC) &_Rfits_Cfits_write_date, 2},
     {"_Rfits_Cfits_create_image", (DL_FUNC) &_Rfits_Cfits_create_image, 10},
     {"_Rfits_Cfits_write_pix", (DL_FUNC) &_Rfits_Cfits_write_pix, 9},
-    {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 7},
+    {"_Rfits_Cfits_read_img", (DL_FUNC) &_Rfits_Cfits_read_img, 8},
     {"_Rfits_Cfits_read_header", (DL_FUNC) &_Rfits_Cfits_read_header, 2},
     {"_Rfits_Cfits_read_header_raw", (DL_FUNC) &_Rfits_Cfits_read_header_raw, 2},
     {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
