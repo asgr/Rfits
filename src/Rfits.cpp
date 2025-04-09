@@ -603,7 +603,7 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
 #pragma omp parallel for schedule(static) num_threads(nthreads)
   for (int i = 0; i != nthreads; i++) {
     auto extra = (i < remainder) ? 1 : 0;
-    auto start = elements_per_thread * i + extra;
+    auto start = elements_per_thread * i + std::min(remainder, i);
     auto count = elements_per_thread + extra;
     do_read_img(filename, ext, data_type, start + 1, count, start_of(output) + start);
   }
