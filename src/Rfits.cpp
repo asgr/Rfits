@@ -618,13 +618,7 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 {
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
 
-  if (datatype==FLOAT_IMG){
-    std::vector<float> pixels(nelements);
-    do_read_img(filename, ext, TFLOAT, pixels, nthreads);
-    Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-    return(pixel_matrix);
-  }else if (datatype==DOUBLE_IMG){
+  if (datatype==FLOAT_IMG || datatype == DOUBLE_IMG){
     Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
     do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
     return(pixel_matrix);
