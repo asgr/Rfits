@@ -1,7 +1,8 @@
 #!/bin/sh
 
+rm -f src/cfitsio/*.lo
 rm -f src/cfitsio/*.o
-rm -f src/cfitsio/*.a
-rm -f src/cfitsio/*.so
 rm -f src/cfitsio/config.log
 rm -f src/cfitsio/config.status
+rm -rf src/cfitsio/.libs
+rm -rf src/cfitsio/.deps

@@ -1,6 +1,11 @@
 *.o
+*.lo
+*.la
 *.so
 *.a
+.deps
+.libs
+libtool
 Makefile
 config.log
 config.status

@@ -10,11 +10,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stddef.h>  /* apparently needed to define size_t */
-#include "fitsio2.h"
-#include "group.h"
 #ifdef CFITSIO_HAVE_CURL
   #include <curl/curl.h>
 #endif
+#undef TBYTE
+#include "fitsio2.h"
+#include "group.h"
 
 #define MAX_PREFIX_LEN 20  /* max length of file type prefix (e.g. 'http://') */
 #define MAX_DRIVERS 31     /* max number of file I/O drivers */
@@ -578,7 +579,9 @@ int ffopen(fitsfile **fptr,      /* O - FITS file pointer                   */
     char *url;
     double minin[4], maxin[4], binsizein[4], weight;
     int imagetype, naxis = 1, haxis, recip;
+    long *naxes=0;
     int skip_null = 0, skip_image = 0, skip_table = 0, open_disk_file = 0;
+    int no_primary_data = 0, groupval=0;
     char colname[4][FLEN_VALUE];
     char errmsg[FLEN_ERRMSG];
     char *hdtype[3] = {"IMAGE", "TABLE", "BINTABLE"};
@@ -1022,8 +1025,31 @@ move2hdu:
       if (hdunum == 1) {
 
         fits_get_img_dim(*fptr, &naxis, status);
+        if (naxis) {
+           naxes = (long *)malloc(naxis*sizeof(long));
+           fits_get_img_size(*fptr, naxis, naxes, status);
+           for (ii = 0; ii < naxis; ii++)
+           {
+              if (naxes[ii] == 0)
+              {
+                 if (ii == 0)
+                 {
+                   /* NAXIS1=0 could be a random group indicator */
+                   tstatus = 0;
+                   ffmaky(*fptr, 2, status);
+                   if (ffgkyl(*fptr, "GROUPS", &groupval, 0, &tstatus))
+                      no_primary_data = 1;  /* GROUPS keyword not found */
+                 }
+                 else
+                    no_primary_data = 1;
+              }
+           }
+           free(naxes);
+        }
+        else
+           no_primary_data = 1;
 
-        if (naxis == 0 || skip_image) /* skip primary array */
+        if (no_primary_data == 1 || skip_image) /* skip primary array */
         {
           while(1) 
           {

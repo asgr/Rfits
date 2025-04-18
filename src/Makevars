@@ -1,5 +1,5 @@
 PKG_CPPFLAGS = -Icfitsio
-PKG_LIBS = cfitsio/libcfitsio.a
+PKG_LIBS = cfitsio/.libs/libcfitsio.a
 
 .PHONY: all cfitsio clean shlib-clean
 
@@ -7,7 +7,7 @@ all: $(SHLIB)
 $(SHLIB): cfitsio
 
 cfitsio:
-	(cd cfitsio && $(MAKE) libcfitsio.a)
+	(cd cfitsio && $(MAKE))
 
 shlib-clean: clean
 
