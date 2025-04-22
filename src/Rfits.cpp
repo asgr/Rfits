@@ -311,7 +311,7 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
 
   int status = 0;
   int ii = 0;
-  while ( status != COL_NOT_FOUND & ii < ncol) {
+  while (status != COL_NOT_FOUND && ii < ncol) {
     fits_get_colname(fptr, CASEINSEN, (char *)"*", (char *)colname, &colref, &status);
     if (status != COL_NOT_FOUND) {
       out[ii] = colname;
@@ -517,7 +517,7 @@ void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long
 void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= -32,
                      int naxis=2, long naxis1=100 , long naxis2=100, long naxis3=1, long naxis4=1)
 {
-  int hdutype, ii, nullvals = 0;
+  int hdutype, ii;
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
   
   long fpixel_vector[] = {1};
@@ -787,7 +787,7 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
                            long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1
                              
 ){
-  int anynull, nullvals = 0, hdutype, ii, nelements;
+  int hdutype, ii, nelements;
   
   // Rcpp::Rcout << filename.get_cstring() <<"\n";
   // Rcpp::Rcout << datatype <<"\n";
@@ -823,17 +823,20 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   int naxis3 = (lpixel[2] - fpixel[2] + 1);
   int naxis4 = (lpixel[3] - fpixel[3] + 1);
   
-  if(naxis == 1){
+  if (naxis == 1) {
     nelements = naxis1;
   }
-  if(naxis == 2){
+  else if (naxis == 2) {
     nelements = naxis1 * naxis2;
   }
-  if(naxis == 3){
+  else if (naxis == 3) {
     nelements = naxis1 * naxis2 * naxis3;
   }
-  if(naxis == 4){
+  else if (naxis == 4) {
     nelements = naxis1 * naxis2 * naxis3 * naxis4;
+  }
+  else {
+    Rcpp::stop("naxis=%d doesn't meet condition: 1 <= naxis <= 4", naxis);
   }
   
   // Rcpp::Rcout << nelements <<"\n";
