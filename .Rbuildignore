@@ -3,3 +3,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^README\.Rmd$
+.*\.la
+.*\.lo
+^src/cfitsio/.libs$
+^src/cfitsio/.deps$

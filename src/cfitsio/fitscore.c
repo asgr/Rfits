@@ -78,9 +78,13 @@ float ffvers(float *version)  /* IO - version number */
       *version = (float)CFITSIO_MAJOR + (float)(.01*CFITSIO_MINOR)
                    + (float)(.0001*CFITSIO_MICRO);
 
-/*    *version = 4.4.1      Jun 2024 (license change)
+/*    *version = 4.6.2      Mar 2025 (autotools change only)
 
    Previous releases:
+      *version = 4.6.1      Mar 2025 (autotools/cmake config changes only)
+      *version = 4.6.0      Mar 2025
+      *version = 4.5.0      Aug 2024
+      *version = 4.4.1      Jun 2024 (license change)
       *version = 4.4.0      Feb 2024
       *version = 4.3.1      Nov 2023 (patch)
       *version = 4.3.0      Jul 2023
@@ -1523,10 +1527,11 @@ int ffpsvc(char *card,    /* I - FITS header card (nominally 80 bytes long) */
                     break;   /* found the closing quote, so exit this loop  */
                 }
             }
-            value[jj] = card[ii];  /* copy the next character to the output */
+            if (jj < FLEN_VALUE-1)
+               value[jj] = card[ii];  /* copy the next character to the output */
         }
 
-        if (ii == cardlen || jj == FLEN_VALUE-1)
+        if (ii == cardlen || jj >= FLEN_VALUE-1)
         {
             jj = minvalue(jj, FLEN_VALUE-2);  /* don't exceed 70 char string length */
             value[jj] = '\'';  /*  close the bad value string  */
@@ -3229,8 +3234,8 @@ void ffcfmt(char *tform,    /* value of an ASCII table TFORMn keyword */
   the values have been read as a double.
 */
 {
-    int ii;
-
+    int ii, istart, isgood, npt;
+    
     cform[0] = '\0';
     ii = 0;
     while (tform[ii] != 0 && tform[ii] == ' ') /* find first non-blank char */
@@ -3238,21 +3243,45 @@ void ffcfmt(char *tform,    /* value of an ASCII table TFORMn keyword */
 
     if (tform[ii] == 0)
         return;    /* input format string was blank */
+    istart = ii;
+    
+    isgood = 1;
+    npt = 0;
+    if (tform[ii] != 'A' && tform[ii] != 'I' && tform[ii] != 'F'
+                 && tform[ii] != 'E' && tform[ii] != 'D')
+       isgood = 0;
+    ii++;
+    while (isgood && tform[ii] != 0)
+    {
+       /* one period is allowed */
+       if (tform[ii] == '.')
+       {
+          if (npt > 0)
+            isgood = 0;
+          else
+            ++npt; 
+       }
+       else if (!isdigit(tform[ii]))
+          isgood = 0;
+       ++ii; 
+    }
+    if (!isgood)
+       return;
 
     cform[0] = '%';  /* start the format string */
 
-    strcpy(&cform[1], &tform[ii + 1]); /* append the width and decimal code */
+    strcpy(&cform[1], &tform[istart + 1]); /* append the width and decimal code */
 
 
-    if (tform[ii] == 'A')
+    if (tform[istart] == 'A')
         strcat(cform, "s");
-    else if (tform[ii] == 'I')
+    else if (tform[istart] == 'I')
         strcat(cform, ".0f");  /*  0 precision to suppress decimal point */
-    if (tform[ii] == 'F')
+    if (tform[istart] == 'F')
         strcat(cform, "f");
-    if (tform[ii] == 'E')
+    if (tform[istart] == 'E')
         strcat(cform, "E");
-    if (tform[ii] == 'D')
+    if (tform[istart] == 'D')
         strcat(cform, "E");
 
     return;
@@ -7029,7 +7058,12 @@ int ffpdfl(fitsfile *fptr,      /* I - FITS file pointer */
                 (fptr->Fptr)->heapsize;
 
     nfill = (long) ((fillstart + 2879) / 2880 * 2880 - fillstart);
-
+    if (nfill >= 2880) /* can only happen if fillstart was negative */
+    {
+        *status = BAD_HEAP_PTR;
+        return (*status);
+    }
+    
     if ((fptr->Fptr)->hdutype == ASCII_TBL)
         chfill = 32;         /* ASCII tables are filled with spaces */
     else
