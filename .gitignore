@@ -15,3 +15,4 @@ libcfitsio.so.*
 .DS_Store
 .Rhistory
 Rfits.Rproj
+vignettes/rsconnect/*
