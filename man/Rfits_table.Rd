@@ -12,8 +12,8 @@ Generic table readers and writers. Works with a wide range of data types includi
 }
 \usage{
 Rfits_read_table(filename = 'temp.fits', ext = 2, data.table = TRUE,
-    cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE, nrow = 0L,
-    zap = NULL, zaptype = 'full')
+    cols = NULL, verbose = FALSE, header = FALSE, remove_HIERARCH = FALSE, startrow = 1L,
+    nrow = 0L, zap = NULL, zaptype = 'full')
 
 Rfits_read_colnames(filename = 'temp.fits', ext = 2)
 
@@ -49,8 +49,11 @@ Logical; if TRUE then output gains attributes containing the header information 
   \item{remove_HIERARCH}{
 Logical, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
 }
+  \item{startrow}{
+Integer scalar; the 1-based index of the first row from which the FITS table should be read (default is 1). Combined with \code{nrow}, this allows reading a contiguous block of rows starting at \code{startrow} (or to the end if \code{nrow = 0}). This can be useful for chunked reading of large tables.
+}
   \item{nrow}{
-Integer scalar; explicitly specify how many rows to read in. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEM being used in the header to specify the number of rows).
+Integer scalar; explicitly specify how many rows to read in from \code{startrow}. This can be useful just to have a quick look at the top of a file, or if there is something odd about the specified format that means CFITSIO struggles to read the number of rows (e.g. NELEM being used in the header to specify the number of rows).
 }
   \item{zap}{
 Character vector; optional unique strings to zap out of the header. These elements are passed through code{\link{grep}} one at a time and all matches are removed. This is useful if there a problematic keywords you want to remove when passing raw headers into \code{Rwcs} functions. Be careful that the strings specified are quite unique and do not remove more of the header than intended, e.g. 'CRVAL' would remove all mentions of CRVAL1/2/3 etc. Useful tricks- for inclusive ranges you can use '[]', e.g. 'CD[1-2]_[1-2]' will match to CD1_1, CD1_2, CD2_1, CD2_2. See \code{\link{grep}} for more information on how you pattern match within strings. By default the full 80 character header per key is scanned for matches, but this can be changed with \option{zaptype}.
