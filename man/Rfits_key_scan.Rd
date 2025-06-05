@@ -10,7 +10,7 @@ Scans files or list of directories for keywords in FITS files. This is useful fo
 \usage{
 Rfits_key_scan(filelist = NULL, dirlist = NULL, image_list = NULL, keylist = NULL,
   extlist = 1, pattern = NULL, recursive = TRUE, fileinfo = "All", keep_ext = TRUE,
-  cores = 1, get_length = FALSE, get_dim = FALSE, get_centre = FALSE,
+  cores = NULL, get_length = FALSE, get_dim = FALSE, get_centre = FALSE,
   get_rotation = FALSE, get_corners = FALSE, get_extremes = FALSE,
   get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
   keypass = FALSE, zap = NULL, data.table = TRUE, ...)
@@ -45,7 +45,7 @@ Character vector; additional file info to append to the output. Options are 'Ful
 Logical; should extension information be kept in the output (under column called 'ext')?  
 }
   \item{cores}{
-Integer scalar; the number of cores to run on.
+Integer scalar or \code{NULL}. If given, the number of cores to run on. This will create and register an implicit doParallel cluster that will then have to be explicitly destroyed by the caller. Consider explicitly creating, registering and stopping a doParallel cluster around your whole session instead.
 }
   \item{get_length}{
 Logical, should target length be extracted? (See \code{\link{Rfits_methods}}). 
@@ -104,6 +104,12 @@ Aaron Robotham
 \code{\link{Rfits_read_key}} 
 }
 \examples{
+library(doParallel)
+
+# Using a cluster for parallel computations
+cluster = makeCluster(2)
+registerDoParallel(cluster)
+
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 file_cube = system.file('extdata', 'cube.fits', package = "Rfits")
   
@@ -121,4 +127,6 @@ image_list = Rfits_make_list(filelist=file_image)
 temp_scan3 = Rfits_key_scan(image_list=image_list, get_all=TRUE)
 
 print(temp_scan3)
+
+stopCluster(cluster)
 }

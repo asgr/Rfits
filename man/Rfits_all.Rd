@@ -25,7 +25,7 @@ Rfits_write(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE
   compress = FALSE, bad_compress = 0, list_sub = NULL)
   
 Rfits_make_list(filelist = NULL, dirlist = NULL, extlist = 1, pattern = NULL,
-  recursive = TRUE, header = TRUE, pointer = TRUE, cores = 1, ...)
+  recursive = TRUE, header = TRUE, pointer = TRUE, cores = NULL, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -87,7 +87,7 @@ Character vector; regular expressions to filter \option{filelist} by. Most peopl
 Logical; if using \option{dirlist} should all sub-directories be checked recursively?
 }
   \item{cores}{
-Integer scalar; the number of cores to run on.
+Integer scalar or \code{NULL}. If given, the number of cores to run on. This will create and register an implicit doParallel cluster that will then have to be explicitly destroyed by the caller. Consider explicitly creating, registering and stopping a doParallel cluster around your whole session instead.
 }
   \item{\dots}{
 Further arguments to pass to \code{\link{Rfits_read_image}} (when \option{pointer} = FALSE) or \code{\link{Rfits_point}} (when \option{pointer} = TRUE). Note these arguments will be inherited by all files loaded into the 'Rfits_list'.

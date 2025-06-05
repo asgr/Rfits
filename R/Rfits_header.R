@@ -678,12 +678,14 @@ Rfits_decode_chksum = function(checksum, complement=FALSE){
 }
 
 Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=NULL, extlist=1, pattern=NULL,
-                          recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=1, get_length=FALSE,
+                          recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=NULL, get_length=FALSE,
                           get_dim=FALSE, get_centre=FALSE, get_rotation=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
                           keypass=FALSE, zap=NULL, data.table=TRUE, ...){
   
-  registerDoParallel(cores=cores)
+  if (!is.null(cores)) {
+    registerDoParallel(cores=cores)
+  }
   
   if(is.null(image_list)){
     if(is.null(filelist)){
