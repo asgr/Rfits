@@ -139,16 +139,27 @@ void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_fil
 }
   
 // [[Rcpp::export]]
-SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0){
+SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, 
+                    long startrow=1, long nrow=0){
+  
+  if (startrow < 1) {
+    Rcpp::stop("startrow must be ≥ 1");
+  }
 
   int hdutype,anynull,typecode,ii;
-  long repeat,width;
+  long repeat,width,nrow_total;
 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_coltype, fptr, colref, &typecode, &repeat, &width);
-  if(nrow==0){
-    fits_invoke(get_num_rows, fptr, &nrow);
+  fits_invoke(get_num_rows, fptr, &nrow_total);
+  
+  if (nrow == 0) {
+    nrow = nrow_total - startrow + 1;
+  }
+  
+  if (startrow + nrow - 1 > nrow_total) {
+    Rcpp::stop("Requested range exceeds number of rows in table");
   }
   
   if ( typecode == TSTRING ) {
@@ -159,7 +170,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
     for (ii = 0 ; ii < nrow ; ii++ ) {
       data[ii] = (char*)calloc(cwidth + 1, 1);
     }
-    fits_invoke(read_col, fptr, TSTRING, colref, 1, 1, nrow, nullptr, data, &anynull);
+    fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, data, &anynull);
     Rcpp::StringVector out(nrow);
     std::copy(data, data + nrow, out.begin());
     for (int i = 0; i != nrow; i++) {
@@ -170,25 +181,24 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   }
   else if ( typecode == TBIT ) {
     int nullval = 0;
-    std::vector<Rbyte> col(nrow);
-    fits_invoke(read_col, fptr, TBIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    std::vector<Rbyte> col(nrow); 
+    fits_invoke(read_col, fptr, TBIT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::LogicalVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
+    std::copy(col.begin(), col.end(), out.begin()); 
     return out;
   }
   else if ( typecode == TLOGICAL ) {
     int nullval = 0;
     std::vector<Rbyte> col(nrow);
-    fits_invoke(read_col, fptr, TLOGICAL, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TLOGICAL, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::LogicalVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
   }
   else if ( typecode == TBYTE ) {
     int nullval = 0;
-    // std::vector<Rbyte> col(nrow);
     std::vector<Rbyte> col(nrow);
-    fits_invoke(read_col, fptr, TBYTE, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TBYTE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -196,7 +206,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TINT ) {
     int nullval = -999;
     std::vector<int> col(nrow);
-    fits_invoke(read_col, fptr, TINT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TINT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -204,7 +214,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TUINT ) {
     unsigned int nullval = 0;
     std::vector<unsigned int> col(nrow);
-    fits_invoke(read_col, fptr, TUINT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TUINT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -212,13 +222,13 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TINT32BIT ) {
     long nullval = 0;
     std::vector<long> col(nrow);
-    fits_invoke(read_col, fptr, TINT32BIT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TINT32BIT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     return ensure_lossless_32bit_int(col);
   }
   else if ( typecode == TSHORT ) {
     short nullval = -128;
     std::vector<short> col(nrow);
-    fits_invoke(read_col, fptr, TSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TSHORT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -226,7 +236,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TUSHORT ) {
     unsigned short nullval = 255;
     std::vector<unsigned short> col(nrow);
-    fits_invoke(read_col, fptr, TUSHORT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TUSHORT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -234,7 +244,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TFLOAT ) {
     float nullval = -999;
     std::vector<float> col(nrow);
-    fits_invoke(read_col, fptr, TFLOAT, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TFLOAT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -242,7 +252,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TLONG ) {
     long nullval = -999;
     std::vector<long> col(nrow);
-    fits_invoke(read_col, fptr, TLONG, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
@@ -250,7 +260,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TLONGLONG ) {
     long nullval = -999;
     std::vector<int64_t> col(nrow);
-    fits_invoke(read_col, fptr, TLONGLONG, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(double));
     out.attr("class") = "integer64";
@@ -259,7 +269,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, long nrow=0)
   else if ( typecode == TDOUBLE ) {
     double nullval = -999;
     std::vector<double> col(nrow);
-    fits_invoke(read_col, fptr, TDOUBLE, colref, 1, 1, nrow, &nullval, col.data(), &anynull);
+    fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
     std::copy(col.begin(), col.end(), out.begin());
     return out;
