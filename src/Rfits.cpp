@@ -611,7 +611,7 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(nthreads)
-  for (R_xlen_t i = 0; i != nthreads; i++) {
+  for (R_xlen_t i = 0; i < nthreads; i++) {
     auto extra = (i < remainder) ? 1 : 0;
     auto start = elements_per_thread * i + std::min(remainder, i);
     auto count = elements_per_thread + extra;
