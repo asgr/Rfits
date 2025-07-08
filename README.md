@@ -21,6 +21,20 @@ with:
 remotes::install_github("asgr/Rfits")
 ```
 
+Note, due to CFITSIO itself being written with very old C standards (90s) some users might have install issues unless they explicitly set the C standard to use. Luckily in R this is fairly easy. If you don't already have a file at ~/.R/Makevars create one (just an empty text file), or if one is already there edit or create the relevant line:
+
+```
+CC = clang -std=gnu17
+```
+
+if using Clang, or
+
+```
+CC = gcc -std=gnu17
+```
+
+We have lodged an [Issue](https://github.com/HEASARC/cfitsio/issues/62) with the CFITSIO folk, so hopefully this workaround will not be necessary for too long!
+
 ## Example
 
 This is a basic example which shows you how to solve a common problem:
