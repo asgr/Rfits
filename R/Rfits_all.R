@@ -240,13 +240,25 @@ Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
     extlist = rep(extlist, length(filelist))
   }
   
-  if(pointer){
-    data = foreach(i=1:length(filelist))%dopar%{
-      return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+  if(getDoParRegistered()){
+    if(pointer){
+      data = foreach(i=1:length(filelist))%dopar%{
+        return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+      }
+    }else{
+      data = foreach(i=1:length(filelist))%dopar%{
+        return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+      }
     }
   }else{
-    data = foreach(i=1:length(filelist))%dopar%{
-      return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+    if(pointer){
+      data = foreach(i=1:length(filelist))%do%{
+        return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+      }
+    }else{
+      data = foreach(i=1:length(filelist))%do%{
+        return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+      }
     }
   }
   
