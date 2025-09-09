@@ -344,18 +344,35 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
     naxis4 = safet$len_tar
   }else{
     # Leave the naxis reads- this is the only way to know the naxis if we aren't given a header!
-    naxis1 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS1', typecode=82, ext=ext), silent=TRUE)
-    if(is.numeric(naxis1)){
-      naxis2 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS2', typecode=82, ext=ext), silent=TRUE)
-      naxis3 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS3', typecode=82, ext=ext), silent=TRUE)
-      naxis4 = try(Cfits_read_key(filename=filename, keyname='ZNAXIS4', typecode=82, ext=ext), silent=TRUE)
-      datatype = Cfits_read_key(filename=filename, keyname='ZBITPIX', typecode=82, ext=ext)
+    naxis = try(Rfits_read_key(filename=filename, keyname='NAXIS', ext=ext), silent=TRUE)
+    if(ext == 1 & isFALSE(naxis > 0)){
+      message('Missing NAXIS=0, usually this means the first image is after ext = 1')
+      extend = try(Rfits_read_key(filename=filename, keyname='EXTEND', ext=ext), silent=TRUE)
+      if(isTRUE(extend)){
+        message('Trying ext = 2')
+        ext = 2
+        naxis = try(Rfits_read_key(filename=filename, keyname='NAXIS', ext=ext), silent=TRUE)
+        if(isTRUE(naxis > 0L)){
+          message('New NAXIS > 0, continuing with ext = 2')
+        }else{
+          stop('Well that did not work either...')
+        }
+      }
+    }
+    
+    zimage = try(Rfits_read_key(filename=filename, keyname='ZIMAGE', ext=ext), silent=TRUE)
+    if(isTRUE(zimage)){
+      naxis1 = try(Rfits_read_key(filename=filename, keyname='ZNAXIS1', ext=ext), silent=TRUE)
+      naxis2 = try(Rfits_read_key(filename=filename, keyname='ZNAXIS2', ext=ext), silent=TRUE)
+      naxis3 = try(Rfits_read_key(filename=filename, keyname='ZNAXIS3', ext=ext), silent=TRUE)
+      naxis4 = try(Rfits_read_key(filename=filename, keyname='ZNAXIS4', ext=ext), silent=TRUE)
+      datatype = Rfits_read_key(filename=filename, keyname='ZBITPIX', ext=ext)
     }else{
-      naxis1 = try(Cfits_read_key(filename=filename, keyname='NAXIS1', typecode=82, ext=ext), silent=TRUE)
-      naxis2 = try(Cfits_read_key(filename=filename, keyname='NAXIS2', typecode=82, ext=ext), silent=TRUE)
-      naxis3 = try(Cfits_read_key(filename=filename, keyname='NAXIS3', typecode=82, ext=ext), silent=TRUE)
-      naxis4 = try(Cfits_read_key(filename=filename, keyname='NAXIS4', typecode=82, ext=ext), silent=TRUE)
-      datatype = Cfits_read_key(filename=filename, keyname='BITPIX', typecode=82, ext=ext)
+      naxis1 = try(Rfits_read_key(filename=filename, keyname='NAXIS1', ext=ext), silent=TRUE)
+      naxis2 = try(Rfits_read_key(filename=filename, keyname='NAXIS2', ext=ext), silent=TRUE)
+      naxis3 = try(Rfits_read_key(filename=filename, keyname='NAXIS3', ext=ext), silent=TRUE)
+      naxis4 = try(Rfits_read_key(filename=filename, keyname='NAXIS4', ext=ext), silent=TRUE)
+      datatype = Rfits_read_key(filename=filename, keyname='BITPIX', ext=ext)
     }
     if(!is.numeric(naxis1)){
       message('NAXIS1 is missing- this is pretty weird!')
