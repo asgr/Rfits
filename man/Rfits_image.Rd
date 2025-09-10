@@ -25,25 +25,25 @@ Rfits_read_image(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
   keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
-  collapse = FALSE, NAcheck = TRUE, nthreads = 1)
+  collapse = FALSE, NAcheck = FALSE, nthreads = 1)
   
 Rfits_read_vector(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
   keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
-  collapse = FALSE, NAcheck = TRUE, nthreads = 1)
+  collapse = FALSE, NAcheck = FALSE, nthreads = 1)
     
 Rfits_read_cube(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
   keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
-  collapse = FALSE, NAcheck = TRUE, nthreads = 1)
+  collapse = FALSE, NAcheck = FALSE, nthreads = 1)
     
 Rfits_read_array(filename = 'temp.fits', ext = 1, header = TRUE, xlo = NULL,
   xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL,  tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, bad = NULL,
   keypass = FALSE, zap = NULL, zaptype = 'full', sparse = 1L, scale_sparse = FALSE,
-  collapse = FALSE, NAcheck = TRUE, nthreads = 1)
+  collapse = FALSE, NAcheck = FALSE, nthreads = 1)
 
 Rfits_write_image(data, filename = 'temp.fits', ext = 1, keyvalues, keycomments,
   keynames, comment, history, numeric = "single", integer = "long",

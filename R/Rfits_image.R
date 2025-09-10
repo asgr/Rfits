@@ -53,7 +53,7 @@
 Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xhi=NULL, ylo=NULL,
                           yhi=NULL, zlo=NULL, zhi=NULL, tlo=NULL, thi=NULL, remove_HIERARCH=FALSE,
                           force_logical=FALSE, bad=NULL, keypass=FALSE, zap=NULL, zaptype='full', sparse=1L,
-                          scale_sparse=FALSE, collapse=FALSE, NAcheck=TRUE, nthreads=1){
+                          scale_sparse=FALSE, collapse=FALSE, NAcheck=FALSE, nthreads=1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -771,7 +771,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
                     naxis4=naxes[4], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   
-  ext = Cfits_read_nhdu(filename=filename)
+  ext = Rfits_nhdu(filename=filename)
   
   if(!missing(keyvalues)){
     if(is.null(keyvalues$BITPIX)){
