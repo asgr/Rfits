@@ -15,9 +15,11 @@ Simple functions that either read in or write out all supported FITS extensions.
 }
 \usage{
 Rfits_read_all(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full')
+  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full',
+  NAcheck = TRUE, nthreads = 1)
 Rfits_read(filename = 'temp.fits', pointer = 'auto', header = TRUE,
-  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full')
+  data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full',
+  NAcheck = TRUE, nthreads = 1)
   
 Rfits_write_all(data, filename = 'temp.fits', flatten = FALSE, overwrite_Main = TRUE, 
   compress = FALSE, bad_compress = 0, list_sub = NULL)
@@ -61,6 +63,10 @@ Character vector; optional unique strings to zap out of the header. These elemen
 }
   \item{zaptype}{
 Character scalar; the type of zap to carry out. Either the grep is done on the full 80 character string ('full'; the default) or just the keynames ('name'). The latter might be useful when you are certain a simpler grep can be made if just using the keynames. The former is useful if some other flag in the key entry (a comment etc) can help flag keys to be zapped.  
+}
+Logical; should the read in images be explictly checked for NAs? For very big images (10k x 10k +) this has a notable overhead, so if we know it can be avoided it perhaps should be. Otherwise things we would like to be NA could appear as NaN, which will still work for most purposes but not as clean.
+  \item{nthreads}{
+Number of threads used to read images in parallel.
 }
   \item{compress}{
 Logical vector; option to specify per extension image compression. If set to a single value then this is used for all images, otherwise you can specify a logical vector specifying the compression of each extension (although only an option for images). A semi-hidden convenience feature is to set this to a value, and only extensions with lengths longer than this will be compressed. E.g. you might want to use 1e4 to ensure images larger than 100x100 are compressed, but small distortion matrices are not.

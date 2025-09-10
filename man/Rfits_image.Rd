@@ -165,6 +165,9 @@ Logical; should the array or cube be collapsed down dimensions if the 3rd/4th di
   \item{NAcheck}{
 Logical; should the read in image be explictly checked for NAs? For very big images (10k x 10k +) this has a notable overhead, so if we know it can be avoided it perhaps should be. Otherwise things we would like to be NA could appear as NaN, which will still work for most purposes but not as clean.
 }
+  \item{nthreads}{
+Number of threads used to read images in parallel.
+}
   \item{create_ext}{
 Logical scalar; should a new extension be created (TRUE) or not (FALSE). This will always be appended at the end of the FITS file (as per the FITS standard). If \option{create_ext} = TRUE then no matter what the \option{ext} argument is, the extension will be created at the end of the FITS file. If \option{create_ext} = FALSE then the extension specified by \option{ext} will be first deleted, and then the extension will be created at the end of the FITS file.
 }
@@ -203,9 +206,6 @@ Integer scalar; pixels in dimension 3 for the blank image.
 }
   \item{naxis4}{
 Integer scalar; pixels in dimension 4 for the blank image.
-}
-  \item{nthreads}{
-Number of threads used to read images in parallel.
 }
   \item{\dots}{
 Other arguments to pass to Rwcs_keypass.
