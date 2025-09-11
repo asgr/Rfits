@@ -409,6 +409,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Cfits_read_img_subset2
+SEXP Cfits_read_img_subset2(Rcpp::String filename, int ext, int datatype, long fpixel0, long fpixel1, long fpixel2, long fpixel3, long lpixel0, long lpixel1, long lpixel2, long lpixel3, long sparse, int nthreads);
+RcppExport SEXP _Rfits_Cfits_read_img_subset2(SEXP filenameSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP fpixel0SEXP, SEXP fpixel1SEXP, SEXP fpixel2SEXP, SEXP fpixel3SEXP, SEXP lpixel0SEXP, SEXP lpixel1SEXP, SEXP lpixel2SEXP, SEXP lpixel3SEXP, SEXP sparseSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Rcpp::traits::input_parameter< int >::type datatype(datatypeSEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel0(fpixel0SEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel1(fpixel1SEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel2(fpixel2SEXP);
+    Rcpp::traits::input_parameter< long >::type fpixel3(fpixel3SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel0(lpixel0SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel1(lpixel1SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel2(lpixel2SEXP);
+    Rcpp::traits::input_parameter< long >::type lpixel3(lpixel3SEXP);
+    Rcpp::traits::input_parameter< long >::type sparse(sparseSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_img_subset2(filename, ext, datatype, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, sparse, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_create_header", (DL_FUNC) &_Rfits_Cfits_create_header, 3},
@@ -440,6 +463,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_encode_chksum", (DL_FUNC) &_Rfits_Cfits_encode_chksum, 2},
     {"_Rfits_Cfits_decode_chksum", (DL_FUNC) &_Rfits_Cfits_decode_chksum, 2},
     {"_Rfits_Cfits_read_nkey", (DL_FUNC) &_Rfits_Cfits_read_nkey, 2},
+    {"_Rfits_Cfits_read_img_subset2", (DL_FUNC) &_Rfits_Cfits_read_img_subset2, 13},
     {NULL, NULL, 0}
 };
 

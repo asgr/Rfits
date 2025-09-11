@@ -699,7 +699,8 @@
 }
 
 `[.Rfits_pointer` = function(x, i, j, k, m, box=201, type='pix', header=x$header,
-                             sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE){
+                             sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE,
+                             nthreads=1){
   
   xdim = dim(x)[1]
   ydim = dim(x)[2]
@@ -861,21 +862,25 @@
     if(is.matrix(i)){
       output = foreach(row = 1:dim(i)[1], .combine='c')%do%{
         if(dim(i)[2] == 1){
-          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+          return(Cfits_read_img_subset2(filename=x$filename, ext=x$ext, datatype=datatype,
                                        fpixel0=i[row,1],
-                                       lpixel0=i[row,1]))
+                                       lpixel0=i[row,1],
+                                       nthreads=nthreads))
         }else if(dim(i)[2] == 2){
-          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+          return(Cfits_read_img_subset2(filename=x$filename, ext=x$ext, datatype=datatype,
                                        fpixel0=i[row,1], fpixel1=i[row,2],
-                                       lpixel0=i[row,1], lpixel1=i[row,2]))
+                                       lpixel0=i[row,1], lpixel1=i[row,2],
+                                       nthreads=nthreads))
         }else if(dim(i)[2] == 3){
-          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+          return(Cfits_read_img_subset2(filename=x$filename, ext=x$ext, datatype=datatype,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3],
-                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3]))
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3],
+                                       nthreads=nthreads))
         }else if(dim(i)[2] == 4){
-          return(Cfits_read_img_subset(filename=x$filename, ext=x$ext, datatype=datatype,
+          return(Cfits_read_img_subset2(filename=x$filename, ext=x$ext, datatype=datatype,
                                        fpixel0=i[row,1], fpixel1=i[row,2], fpixel2=i[row,3], fpixel3=i[row,4],
-                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4]))
+                                       lpixel0=i[row,1], lpixel1=i[row,2], lpixel2=i[row,3], lpixel3=i[row,4], 
+                                       nthreads=nthreads))
         }else{
           stop('Data type not recognised!')
         }

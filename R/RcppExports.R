@@ -117,3 +117,7 @@ Cfits_read_nkey <- function(filename, ext = 1L) {
     .Call(`_Rfits_Cfits_read_nkey`, filename, ext)
 }
 
+Cfits_read_img_subset2 <- function(filename, ext = 1L, datatype = -32L, fpixel0 = 1L, fpixel1 = 1L, fpixel2 = 1L, fpixel3 = 1L, lpixel0 = 100L, lpixel1 = 100L, lpixel2 = 1L, lpixel3 = 1L, sparse = 1L, nthreads = 1L) {
+    .Call(`_Rfits_Cfits_read_img_subset2`, filename, ext, datatype, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, sparse, nthreads)
+}
+

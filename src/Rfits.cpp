@@ -996,3 +996,95 @@ int Cfits_read_nkey(Rcpp::String filename, int ext=1){
   fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   return(nkeys);
 }
+
+#include <Rcpp.h>
+#include <omp.h>
+#include <vector>
+#include <fitsio.h>
+
+// Function to read a subset of a FITS image with threading support
+template <typename OutputT>
+void do_read_img_subset(Rcpp::String filename, int ext, int datatype, long* fpixel, long* lpixel, long* inc, OutputT& output, int nthreads) {
+#ifndef _OPENMP
+  nthreads = 1;
+#endif
+  R_xlen_t total_elements = output.size();
+  R_xlen_t elements_per_thread = total_elements / nthreads;
+  R_xlen_t remainder = total_elements % nthreads;
+  
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) num_threads(nthreads)
+  for (R_xlen_t i = 0; i < nthreads; i++) {
+    auto extra = (i < remainder) ? 1 : 0;
+    auto start = elements_per_thread * i + std::min(remainder, i);
+    auto count = elements_per_thread + extra;
+    fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+    fits_invoke(movabs_hdu, fptr, ext, nullptr);
+    fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc, nullptr, start_of(output) + start, nullptr);
+  }
+#else
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, nullptr);
+  fits_invoke(read_subset, fptr, datatype, fpixel, lpixel, inc, nullptr, start_of(output), nullptr);
+#endif
+}
+
+// [[Rcpp::export]]
+SEXP Cfits_read_img_subset2(Rcpp::String filename, int ext = 1, int datatype = -32, 
+                           long fpixel0 = 1, long fpixel1 = 1, long fpixel2 = 1, long fpixel3 = 1,
+                           long lpixel0 = 100, long lpixel1 = 100, long lpixel2 = 1, long lpixel3 = 1,
+                           long sparse = 1, int nthreads = 1) {
+  long fpixel[] = {fpixel0, fpixel1, fpixel2, fpixel3};
+  long lpixel[] = {lpixel0, lpixel1, lpixel2, lpixel3};
+  long inc[] = {sparse, sparse, sparse, sparse};
+  
+  int naxis1 = (lpixel - fpixel + 1);
+  int naxis2 = (lpixel - fpixel + 1);
+  int naxis3 = (lpixel - fpixel + 1);
+  int naxis4 = (lpixel - fpixel + 1);
+  
+  if (sparse > 1) {
+    if (naxis1 > 1) naxis1 = 1 + floor((naxis1 - 1) / sparse);
+    if (naxis2 > 1) naxis2 = 1 + floor((naxis2 - 1) / sparse);
+    if (naxis3 > 1) naxis3 = 1 + floor((naxis3 - 1) / sparse);
+    if (naxis4 > 1) naxis4 = 1 + floor((naxis4 - 1) / sparse);
+  }
+  
+  int nelements = naxis1 * naxis2 * naxis3 * naxis4;
+  
+  if (datatype == FLOAT_IMG) {
+    Rcpp::NumericVector pixel_matrix(nelements);
+    do_read_img_subset(filename, ext, TFLOAT, fpixel, lpixel, inc, pixel_matrix, nthreads);
+    return pixel_matrix;
+  } else if (datatype == DOUBLE_IMG) {
+    Rcpp::NumericVector pixel_matrix(nelements);
+    do_read_img_subset(filename, ext, TDOUBLE, fpixel, lpixel, inc, pixel_matrix, nthreads);
+    return pixel_matrix;
+  } else if (datatype == BYTE_IMG) {
+    Rcpp::IntegerVector pixel_matrix(nelements);
+    std::vector<char> pixels(nelements);
+    do_read_img_subset(filename, ext, TBYTE, fpixel, lpixel, inc, pixels, nthreads);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return pixel_matrix;
+  } else if (datatype == SHORT_IMG) {
+    Rcpp::IntegerVector pixel_matrix(nelements);
+    std::vector<short> pixels(nelements);
+    do_read_img_subset(filename, ext, TSHORT, fpixel, lpixel, inc, pixels, nthreads);
+    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+    return pixel_matrix;
+  } else if (datatype == LONG_IMG) {
+    std::vector<long> pixels(nelements);
+    do_read_img_subset(filename, ext, TLONG, fpixel, lpixel, inc, pixels, nthreads);
+    return ensure_lossless_32bit_int(pixels);
+  } else if (datatype == LONGLONG_IMG) {
+    Rcpp::NumericVector pixel_matrix(nelements);
+    std::vector<int64_t> pixels(nelements);
+    do_read_img_subset(filename, ext, TLONGLONG, fpixel, lpixel, inc, pixels, nthreads);
+    std::memcpy(&(pixel_matrix), &(pixels), nelements * sizeof(double));
+    pixel_matrix.attr("class") = "integer64";
+    return pixel_matrix;
+  }
+  
+  throw std::runtime_error("unsupported type");
+}
+
