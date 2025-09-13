@@ -51,7 +51,7 @@
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
-                          header=FALSE, remove_HIERARCH=FALSE, startrow=1L, nrow=0L, zap=NULL, zaptype='full'){
+                          header=FALSE, remove_HIERARCH=FALSE, startrow=1L, nrow=0L, zap=NULL, zaptype='full', cores=1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
   filename = strsplit(filename, '[compress', fixed=TRUE)[[1]][1]
@@ -81,20 +81,37 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   
   assertInt(startrow, lower = 1L)
 
-  output = list()
-  count = 1
+  if (!is.null(cores)) {
+    if(length(cols) < cores){
+      cores = length(cols)
+    }
+    registerDoParallel(cores=cores)
+  }
   
-  for(i in cols){
-    if(verbose){
-      message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
+  if(!getDoParRegistered()){
+    output = list()
+    count = 1
+    for(i in cols){
+      if(verbose){
+        message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
+      }
+      try({
+        output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, startrow=startrow, nrow=nrow)
+      })
+      if(is.null(output[count][[1]])){
+        output[[count]] = NA
+      }
+      count = count + 1
     }
-    try({
-      output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, startrow=startrow, nrow=nrow)
-    })
-    if(is.null(output[count][[1]])){
-      output[[count]] = NA
+  }else{
+    output = foreach(i = cols)%dopar%{
+      temp = Cfits_read_col(filename=filename, colref=i, ext=ext, startrow=startrow, nrow=nrow)
+      if(is.null(temp)){
+        return(NA)
+      }else{
+        return(temp)
+      }
     }
-    count = count + 1
   }
   
   if(data.table){

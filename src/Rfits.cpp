@@ -997,11 +997,6 @@ int Cfits_read_nkey(Rcpp::String filename, int ext=1){
   return(nkeys);
 }
 
-#include <Rcpp.h>
-#include <omp.h>
-#include <vector>
-#include <fitsio.h>
-
 // Function to read a subset of a FITS image with threading support
 template <typename OutputT>
 void do_read_img_subset(Rcpp::String filename, int ext, int datatype, long* fpixel, long* lpixel, long* inc, OutputT& output, int nthreads) {
