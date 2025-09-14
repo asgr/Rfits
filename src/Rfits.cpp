@@ -727,6 +727,48 @@ void Cfits_delete_header(Rcpp::String filename, int ext=1){
   }
 }
 
+static inline void do_read_img_subset(Rcpp::String filename, int ext, int data_type, long fpixel[4], long lpixel[4], long inc[4], void *output)
+{
+  int anynull = 0;
+  int hdutype = 0;
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  fits_invoke(read_subset, fptr, data_type, fpixel, lpixel, inc, nullptr, output, &anynull);
+}
+
+template <typename OutputT>
+static inline void do_read_img_subset(
+  Rcpp::String filename, int ext, int data_type, OutputT &output, long naxis[4], long fpixel[4], long lpixel[4], long inc[4], int nthreads
+)
+{
+  // code below is hardcoded to parallelise on second dimension only (i.e., rows)
+  // so 3d or 4d images would be read in parallel in less-than-ideal interleaved patterns
+  if (naxis[2] > 1 || naxis[3] > 1) {
+    do_read_img_subset(filename, ext, data_type, fpixel, lpixel, inc, start_of(output));
+    return;
+  }
+
+#ifndef _OPENMP
+  do_read_img_subset(filename, ext, data_type, fpixel, lpixel, inc, start_of(output));
+#else
+  long total_rows = naxis[1];
+  long subcube_size = naxis[0] * naxis[2] * naxis[3];
+  long rows_per_thread = total_rows / nthreads;
+  long remainder_rows = total_rows % nthreads;
+
+#pragma omp parallel for schedule(static) num_threads(nthreads)
+  for (R_xlen_t i = 0; i < nthreads; i++) {
+    auto extra = (i < remainder_rows) ? 1 : 0;
+    auto start_row = rows_per_thread * i + std::min(remainder_rows, i);
+    auto row_count = rows_per_thread + extra;
+    long fpixel_local[] = {fpixel[0], fpixel[1] + start_row, fpixel[2], fpixel[3]};
+    long lpixel_local[] = {lpixel[0], fpixel[1] + start_row + row_count - 1, lpixel[2], lpixel[3]};
+    auto output_offset = start_row * subcube_size;
+    do_read_img_subset(filename, ext, data_type, fpixel_local, lpixel_local, inc, start_of(output) + output_offset);
+  }
+#endif
+}
+
 // [[Rcpp::export]]
 SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32, 
                            long fpixel0=1, long fpixel1=1, long fpixel2=1, long fpixel3=1,
@@ -734,19 +776,10 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
                            long sparse=1
                            )
 {
-  int anynull, nullvals = 0, hdutype;
-  
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
-  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  
-  long fpixel[] = {fpixel0, fpixel1, fpixel2, fpixel3};
-  long lpixel[] = {lpixel0, lpixel1, lpixel2, lpixel3};
-  
-  int naxis1 = (lpixel[0] - fpixel[0] + 1);
-  int naxis2 = (lpixel[1] - fpixel[1] + 1);
-  int naxis3 = (lpixel[2] - fpixel[2] + 1);
-  int naxis4 = (lpixel[3] - fpixel[3] + 1);
-  
+  int naxis1 = (lpixel0 - fpixel0 + 1);
+  int naxis2 = (lpixel1 - fpixel1 + 1);
+  int naxis3 = (lpixel2 - fpixel2 + 1);
+  int naxis4 = (lpixel3 - fpixel3 + 1);
   
   if(sparse > 1){
     if(naxis1 > 1){
@@ -766,49 +799,36 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     }
   }
   
+  int nthreads = 1;
   int nelements = naxis1 * naxis2 * naxis3 * naxis4;
+  long naxis[] = {naxis1, naxis2, naxis3, naxis4};
+  long fpixel[] = {fpixel0, fpixel1, fpixel2, fpixel3};
+  long lpixel[] = {lpixel0, lpixel1, lpixel2, lpixel3};
   long inc[] = {sparse, sparse, sparse, sparse};
   
-  
-  if (datatype==FLOAT_IMG){
-    std::vector<float> pixels(nelements);
-    fits_invoke(read_subset, fptr, TFLOAT, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+  if (datatype==FLOAT_IMG || datatype==DOUBLE_IMG){
     Rcpp::NumericVector pixel_matrix(nelements);
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-    return(pixel_matrix);
-  }else if (datatype==DOUBLE_IMG){
-    std::vector<double> pixels(nelements);
-    fits_invoke(read_subset, fptr, TDOUBLE, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
-    Rcpp::NumericVector pixel_matrix(nelements);
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
-    return(pixel_matrix);
+    do_read_img_subset(filename, ext, TDOUBLE, pixel_matrix, naxis, fpixel, lpixel, inc, nthreads);
+    return pixel_matrix;
   }else if (datatype==BYTE_IMG){
-    std::vector<char> pixels(nelements);
-    fits_invoke(read_subset, fptr, TBYTE, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
-    Rcpp::IntegerVector pixel_matrix(nelements);
+    std::vector<Rbyte> pixels(nelements);
+    do_read_img_subset(filename, ext, TBYTE, pixels, naxis, fpixel, lpixel, inc, nthreads);
+    Rcpp::IntegerVector pixel_matrix(Rcpp::no_init(nelements));
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
-    std::vector<short> pixels(nelements);
-    fits_invoke(read_subset, fptr, TSHORT, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
-    Rcpp::IntegerVector pixel_matrix(nelements);
+    std::vector<long> pixels(nelements);
+    do_read_img_subset(filename, ext, TBYTE, pixels, naxis, fpixel, lpixel, inc, nthreads);
+    Rcpp::IntegerVector pixel_matrix(Rcpp::no_init(nelements));
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(nelements);
-    fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+    do_read_img_subset(filename, ext, TLONG, pixels, naxis, fpixel, lpixel, inc, nthreads);
     return ensure_lossless_32bit_int(pixels);
   }else if (datatype==LONGLONG_IMG){
-    std::vector<int64_t> pixels(nelements);
-    fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
-                &nullvals, pixels.data(), &anynull);
-    Rcpp::NumericVector pixel_matrix(nelements);
-    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(double));
+    Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
+    do_read_img_subset(filename, ext, TLONG, pixel_matrix, naxis, fpixel, lpixel, inc, nthreads);
     pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
   }
