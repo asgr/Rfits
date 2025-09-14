@@ -773,7 +773,7 @@ static inline void do_read_img_subset(
 SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32, 
                            long fpixel0=1, long fpixel1=1, long fpixel2=1, long fpixel3=1,
                            long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1,
-                           long sparse=1
+                           long sparse=1, int nthreads=1
                            )
 {
   int naxis1 = (lpixel0 - fpixel0 + 1);
@@ -799,7 +799,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     }
   }
   
-  int nthreads = 1;
   int nelements = naxis1 * naxis2 * naxis3 * naxis4;
   long naxis[] = {naxis1, naxis2, naxis3, naxis4};
   long fpixel[] = {fpixel0, fpixel1, fpixel2, fpixel3};

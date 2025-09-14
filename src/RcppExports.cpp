@@ -297,8 +297,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_read_img_subset
-SEXP Cfits_read_img_subset(Rcpp::String filename, int ext, int datatype, long fpixel0, long fpixel1, long fpixel2, long fpixel3, long lpixel0, long lpixel1, long lpixel2, long lpixel3, long sparse);
-RcppExport SEXP _Rfits_Cfits_read_img_subset(SEXP filenameSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP fpixel0SEXP, SEXP fpixel1SEXP, SEXP fpixel2SEXP, SEXP fpixel3SEXP, SEXP lpixel0SEXP, SEXP lpixel1SEXP, SEXP lpixel2SEXP, SEXP lpixel3SEXP, SEXP sparseSEXP) {
+SEXP Cfits_read_img_subset(Rcpp::String filename, int ext, int datatype, long fpixel0, long fpixel1, long fpixel2, long fpixel3, long lpixel0, long lpixel1, long lpixel2, long lpixel3, long sparse, int nthreads);
+RcppExport SEXP _Rfits_Cfits_read_img_subset(SEXP filenameSEXP, SEXP extSEXP, SEXP datatypeSEXP, SEXP fpixel0SEXP, SEXP fpixel1SEXP, SEXP fpixel2SEXP, SEXP fpixel3SEXP, SEXP lpixel0SEXP, SEXP lpixel1SEXP, SEXP lpixel2SEXP, SEXP lpixel3SEXP, SEXP sparseSEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -314,7 +314,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< long >::type lpixel2(lpixel2SEXP);
     Rcpp::traits::input_parameter< long >::type lpixel3(lpixel3SEXP);
     Rcpp::traits::input_parameter< long >::type sparse(sparseSEXP);
-    rcpp_result_gen = Rcpp::wrap(Cfits_read_img_subset(filename, ext, datatype, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, sparse));
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Cfits_read_img_subset(filename, ext, datatype, fpixel0, fpixel1, fpixel2, fpixel3, lpixel0, lpixel1, lpixel2, lpixel3, sparse, nthreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -432,7 +433,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_delete_HDU", (DL_FUNC) &_Rfits_Cfits_delete_HDU, 2},
     {"_Rfits_Cfits_delete_key", (DL_FUNC) &_Rfits_Cfits_delete_key, 3},
     {"_Rfits_Cfits_delete_header", (DL_FUNC) &_Rfits_Cfits_delete_header, 2},
-    {"_Rfits_Cfits_read_img_subset", (DL_FUNC) &_Rfits_Cfits_read_img_subset, 12},
+    {"_Rfits_Cfits_read_img_subset", (DL_FUNC) &_Rfits_Cfits_read_img_subset, 13},
     {"_Rfits_Cfits_write_img_subset", (DL_FUNC) &_Rfits_Cfits_write_img_subset, 13},
     {"_Rfits_Cfits_write_chksum", (DL_FUNC) &_Rfits_Cfits_write_chksum, 1},
     {"_Rfits_Cfits_verify_chksum", (DL_FUNC) &_Rfits_Cfits_verify_chksum, 2},

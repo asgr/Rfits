@@ -203,7 +203,7 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         temp_image = Cfits_read_img_subset(filename=filename, ext=ext, datatype=datatype,
                                            fpixel0=xlo, fpixel1=ylo, fpixel2=zlo, fpixel3=tlo,
                                            lpixel0=xhi, lpixel1=yhi, lpixel2=zhi, lpixel3=thi,
-                                           sparse=sparse)
+                                           sparse=sparse, nthreads=nthreads)
         
         check64 = inherits(temp_image, 'integer64')
         
