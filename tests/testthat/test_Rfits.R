@@ -310,3 +310,8 @@ temp_mat = matrix(1:9,3,3)
 Rfits_write_pix(temp_mat, file_image_temp, xlo=50, ylo=60)
 temp_image2 = Rfits_read_image(file_image_temp)
 expect_identical(temp_mat, temp_image2$imDat[50:52,60:62])
+
+#ex49 check that reading image subsets in parallel works as expected
+temp_image_serial = Rfits_read_image(file_image, xlo=2, ylo=2)
+temp_image_parallel = Rfits_read_image(file_image, xlo=2, ylo=2, nthreads=3)
+expect_identical(temp_image_serial, temp_image_parallel)
