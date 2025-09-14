@@ -633,7 +633,6 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
     do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
-    //std::vector<char> pixels(nelements);
     std::vector<Rbyte> pixels(nelements);
     do_read_img(filename, ext, TBYTE, pixels, nthreads);
     Rcpp::IntegerVector pixel_matrix(Rcpp::no_init(nelements));
@@ -748,7 +747,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
   int naxis3 = (lpixel[2] - fpixel[2] + 1);
   int naxis4 = (lpixel[3] - fpixel[3] + 1);
   
-  // Rcpp::Rcout << naxis1 << naxis2 << naxis3 << naxis4 <<"\n";
   
   if(sparse > 1){
     if(naxis1 > 1){
@@ -771,10 +769,6 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
   int nelements = naxis1 * naxis2 * naxis3 * naxis4;
   long inc[] = {sparse, sparse, sparse, sparse};
   
-  // Rcpp::Rcout << nelements <<"\n";
-  // Rcpp::Rcout << inc <<"\n";
-  // Rcpp::Rcout << fpixel <<"\n";
-  // Rcpp::Rcout << lpixel <<"\n";
   
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(nelements);
