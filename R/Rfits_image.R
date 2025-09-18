@@ -217,23 +217,23 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
           if(scale_sparse){
             temp_image = temp_image*sparse^2
           }
-          
-          temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
+          #temp_image = matrix(temp_image, floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
+          dim(temp_image) = c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L)
         }
         
         if(naxis3 > 1 & naxis4 == 1){
           if(scale_sparse){
             temp_image = temp_image*sparse^3
           }
-          
-          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L))
+          #temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L))
+          dim(temp_image) = c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L)
         }
         if(naxis4 > 1){
           if(scale_sparse){
             temp_image = temp_image*sparse^4
           }
-          
-          temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
+          #temp_image = array(temp_image, dim=c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L))
+          dim(temp_image) = c(floor((xhi - xlo)/sparse) + 1L, floor((yhi - ylo)/sparse) + 1L, floor((zhi - zlo)/sparse) + 1L, floor((thi - tlo)/sparse) + 1L)
         }
         if(check64){
           attributes(temp_image)$class = "integer64"
@@ -314,27 +314,46 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
       }
     }
     if(Ndim==1){
-      image = rep(NA, safex$len_tar)
-      if(safex$safe){
-        image[safex$tar] = temp_image
+      if(safex$len_tar == length(temp_image)){
+        image = temp_image
+      }else{
+        image = rep(NA, safex$len_tar)
+        if(safex$safe){
+          image[safex$tar] = temp_image
+        }
       }
     }
+    
     if(Ndim==2){
-      image = array(NA, c(safex$len_tar, safey$len_tar))
-      if(safex$safe & safey$safe){
-        image[safex$tar,safey$tar] = temp_image
+      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2]){
+        image = temp_image
+      }else{
+        image = array(NA, c(safex$len_tar, safey$len_tar))
+        if(safex$safe & safey$safe){
+          image[safex$tar,safey$tar] = temp_image
+        }
       }
     }
+    
     if(Ndim==3){
-      image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
-      if(safex$safe & safey$safe & safez$safe){
-        image[safex$tar,safey$tar,safez$tar] = temp_image
+      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3]){
+        image = temp_image
+      }else{
+        image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
+        if(safex$safe & safey$safe & safez$safe){
+          image[safex$tar,safey$tar,safez$tar] = temp_image
+        }
       }
     }
+    
     if(Ndim==4){
-      image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
-      if(safex$safe & safey$safe & safez$safe & safet$safe){
-        image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3] & safet$len_tar == dim(temp_image)[4]){
+        image = temp_image
+      }else{
+        image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
+        if(safex$safe & safey$safe & safez$safe & safet$safe){
+          image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
+        }
       }
     }
     
@@ -569,8 +588,8 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
                   ext = ext,
                   extname = hdr$keyvalues$EXTNAME,
                   WCSref = WCSref
-                  )
-      
+    )
+    
     if(Ndim == 1){
       class(output) = c('Rfits_vector', 'list')
     }else if(Ndim == 2){
@@ -608,7 +627,7 @@ Rfits_read_vector = Rfits_read_image
 Rfits_read_cube = Rfits_read_image
 
 Rfits_read_array = Rfits_read_image
-  
+
 Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomments,
                            keynames, comment, history, numeric='single',
                            integer='long', create_ext=TRUE, create_file=TRUE,
@@ -769,7 +788,7 @@ Rfits_write_image=function(data, filename='temp.fits', ext=1, keyvalues, keycomm
   if(!missing(keyvalues) & !missing(bscale)){keyvalues$BSCALE = bscale}
   
   Cfits_create_image(filename=filename, naxis=naxis, naxis1=naxes[1], naxis2=naxes[2], naxis3=naxes[3],
-                    naxis4=naxes[4], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
+                     naxis4=naxes[4], ext=ext, create_ext=create_ext, create_file=create_file, bitpix=bitpix)
   
   ext = Rfits_nhdu(filename=filename)
   
