@@ -78,9 +78,10 @@ float ffvers(float *version)  /* IO - version number */
       *version = (float)CFITSIO_MAJOR + (float)(.01*CFITSIO_MINOR)
                    + (float)(.0001*CFITSIO_MICRO);
 
-/*    *version = 4.6.2      Mar 2025 (autotools change only)
+/*    *version = 4.6.3      Sep 2025 
 
    Previous releases:
+      *version = 4.6.2      Mar 2025 (autotools change only)
       *version = 4.6.1      Mar 2025 (autotools/cmake config changes only)
       *version = 4.6.0      Mar 2025
       *version = 4.5.0      Aug 2024
@@ -756,7 +757,8 @@ PutMark    6  add a marker to the stack
 {
     int ii;
     char markflag;
-    static char *txtbuff[errmsgsiz], *tmpbuff, *msgptr;
+    static char *txtbuff[errmsgsiz], *tmpbuff;
+    char *msgptr;
     static char errbuff[errmsgsiz][81];  /* initialize all = \0 */
     static int nummsg = 0;
 
@@ -1051,7 +1053,9 @@ int ffmkky(const char *keyname,   /* I - keyword name    */
 {
     size_t namelen, len, ii;
     char tmpname[FLEN_KEYWORD], tmpname2[FLEN_KEYWORD],*cptr;
+    #ifdef _REENTRANT
     char *saveptr;
+    #endif
     int tstatus = -1, nblank = 0, ntoken = 0, maxlen = 0, specialchar = 0;
 
     if (*status > 0)
@@ -1788,7 +1792,7 @@ int ffgthd(char *tmplt, /* I - input header template string */
       {
         *hdtype = 1;   /* simply append COMMENT and HISTORY keywords */
         strcpy(card, keyname);
-        strncat(card, tok, 72);
+        strncat(card, tok, FLEN_CARD-strlen(keyname)-1);
         return(*status);
       }
 
@@ -9737,7 +9741,7 @@ int ffc2rr(const char *cval,   /* I - string representation of the value */
     }
 
     sptr = (short *) fval;
-#if BYTESWAPPED && MACHINE != VAXVMS && MACHINE != ALPHAVMS
+#if BYTESWAPPED && CFITSIO_MACHINE != VAXVMS && CFITSIO_MACHINE != ALPHAVMS
     sptr++;       /* point to MSBs */
 #endif
     iret = fnan(*sptr);  /* if iret == 1, then the float value is a NaN */
@@ -9812,7 +9816,7 @@ int ffc2dd(const char *cval,   /* I - string representation of the value */
     }
 
     sptr = (short *) dval;
-#if BYTESWAPPED && MACHINE != VAXVMS && MACHINE != ALPHAVMS
+#if BYTESWAPPED && CFITSIO_MACHINE != VAXVMS && CFITSIO_MACHINE != ALPHAVMS
     sptr += 3;       /* point to MSBs */
 #endif
     iret = dnan(*sptr);  /* if iret == 1, then the double value is a NaN */
