@@ -9,7 +9,7 @@ all: $(SHLIB)
 $(SHLIB): cfitsio
 
 cfitsio:
-	(cd cfitsio && $(MAKE))
+	(cd cfitsio && $(MAKE) libcfitsio.la)
 
 shlib-clean: clean
 
