@@ -13,7 +13,7 @@ Rfits_key_scan(filelist = NULL, dirlist = NULL, image_list = NULL, keylist = NUL
   cores = NULL, get_length = FALSE, get_dim = FALSE, get_centre = FALSE,
   get_rotation = FALSE, get_corners = FALSE, get_extremes = FALSE,
   get_pixscale = FALSE, get_pixarea = FALSE, get_all = FALSE, remove_HIERARCH = FALSE,
-  keypass = FALSE, zap = NULL, data.table = TRUE, ...)
+  keypass = FALSE, zap = NULL, data.table = TRUE, verbose = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -85,6 +85,9 @@ Character vector; optional unique strings to zap out of the header. These elemen
 }
   \item{data.table}{
 Logical; should a \code{data.table} be returned? Otherwise a data.frame is returned.
+}
+  \item{verbose}{
+Logical; should progress be printed to the screen? Probably only wanted in interactive mode.  
 }
   \item{\dots}{
 Other arguments to pass to Rwcs related methods (e.g. \option{useraw}).

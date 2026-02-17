@@ -313,47 +313,56 @@ Rfits_read_image=function(filename='temp.fits', ext=1, header=TRUE, xlo=NULL, xh
         temp_image = NA
       }
     }
+    
     if(Ndim==1){
-      if(safex$len_tar == length(temp_image)){
-        image = temp_image
-      }else{
-        image = rep(NA, safex$len_tar)
-        if(safex$safe){
+      if(safex$safe){
+        if(safex$len_tar == length(temp_image)){
+          image = temp_image
+        }else{
+          image = rep(NA, safex$len_tar)
           image[safex$tar] = temp_image
         }
+      }else{
+        image = rep(NA, safex$len_tar)
       }
     }
     
     if(Ndim==2){
-      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2]){
-        image = temp_image
+      if(safex$safe & safey$safe){
+        if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2]){
+          image = temp_image
+        }else{
+          image = array(NA, c(safex$len_tar, safey$len_tar))
+          image[safex$tar, safey$tar] = temp_image
+        }
       }else{
         image = array(NA, c(safex$len_tar, safey$len_tar))
-        if(safex$safe & safey$safe){
-          image[safex$tar,safey$tar] = temp_image
-        }
       }
     }
     
     if(Ndim==3){
-      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3]){
-        image = temp_image
+      if(safex$safe & safey$safe & safez$safe){
+        if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3]){
+          image = temp_image
+        }else{
+          image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
+          image[safex$tar, safey$tar, safez$tar] = temp_image
+        }
       }else{
         image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar))
-        if(safex$safe & safey$safe & safez$safe){
-          image[safex$tar,safey$tar,safez$tar] = temp_image
-        }
       }
     }
     
     if(Ndim==4){
-      if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3] & safet$len_tar == dim(temp_image)[4]){
-        image = temp_image
+      if(safex$safe & safey$safe & safez$safe & safet$safe){
+        if(safex$len_tar == dim(temp_image)[1] & safey$len_tar == dim(temp_image)[2] & safez$len_tar == dim(temp_image)[3] & safet$len_tar == dim(temp_image)[4]){
+          image = temp_image
+        }else{
+          image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
+          image[safex$tar, safey$tar, safez$tar, safet$tar] = temp_image
+        }
       }else{
         image = array(NA, c(safex$len_tar, safey$len_tar, safez$len_tar, safet$len_tar))
-        if(safex$safe & safey$safe & safez$safe & safet$safe){
-          image[safex$tar,safey$tar,safez$tar,safet$tar] = temp_image
-        }
       }
     }
     

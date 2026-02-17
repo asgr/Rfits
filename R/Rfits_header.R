@@ -681,7 +681,7 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
                           recursive=TRUE, fileinfo='All', keep_ext=TRUE, cores=NULL, get_length=FALSE,
                           get_dim=FALSE, get_centre=FALSE, get_rotation=FALSE, get_corners=FALSE, get_extremes=FALSE,
                           get_pixscale=FALSE, get_pixarea=FALSE, get_all=FALSE, remove_HIERARCH=FALSE, 
-                          keypass=FALSE, zap=NULL, data.table=TRUE, ...){
+                          keypass=FALSE, zap=NULL, data.table=TRUE, verbose=FALSE, ...){
   
   if (!is.null(cores)) {
     registerDoParallel(cores=cores)
@@ -722,7 +722,11 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
   if(length(keylist) > 0){
     obs_info = data.frame()
     
-    obs_info = foreach(i = 1:Nscan, .combine='rbind')%dopar%{
+    if(verbose){
+      message('Scanning keys...')  
+    }
+    
+    obs_info = foreach(i = 1:Nscan, .combine='rbind', .verbose=verbose)%dopar%{
       current_info = list()
       for(key in keylist){
           if(is.null(image_list)){
@@ -755,7 +759,11 @@ Rfits_key_scan = function(filelist=NULL, dirlist=NULL, image_list=NULL, keylist=
   }
   
   if(any(get_length, get_dim, get_centre, get_corners, get_pixscale, get_pixarea)){
-    method_info = foreach(i = 1:Nscan, .combine='rbind')%dopar%{
+    if(verbose){
+      message('Analysing properties...')  
+    }
+    
+    method_info = foreach(i = 1:Nscan, .combine='rbind', .verbose=verbose)%dopar%{
       
       suppressMessages({
         if(is.null(image_list)){
