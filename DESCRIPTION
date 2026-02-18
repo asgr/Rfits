@@ -12,7 +12,7 @@ Maintainer: Aaron Robotham <aaron.robotham@uwa.edu.au>
 Description: Read and write FITS images, tables and headers. Has a mixture of fairly low level and very high level routines. Many methods for conveniently operating on FITS files are included.
 License: LGPL-3
 Imports: Rcpp, bit64, checkmate, foreach, doParallel, magicaxis
-Suggests: data.table, FITSio, testthat, hdf5r, ProFound, tdigest, R.utils, Rwcs (>= 1.8.4), knitr, rmarkdown
+Suggests: data.table, FITSio, testthat, hdf5r, ProFound, tdigest, R.utils, Rwcs (>= 1.8.7), knitr, rmarkdown
 Encoding: UTF-8
 LazyData: true
 LinkingTo: Rcpp
