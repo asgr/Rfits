@@ -22,6 +22,8 @@ export(Rfits_write)
 export(Rfits_make_list)
 export(Rfits_gunzip)
 export(Rfits_gunzip_clear)
+export(Rfits_download)
+export(Rfits_download_clear)
 export(Rfits_create_RAMdisk)
 export(Rfits_remove_RAMdisk)
 
