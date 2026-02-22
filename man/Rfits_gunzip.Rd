@@ -54,10 +54,17 @@ All \code{Rfits} reading functions will run \code{Rfits_gunzip} on the filename 
 Aaron Robotham
 }
 \seealso{
-\code{\link{Rfits_read_all}}, ~~~
+\code{\link{Rfits_read_all}}
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+
+# Rfits_gunzip is automatically called by Rfits read functions,
+# but can be used directly to decompress a .fits.gz file:
+# Rfits_gunzip("path/to/file.fits.gz")
+
+# Clear all gunzip references (automatically done on package startup):
+Rfits_gunzip_clear()
 }
 
 \concept{FITS}
