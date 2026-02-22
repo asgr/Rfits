@@ -1,6 +1,56 @@
+Rfits_download = function(filename, tempdir=NULL){
+  assertCharacter(filename, max.len=1)
+  if(grepl('^(https?|ftp)://', filename)){
+    if(!is.null(options()$Rfits_download)){
+      if(filename %in% options()$Rfits_download[,1]){
+        return(options()$Rfits_download[options()$Rfits_download[,1] == filename, 2])
+      }
+    }
+    if(is.null(tempdir)){
+      tempdir = tempdir()
+    }
+    url_path = strsplit(filename, '?', fixed=TRUE)[[1]][1]
+    fileext = paste0('.', tools::file_ext(basename(url_path)))
+    if(fileext == '.'){fileext = ''}
+    file_temp = tempfile(tmpdir=tempdir, fileext=fileext)
+    status = download.file(filename, file_temp, mode='wb', quiet=TRUE)
+    if(status != 0){
+      stop('Failed to download ', filename, call.=FALSE)
+    }
+    options(Rfits_download = rbind(options()$Rfits_download, c(filename, file_temp)))
+    return(file_temp)
+  }
+  return(filename)
+}
+
+Rfits_download_clear = function(filenames='all'){
+  if(!is.null(options()$Rfits_download)){
+    if(length(filenames) == 1){
+      if(filenames == 'all'){
+        files_remove = options()$Rfits_download[,2]
+        files_remove = files_remove[file.exists(files_remove)]
+        if(length(files_remove) >= 1){
+          file.remove(files_remove)
+        }
+        options(Rfits_download = NULL)
+      }
+    }else{
+      files_remove = options()$Rfits_download[options()$Rfits_download[,1] %in% filenames, 2]
+      if(length(files_remove) >= 1){
+        files_remove = files_remove[file.exists(files_remove)]
+        if(length(files_remove) >= 1){
+          file.remove(files_remove)
+        }
+      }
+      options(Rfits_download = options()$Rfits_download[!options()$Rfits_download[,1] %in% filenames, , drop=FALSE])
+    }
+  }
+}
+
 Rfits_gunzip = function(filename, tempdir=NULL){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)
+  filename = Rfits_download(filename, tempdir=tempdir)
   assertAccess(filename, access='r')
   if(grepl('fits.gz$',basename(filename)) | grepl('fit.gz$',basename(filename))){
     if(filename %in% options()$Rfits_gunzip[,1]){
