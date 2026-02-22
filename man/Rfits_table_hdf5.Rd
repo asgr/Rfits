@@ -33,7 +33,7 @@ Integer scalar; the extension to read. If proved this takes precedence over \opt
 Logical; should a \code{data.table} be returned?
 }
   \item{header}{
-Logical; if TRUE then output gains attributes containing the header information (see Examples). Default is FALSE, so no table header information is explictly copied over. If \option{header} = TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though). When \option{header} = TRUE the attributes also gain a \option{meta_col} list item, which is a nicely formatted data.frame containing the key column meta data (see Examples).
+Logical; if TRUE then output gains attributes containing the header information (see Examples). Default is FALSE, so no table header information is explicitly copied over. If \option{header} = TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though). When \option{header} = TRUE the attributes also gain a \option{meta_col} list item, which is a nicely formatted data.frame containing the key column meta data (see Examples).
 }
   \item{remove_HIERARCH}{
 Logical scalar, should the leading 'HIERARCH' be removed for extended keyword names (longer than 8 characters)?  
