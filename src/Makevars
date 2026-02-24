@@ -1,7 +1,10 @@
 PKG_CPPFLAGS = -Icfitsio
-PKG_CFLAGS = $(SHLIB_OPENMP_CFLAGS)
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
 PKG_LIBS = cfitsio/.libs/libcfitsio.a $(SHLIB_OPENMP_CXXFLAGS) -lz
+
+# Suppress upstream cfitsio warnings that we cannot fix
+CFITSIO_NOWARN = -Wno-unused-variable -Wno-unused-but-set-variable \
+                 -Wno-unused-function -Wno-unused-value
 
 .PHONY: all cfitsio clean shlib-clean
 
@@ -9,7 +12,7 @@ all: $(SHLIB)
 $(SHLIB): cfitsio
 
 cfitsio:
-	(cd cfitsio && $(MAKE) libcfitsio.la)
+	(cd cfitsio && $(MAKE) CFLAGS="$(CFLAGS) $(CFITSIO_NOWARN)" libcfitsio.la)
 
 shlib-clean: clean
 
