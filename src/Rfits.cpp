@@ -5,12 +5,13 @@
 #include <Rcpp.h>
 
 #include "cfitsio/fitsio.h"
+#include <memory>
 
 using namespace Rcpp;
 
 [[noreturn]] void fits_throw_exception(const char *func_name, int status)
 {
-    char err_msg[30];
+    char err_msg[FLEN_STATUS];
     fits_get_errstatus(status, err_msg);
     std::ostringstream os;
     os << "Error when invoking fits_" << func_name << ": " << err_msg;
@@ -129,9 +130,12 @@ static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
         if (v > std::numeric_limits<int32_t>::max() ||
             v < std::numeric_limits<int32_t>::min()) {
             Rcpp::NumericVector output(n);
-            std::memcpy(&(output[0]), &(values[0]), n * sizeof(long));
-            output.attr("class") = "integer64";
-            return output;
+            std::vector<int64_t> values64(n);
+            std::transform(values.begin(), values.end(), values64.begin(),
+               [](long v) { return static_cast<int64_t>(v); });
+if (n > 0) std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
+output.attr("class") = "integer64";
+return output;
         }
         int_out[i] = static_cast<int>(v);
     }
@@ -145,7 +149,7 @@ void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_fil
   int nhdu,hdutype;
   fits_file fptr;
   int naxis=0;
-  long *axes = {0};
+  long *axes = nullptr;
   
   if(create_file == 1){
     fits_invoke(create_file, fptr, filename.get_cstring());
@@ -153,7 +157,7 @@ void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_fil
     fits_invoke(create_img, fptr, 16, naxis, axes);
   }else{
     if(create_ext == 1){
-      fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+      fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
       fits_invoke(get_num_hdus, fptr, &nhdu);
       fits_invoke(movabs_hdu, fptr, nhdu, &hdutype);
       fits_invoke(create_hdu, fptr);
@@ -330,20 +334,17 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_num_cols, fptr, &ncol);
 
-  Rcpp::StringVector out(ncol);
-
+  std::vector<std::string> names;
   char colname[81];
-
   int status = 0;
-  int ii = 0;
-  while (status != COL_NOT_FOUND && ii < ncol) {
-    fits_get_colname(fptr, CASEINSEN, (char *)"*", (char *)colname, &colref, &status);
+  int ref = colref;
+  while (status != COL_NOT_FOUND && (int)names.size() < ncol) {
+    fits_get_colname(fptr, CASEINSEN, (char *)"*", colname, &ref, &status);
     if (status != COL_NOT_FOUND) {
-      out[ii] = colname;
+      names.push_back(std::string(colname));
     }
-    ii++;
   }
-  return out;
+return Rcpp::wrap(names);
 }
 
 // [[Rcpp::export]]
@@ -582,13 +583,13 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
 template <typename T>
 T* start_of(std::vector<T> &output)
 {
-	return output.data();
+    return output.empty() ? nullptr : output.data();
 }
 
 template <int RTYPE>
 typename Rcpp::Vector<RTYPE>::stored_type* start_of(Rcpp::Vector<RTYPE> &output)
 {
-	return &(output[0]);
+    return output.size() == 0 ? nullptr : &(output[0]);
 }
 
 static inline void do_read_img(Rcpp::String filename, int ext, int data_type, long start, long count, void *output)
@@ -608,8 +609,6 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
 #endif
 
   R_xlen_t total_elements = output.size();
-  R_xlen_t elements_per_thread = total_elements / nthreads;
-  R_xlen_t remainder = total_elements % nthreads;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(nthreads)
@@ -630,11 +629,15 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 {
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
 
-  if (datatype==FLOAT_IMG || datatype == DOUBLE_IMG){
-    Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
-    do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
-    return(pixel_matrix);
-  }else if (datatype==BYTE_IMG){
+  if (datatype==FLOAT_IMG){
+  Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
+  do_read_img(filename, ext, TFLOAT, pixel_matrix, nthreads);
+  return(pixel_matrix);
+}else if (datatype==DOUBLE_IMG){
+  Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
+  do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
+  return(pixel_matrix);
+}else if (datatype==BYTE_IMG){
     std::vector<Rbyte> pixels(nelements);
     do_read_img(filename, ext, TBYTE, pixels, nthreads);
     Rcpp::IntegerVector pixel_matrix(Rcpp::no_init(nelements));
@@ -945,7 +948,7 @@ SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
   fits_decode_chksum((char *)ascii.get_cstring(), complement, &sum);
   Rcpp::NumericVector out(1);
   out.attr("class") = "integer64";
-  std::memcpy(&(out[0]), &sum, 8);
+  if (out.size() > 0) std::memcpy(&(out[0]), &sum, sizeof(unsigned long));
   return(out);
 }
 
