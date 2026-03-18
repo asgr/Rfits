@@ -100,23 +100,24 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 
 static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
 {
-    // R's integers are signed, so if any value is >= 2^31
-    // we return the whole array as a bit64 array
-    // (i.e., a double array with class "integer64").
-    auto doesnt_fit_in_r_int = std::any_of(values.begin(), values.end(), [](long value) {
-        return value > std::numeric_limits<int32_t>::max() ||
-               value < std::numeric_limits<int32_t>::min();
-    });
-    if (doesnt_fit_in_r_int) {
-      Rcpp::NumericVector output(values.size());
-      std::memcpy(&(output[0]), &(values[0]), values.size() * sizeof(long));
-      output.attr("class") = "integer64";
-      return output;
+    // Optimistically fill an IntegerVector in a single pass.
+    // If any value is out of int32 range, immediately fall back to integer64
+    // via memcpy — discarding the partial work but avoiding a second scan
+    // over the full array in the common case where all values fit.
+    const size_t n = values.size();
+    Rcpp::IntegerVector int_out(Rcpp::no_init(n));
+    for (size_t i = 0; i < n; i++) {
+        long v = values[i];
+        if (v > std::numeric_limits<int32_t>::max() ||
+            v < std::numeric_limits<int32_t>::min()) {
+            Rcpp::NumericVector output(n);
+            std::memcpy(&(output[0]), &(values[0]), n * sizeof(long));
+            output.attr("class") = "integer64";
+            return output;
+        }
+        int_out[i] = static_cast<int>(v);
     }
-    // otherwise they fit into R's signed integer vector
-    Rcpp::IntegerVector output(values.size());
-    std::copy(values.begin(), values.end(), output.begin());
-    return output;
+    return int_out;
 }
 
 // [[Rcpp::export]]
@@ -170,10 +171,11 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     int cwidth;
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
 
-    // Use RAII storage so memory is freed even if fits_invoke throws.
-    std::vector<std::vector<char>> storage(nrow, std::vector<char>(cwidth + 1, '\0'));
+    // Single flat allocation: better cache locality and fewer heap ops than
+    // vector<vector<char>>. RAII ensures cleanup even if fits_invoke throws.
+    std::vector<char> storage((long)nrow * (cwidth + 1), '\0');
     std::vector<char *> data(nrow);
-    for (int i = 0; i < nrow; i++) data[i] = storage[i].data();
+    for (int i = 0; i < nrow; i++) data[i] = storage.data() + i * (cwidth + 1);
 
     fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, data.data(), &anynull);
     Rcpp::StringVector out(nrow);
@@ -206,10 +208,8 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   }
   else if ( typecode == TINT ) {
     int nullval = -999;
-    std::vector<int> col(nrow);
-    fits_invoke(read_col, fptr, TINT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
+    Rcpp::IntegerVector out(Rcpp::no_init(nrow));
+    fits_invoke(read_col, fptr, TINT, colref, startrow, 1, nrow, &nullval, out.begin(), &anynull);
     return out;
   }
   else if ( typecode == TUINT ) {
@@ -267,10 +267,8 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   }
   else if ( typecode == TDOUBLE ) {
     double nullval = -999;
-    std::vector<double> col(nrow);
-    fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
+    Rcpp::NumericVector out(Rcpp::no_init(nrow));
+    fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, nrow, &nullval, out.begin(), &anynull);
     return out;
   }
   throw std::runtime_error("unsupported type");
@@ -373,8 +371,8 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
 
   if ( typecode == TSTRING ) {
     std::vector<char *> s_data(nrow);
-    for (ii = 0 ; ii < nrow ; ii++ ) {
-      s_data[ii] = (char*)CHAR(STRING_ELT(data, ii));
+    for (int i = 0; i < nrow; i++) {
+      s_data[i] = (char*)CHAR(STRING_ELT(data, i));
     }
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, s_data.data());
   }else if (typecode == TBIT){
@@ -804,7 +802,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     fits_invoke(read_subset, fptr, TLONGLONG, fpixel, lpixel, inc,
                 &nullvals, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(nelements);
-    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(double));
+    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(int64_t));
     pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
   }
