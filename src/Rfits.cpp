@@ -609,20 +609,24 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
 #endif
 
   R_xlen_t total_elements = output.size();
+  if (total_elements == 0) return;
 
 #ifdef _OPENMP
+  R_xlen_t elems_per_thread = total_elements / nthreads;
+  R_xlen_t thread_remainder = total_elements % nthreads;
+
 #pragma omp parallel for schedule(static) num_threads(nthreads)
   for (R_xlen_t i = 0; i < nthreads; i++) {
-    auto extra = (i < remainder) ? 1 : 0;
-    auto start = elements_per_thread * i + std::min(remainder, i);
-    auto count = elements_per_thread + extra;
+    R_xlen_t extra = (i < thread_remainder) ? 1 : 0;
+    R_xlen_t start = elems_per_thread * i + std::min(thread_remainder, i);
+    R_xlen_t count = elems_per_thread + extra;
+    if (count == 0) continue;
     do_read_img(filename, ext, data_type, start + 1, count, start_of(output) + start);
   }
 #else
   do_read_img(filename, ext, data_type, 1, total_elements, start_of(output));
 #endif
 }
-
 // [[Rcpp::export]]
 SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
                     long naxis1=100, long naxis2=100, long naxis3=1, long naxis4=1, int nthreads=1)
