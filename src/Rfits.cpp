@@ -151,7 +151,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     Rcpp::stop("startrow must be ≥ 1");
   }
 
-  int hdutype,anynull,typecode,ii;
+  int hdutype,anynull,typecode;
   long repeat,width,nrow_total;
 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
@@ -533,8 +533,8 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  const int *int_src = INTEGER(data);
-  const double *dbl_src = REAL(data);
+  int *int_src = INTEGER(data);
+  double *dbl_src = REAL(data);
 
   if(datatype == TBYTE){
     std::vector<Rbyte> data_b(nelements);
@@ -870,8 +870,8 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   
   // Rcpp::Rcout << nelements <<"\n";
 
-  const int *int_src = INTEGER(data);
-  const double *dbl_src = REAL(data);
+  int *int_src = INTEGER(data);
+  double *dbl_src = REAL(data);
 
   if(datatype == TBYTE){
     std::vector<Rbyte> data_b(nelements);
