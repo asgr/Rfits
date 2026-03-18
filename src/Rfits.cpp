@@ -720,11 +720,11 @@ void Cfits_delete_key(Rcpp::String filename, Rcpp::String keyname, int ext=1){
 
 // [[Rcpp::export]]
 void Cfits_delete_header(Rcpp::String filename, int ext=1){
-  int hdutype, nkeys, keypos, ii;
+  int hdutype, nkeys, ii;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
   for (ii = 2; ii <= nkeys; ii++)  {
     fits_invoke(delete_record, fptr, 2);
   }
@@ -925,8 +925,8 @@ SEXP Cfits_get_chksum(Rcpp::String filename){
   fits_invoke(get_chksum, fptr, &datasum, &hdusum);
   Rcpp::NumericVector out(2);
   out.attr("class") = "integer64";
-  std::memcpy(&(out[0]), &datasum, 8);
-  std::memcpy(&(out[1]), &hdusum, 8);
+  std::memcpy(&(out[0]), &datasum, sizeof(unsigned long));
+  std::memcpy(&(out[1]), &hdusum, sizeof(unsigned long));
   return(out);
 }
 
