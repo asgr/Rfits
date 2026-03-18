@@ -6,8 +6,6 @@
 
 #include "cfitsio/fitsio.h"
 
-// Comments with Rcout << something here << std::endl;
-
 using namespace Rcpp;
 
 [[noreturn]] void fits_throw_exception(const char *func_name, int status)
@@ -30,7 +28,22 @@ public:
   fits_file(fitsfile *fptr) : m_fptr(fptr) {}
   fits_file(const fits_file &other) = delete;
   fits_file &operator=(const fits_file &other) = delete;
-  fits_file(fits_file &&other) = default;
+
+  fits_file(fits_file &&other) noexcept : m_fptr(other.m_fptr) {
+    other.m_fptr = nullptr;
+  }
+  fits_file &operator=(fits_file &&other) noexcept {
+    if (this != &other) {
+      if (m_fptr) {
+        int status = 0;
+        fits_close_file(m_fptr, &status);
+      }
+      m_fptr = other.m_fptr;
+      other.m_fptr = nullptr;
+    }
+    return *this;
+  }
+
   ~fits_file()
   {
     if (m_fptr) {
@@ -49,10 +62,15 @@ public:
     return &m_fptr;
   }
 
-  fits_file &operator=(fitsfile *fptr)
+  // Close any currently-owned handle before taking ownership of a new one.
+  fits_file &operator=(fitsfile *new_fptr)
   {
-    m_fptr = fptr;
-	 return *this;
+    if (m_fptr) {
+      int status = 0;
+      fits_close_file(m_fptr, &status);
+    }
+    m_fptr = new_fptr;
+    return *this;
   }
 
   fitsfile *m_fptr = nullptr;
@@ -386,11 +404,6 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
   }
 }
 
-// int CFITS_API ffgkey(fitsfile *fptr, const char *keyname, char *keyval, char *comm,
-//                      int *status);
-// 
-// int CFITS_API ffgky( fitsfile *fptr, int datatype, const char *keyname, void *value,
-//                      char *comm, int *status);
 // [[Rcpp::export]]
 SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext=1){
   int hdutype;
@@ -533,33 +546,34 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  int *int_src = INTEGER(data);
-  double *dbl_src = REAL(data);
-
   if(datatype == TBYTE){
+    int *src = INTEGER(data);
     std::vector<Rbyte> data_b(nelements);
-    std::transform(int_src, int_src + nelements, data_b.begin(),
+    std::transform(src, src + nelements, data_b.begin(),
                    [](int v) { return static_cast<Rbyte>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_b.data());
   }else if(datatype == TINT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, int_src);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
   }else if(datatype == TSHORT){
+    int *src = INTEGER(data);
     std::vector<short> data_s(nelements);
-    std::transform(int_src, int_src + nelements, data_s.begin(),
+    std::transform(src, src + nelements, data_s.begin(),
                    [](int v) { return static_cast<short>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s.data());
   }else if(datatype == TLONG){
+    int *src = INTEGER(data);
     std::vector<long> data_l(nelements);
-    std::transform(int_src, int_src + nelements, data_l.begin(),
+    std::transform(src, src + nelements, data_l.begin(),
                    [](int v) { return static_cast<long>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l.data());
   }else if(datatype == TLONGLONG){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, dbl_src);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TDOUBLE){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, dbl_src);
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
   }else if(datatype == TFLOAT){
+    double *src = REAL(data);
     std::vector<float> data_f(nelements);
-    std::transform(dbl_src, dbl_src + nelements, data_f.begin(),
+    std::transform(src, src + nelements, data_f.begin(),
                    [](double v) { return static_cast<float>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f.data());
   }
@@ -621,7 +635,6 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
     do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
-    //std::vector<char> pixels(nelements);
     std::vector<Rbyte> pixels(nelements);
     do_read_img(filename, ext, TBYTE, pixels, nthreads);
     Rcpp::IntegerVector pixel_matrix(Rcpp::no_init(nelements));
@@ -649,11 +662,11 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
-  int nkeys, keypos, ii, hdutype;
+  int nkeys, ii, hdutype;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
   
   Rcpp::StringVector out(nkeys);
   char card[FLEN_CARD];
@@ -667,23 +680,22 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
-  int nkeys, keypos, hdutype;
+  int nkeys, hdutype;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
   
   Rcpp::StringVector out(1);
   
   // fits_hdr2str allocates its own buffer and overwrites the pointer;
   // do not pre-allocate here or that allocation is leaked.
   char *header = nullptr;
-  
   fits_invoke(hdr2str, fptr, 1, nullptr, 0, &header, &nkeys);
-  
+  // RAII wrapper ensures free() is called even if the StringVector assignment throws.
+  std::unique_ptr<char, decltype(&free)> header_guard(header, &free);
+
   out[0] = header;
-  
-  free(header);
   
   return(out);
 }
@@ -733,39 +745,21 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
   long fpixel[] = {fpixel0, fpixel1, fpixel2, fpixel3};
   long lpixel[] = {lpixel0, lpixel1, lpixel2, lpixel3};
   
-  int naxis1 = (lpixel[0] - fpixel[0] + 1);
-  int naxis2 = (lpixel[1] - fpixel[1] + 1);
-  int naxis3 = (lpixel[2] - fpixel[2] + 1);
-  int naxis4 = (lpixel[3] - fpixel[3] + 1);
-  
-  // Rcpp::Rcout << naxis1 << naxis2 << naxis3 << naxis4 <<"\n";
-  
+  long naxis1 = (lpixel[0] - fpixel[0] + 1);
+  long naxis2 = (lpixel[1] - fpixel[1] + 1);
+  long naxis3 = (lpixel[2] - fpixel[2] + 1);
+  long naxis4 = (lpixel[3] - fpixel[3] + 1);
+
   if(sparse > 1){
-    if(naxis1 > 1){
-      naxis1 = 1 + floor((naxis1 - 1)/sparse);
-    }
-    
-    if(naxis2 > 1){
-      naxis2 = 1 + floor((naxis2 - 1)/sparse);
-    }
-    
-    if(naxis3 > 1){
-      naxis3 = 1 + floor((naxis3 - 1)/sparse);
-    }
-    
-    if(naxis4 > 1){
-      naxis4 = 1 + floor((naxis4 - 1)/sparse);
-    }
+    if(naxis1 > 1) naxis1 = 1 + (naxis1 - 1) / sparse;
+    if(naxis2 > 1) naxis2 = 1 + (naxis2 - 1) / sparse;
+    if(naxis3 > 1) naxis3 = 1 + (naxis3 - 1) / sparse;
+    if(naxis4 > 1) naxis4 = 1 + (naxis4 - 1) / sparse;
   }
   
-  long nelements = (long)naxis1 * naxis2 * naxis3 * naxis4;
+  long nelements = naxis1 * naxis2 * naxis3 * naxis4;
   long inc[] = {sparse, sparse, sparse, sparse};
-  
-  // Rcpp::Rcout << nelements <<"\n";
-  // Rcpp::Rcout << inc <<"\n";
-  // Rcpp::Rcout << fpixel <<"\n";
-  // Rcpp::Rcout << lpixel <<"\n";
-  
+
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(nelements);
     fits_invoke(read_subset, fptr, TFLOAT, fpixel, lpixel, inc,
@@ -817,11 +811,7 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
 ){
   int hdutype;
   long nelements;
-  
-  // Rcpp::Rcout << filename.get_cstring() <<"\n";
-  // Rcpp::Rcout << datatype <<"\n";
-  // Rcpp::Rcout << naxis <<"\n";
-  
+
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
@@ -830,73 +820,62 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   long fpixel_cube[] = {fpixel0, fpixel1, fpixel2};
   long fpixel_array[] = {fpixel0, fpixel1, fpixel2, fpixel3};
   long *fpixel = (naxis == 1) ? fpixel_vector : (naxis == 2) ? fpixel_image : (naxis == 3 ? fpixel_cube : fpixel_array);
-  
-  // Rcpp::Rcout << fpixel0 <<"\n";
-  // Rcpp::Rcout << fpixel1 <<"\n";
-  // Rcpp::Rcout << fpixel2 <<"\n";
-  // Rcpp::Rcout << fpixel3 <<"\n";
-  
+
   long lpixel_vector[] = {lpixel0};
   long lpixel_image[] = {lpixel0, lpixel1};
   long lpixel_cube[] = {lpixel0, lpixel1, lpixel2};
   long lpixel_array[] = {lpixel0, lpixel1, lpixel2, lpixel3};
   long *lpixel = (naxis == 1) ? lpixel_vector : (naxis == 2) ? lpixel_image : (naxis == 3 ? lpixel_cube : lpixel_array);
   
-  // Rcpp::Rcout << lpixel0 <<"\n";
-  // Rcpp::Rcout << lpixel1 <<"\n";
-  // Rcpp::Rcout << lpixel2 <<"\n";
-  // Rcpp::Rcout << lpixel3 <<"\n";
-  
-  int naxis1 = (lpixel[0] - fpixel[0] + 1);
-  int naxis2 = (lpixel[1] - fpixel[1] + 1);
-  int naxis3 = (lpixel[2] - fpixel[2] + 1);
-  int naxis4 = (lpixel[3] - fpixel[3] + 1);
-  
+  long naxis1 = (lpixel[0] - fpixel[0] + 1);
+  long naxis2 = (lpixel[1] - fpixel[1] + 1);
+  long naxis3 = (lpixel[2] - fpixel[2] + 1);
+  long naxis4 = (lpixel[3] - fpixel[3] + 1);
+
   if (naxis == 1) {
-    nelements = (long)naxis1;
+    nelements = naxis1;
   }
   else if (naxis == 2) {
-    nelements = (long)naxis1 * naxis2;
+    nelements = naxis1 * naxis2;
   }
   else if (naxis == 3) {
-    nelements = (long)naxis1 * naxis2 * naxis3;
+    nelements = naxis1 * naxis2 * naxis3;
   }
   else if (naxis == 4) {
-    nelements = (long)naxis1 * naxis2 * naxis3 * naxis4;
+    nelements = naxis1 * naxis2 * naxis3 * naxis4;
   }
   else {
     Rcpp::stop("naxis=%d doesn't meet condition: 1 <= naxis <= 4", naxis);
   }
-  
-  // Rcpp::Rcout << nelements <<"\n";
-
-  int *int_src = INTEGER(data);
-  double *dbl_src = REAL(data);
 
   if(datatype == TBYTE){
+    int *src = INTEGER(data);
     std::vector<Rbyte> data_b(nelements);
-    std::transform(int_src, int_src + nelements, data_b.begin(),
+    std::transform(src, src + nelements, data_b.begin(),
                    [](int v) { return static_cast<Rbyte>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_b.data());
   }else if(datatype == TINT){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, int_src);
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, INTEGER(data));
   }else if(datatype == TSHORT){
+    int *src = INTEGER(data);
     std::vector<short> data_s(nelements);
-    std::transform(int_src, int_src + nelements, data_s.begin(),
+    std::transform(src, src + nelements, data_s.begin(),
                    [](int v) { return static_cast<short>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_s.data());
   }else if(datatype == TLONG){
+    int *src = INTEGER(data);
     std::vector<long> data_l(nelements);
-    std::transform(int_src, int_src + nelements, data_l.begin(),
+    std::transform(src, src + nelements, data_l.begin(),
                    [](int v) { return static_cast<long>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_l.data());
   }else if(datatype == TLONGLONG){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, dbl_src);
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, REAL(data));
   }else if(datatype == TDOUBLE){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, dbl_src);
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, REAL(data));
   }else if(datatype == TFLOAT){
+    double *src = REAL(data);
     std::vector<float> data_f(nelements);
-    std::transform(dbl_src, dbl_src + nelements, data_f.begin(),
+    std::transform(src, src + nelements, data_f.begin(),
                    [](double v) { return static_cast<float>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_f.data());
   }
@@ -972,10 +951,10 @@ SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
 
 // [[Rcpp::export]]
 int Cfits_read_nkey(Rcpp::String filename, int ext=1){
-  int nkeys, keypos, hdutype;
+  int nkeys, hdutype;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
+  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
   return(nkeys);
 }
