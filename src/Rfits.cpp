@@ -635,6 +635,9 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 
   if (datatype==FLOAT_IMG){
   Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
+  // Read FLOAT_IMG into a double-backed R NumericVector using CFITSIO's TDOUBLE.
+  // CFITSIO will convert float->double during the read; this avoids allocating
+  // a temporary float buffer in C++ and keeps the R API returning doubles.
   do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
   return(pixel_matrix);
 }else if (datatype==DOUBLE_IMG){
