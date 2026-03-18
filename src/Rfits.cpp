@@ -10,7 +10,7 @@
 
 using namespace Rcpp;
 
-std::runtime_error fits_status_to_exception(const char *func_name, int status)
+[[noreturn]] void fits_throw_exception(const char *func_name, int status)
 {
     char err_msg[30];
     fits_get_errstatus(status, err_msg);
@@ -70,7 +70,7 @@ void _fits_invoke(const char *func_name, F&& func, Args&& ... args)
   int status = 0;
   func(std::forward<Args>(args)..., &status);
   if (status) {
-    throw fits_status_to_exception(func_name, status);
+    fits_throw_exception(func_name, status);
   }
 }
 
@@ -80,7 +80,7 @@ fitsfile *fits_safe_open_file(const char *filename, int mode)
   fitsfile *file;
   fits_open_file(&file, const_cast<char *>(filename), mode, &status);
   if (status) {
-    throw fits_status_to_exception("open_file", status);
+    fits_throw_exception("open_file", status);
   }
   return file;
 }
@@ -103,7 +103,10 @@ static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
     // R's integers are signed, so if any value is >= 2^31
     // we return the whole array as a bit64 array
     // (i.e., a double array with class "integer64").
-    auto doesnt_fit_in_r_int = std::any_of(values.begin(), values.end(), [](long value) { return value > std::numeric_limits<int32_t>::max(); });
+    auto doesnt_fit_in_r_int = std::any_of(values.begin(), values.end(), [](long value) {
+        return value > std::numeric_limits<int32_t>::max() ||
+               value < std::numeric_limits<int32_t>::min();
+    });
     if (doesnt_fit_in_r_int) {
       Rcpp::NumericVector output(values.size());
       std::memcpy(&(output[0]), &(values[0]), values.size() * sizeof(long));
@@ -167,17 +170,14 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     int cwidth;
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
 
-    char **data = (char **)malloc(sizeof(char *) * nrow);
-    for (ii = 0 ; ii < nrow ; ii++ ) {
-      data[ii] = (char*)calloc(cwidth + 1, 1);
-    }
-    fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, data, &anynull);
+    // Use RAII storage so memory is freed even if fits_invoke throws.
+    std::vector<std::vector<char>> storage(nrow, std::vector<char>(cwidth + 1, '\0'));
+    std::vector<char *> data(nrow);
+    for (int i = 0; i < nrow; i++) data[i] = storage[i].data();
+
+    fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, data.data(), &anynull);
     Rcpp::StringVector out(nrow);
-    std::copy(data, data + nrow, out.begin());
-    for (int i = 0; i != nrow; i++) {
-      free(data[i]);
-    }
-    free(data);
+    std::copy(data.begin(), data.end(), out.begin());
     return out;
   }
   else if ( typecode == TBIT ) {
@@ -254,16 +254,14 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     long nullval = -999;
     std::vector<long> col(nrow);
     fits_invoke(read_col, fptr, TLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+    return ensure_lossless_32bit_int(col);
   }
   else if ( typecode == TLONGLONG ) {
-    long nullval = -999;
+    int64_t nullval = -999;
     std::vector<int64_t> col(nrow);
     fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
-    std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(double));
+    std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(int64_t));
     out.attr("class") = "integer64";
     return out;
   }
@@ -368,7 +366,7 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
 
 // [[Rcpp::export]]
 void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode=1){
-  int hdutype,ii;
+  int hdutype;
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
@@ -406,23 +404,20 @@ SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, i
   
   if ( typecode == TDOUBLE ) {
     Rcpp::NumericVector out(1);
-    std::vector<double> keyvalue(1);
-    fits_invoke(read_key, fptr, TDOUBLE, keyname.get_cstring(), keyvalue.data(), comment);
-    std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
+    fits_invoke(read_key, fptr, TDOUBLE, keyname.get_cstring(), &out[0], comment);
     return(out);
   }else if ( typecode == TSTRING){
     Rcpp::StringVector out(1);
-    //std::vector<std::string> keyvalue(1);
     char keyvalue[81];
     fits_invoke(read_key, fptr, TSTRING, keyname.get_cstring(), keyvalue, comment);
     out[0] = keyvalue;
-    //std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
     return(out);
   }else if ( typecode == TLONG ) {
+    // TLONG maps to C `long`; read into a long buffer to avoid mismatched size.
+    long keyvalue;
+    fits_invoke(read_key, fptr, TLONG, keyname.get_cstring(), &keyvalue, comment);
     Rcpp::IntegerVector out(1);
-    std::vector<int> keyvalue(1);
-    fits_invoke(read_key, fptr, TLONG, keyname.get_cstring(), keyvalue.data(), comment);
-    std::copy(keyvalue.begin(), keyvalue.end(), out.begin());
+    out[0] = static_cast<int>(keyvalue);
     return(out);
   }
   throw std::runtime_error("unsupported type");
@@ -528,7 +523,7 @@ void Cfits_create_image(Rcpp::String filename, int naxis, long naxis1=100 , long
 void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= -32,
                      int naxis=2, long naxis1=100 , long naxis2=100, long naxis3=1, long naxis4=1)
 {
-  int hdutype, ii;
+  int hdutype;
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
   
   long fpixel_vector[] = {1};
@@ -540,40 +535,34 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
 
-  //below need to work for integers and doubles:
+  const int *int_src = INTEGER(data);
+  const double *dbl_src = REAL(data);
+
   if(datatype == TBYTE){
-    // char *data_b = (char *)malloc(nelements * sizeof(char));
     std::vector<Rbyte> data_b(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_b[ii] = INTEGER(data)[ii];
-    }
+    std::transform(int_src, int_src + nelements, data_b.begin(),
+                   [](int v) { return static_cast<Rbyte>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_b.data());
   }else if(datatype == TINT){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, INTEGER(data));
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, int_src);
   }else if(datatype == TSHORT){
-    // short *data_s = (short *)malloc(nelements * sizeof(short));
     std::vector<short> data_s(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_s[ii] = INTEGER(data)[ii];
-    } 
+    std::transform(int_src, int_src + nelements, data_s.begin(),
+                   [](int v) { return static_cast<short>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_s.data());
   }else if(datatype == TLONG){
-    // long *data_l = (long *)malloc(nelements * sizeof(long));
     std::vector<long> data_l(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_l[ii] = INTEGER(data)[ii];
-    }
+    std::transform(int_src, int_src + nelements, data_l.begin(),
+                   [](int v) { return static_cast<long>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_l.data());
   }else if(datatype == TLONGLONG){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, dbl_src);
   }else if(datatype == TDOUBLE){
-    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, REAL(data));
+    fits_invoke(write_pix, fptr, datatype, fpixel, nelements, dbl_src);
   }else if(datatype == TFLOAT){
-    // float *data_f = (float *)malloc(nelements * sizeof(float));
     std::vector<float> data_f(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_f[ii] = REAL(data)[ii];
-    }
+    std::transform(dbl_src, dbl_src + nelements, data_f.begin(),
+                   [](double v) { return static_cast<float>(v); });
     fits_invoke(write_pix, fptr, datatype, fpixel, nelements, data_f.data());
   }
 }
@@ -787,11 +776,9 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
-    std::vector<double> pixels(nelements);
+    Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
     fits_invoke(read_subset, fptr, TDOUBLE, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
-    Rcpp::NumericVector pixel_matrix(nelements);
-    std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
+                  &nullvals, pixel_matrix.begin(), &anynull);
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
     std::vector<char> pixels(nelements);
@@ -830,7 +817,8 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
                            long lpixel0=100, long lpixel1=100, long lpixel2=1, long lpixel3=1
                              
 ){
-  int hdutype, ii, nelements;
+  int hdutype;
+  long nelements;
   
   // Rcpp::Rcout << filename.get_cstring() <<"\n";
   // Rcpp::Rcout << datatype <<"\n";
@@ -867,57 +855,51 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   int naxis4 = (lpixel[3] - fpixel[3] + 1);
   
   if (naxis == 1) {
-    nelements = naxis1;
+    nelements = (long)naxis1;
   }
   else if (naxis == 2) {
-    nelements = naxis1 * naxis2;
+    nelements = (long)naxis1 * naxis2;
   }
   else if (naxis == 3) {
-    nelements = naxis1 * naxis2 * naxis3;
+    nelements = (long)naxis1 * naxis2 * naxis3;
   }
   else if (naxis == 4) {
-    nelements = naxis1 * naxis2 * naxis3 * naxis4;
+    nelements = (long)naxis1 * naxis2 * naxis3 * naxis4;
   }
   else {
     Rcpp::stop("naxis=%d doesn't meet condition: 1 <= naxis <= 4", naxis);
   }
   
   // Rcpp::Rcout << nelements <<"\n";
-  
-  //below need to work for integers and doubles:
+
+  const int *int_src = INTEGER(data);
+  const double *dbl_src = REAL(data);
+
   if(datatype == TBYTE){
-    // char *data_b = (char *)malloc(nelements * sizeof(char));
     std::vector<Rbyte> data_b(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_b[ii] = INTEGER(data)[ii];
-    }
+    std::transform(int_src, int_src + nelements, data_b.begin(),
+                   [](int v) { return static_cast<Rbyte>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_b.data());
   }else if(datatype == TINT){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, INTEGER(data));
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, int_src);
   }else if(datatype == TSHORT){
-    // short *data_s = (short *)malloc(nelements * sizeof(short));
     std::vector<short> data_s(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_s[ii] = INTEGER(data)[ii];
-    } 
+    std::transform(int_src, int_src + nelements, data_s.begin(),
+                   [](int v) { return static_cast<short>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_s.data());
   }else if(datatype == TLONG){
-    // long *data_l = (long *)malloc(nelements * sizeof(long));
     std::vector<long> data_l(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_l[ii] = INTEGER(data)[ii];
-    }
+    std::transform(int_src, int_src + nelements, data_l.begin(),
+                   [](int v) { return static_cast<long>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_l.data());
   }else if(datatype == TLONGLONG){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, REAL(data));
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, dbl_src);
   }else if(datatype == TDOUBLE){
-    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, REAL(data));
+    fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, dbl_src);
   }else if(datatype == TFLOAT){
-    // float *data_f = (float *)malloc(nelements * sizeof(float));
     std::vector<float> data_f(nelements);
-    for (ii = 0; ii < nelements; ii++)  {
-      data_f[ii] = REAL(data)[ii];
-    }
+    std::transform(dbl_src, dbl_src + nelements, data_f.begin(),
+                   [](double v) { return static_cast<float>(v); });
     fits_invoke(write_subset, fptr, datatype, fpixel, lpixel, data_f.data());
   }
 }
@@ -931,7 +913,7 @@ void Cfits_write_chksum(Rcpp::String filename){
 // [[Rcpp::export]]
 SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
   int dataok, hduok;
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(verify_chksum, fptr, &dataok, &hduok);
   if(verbose == 1){
     if(dataok == 1){
@@ -962,7 +944,7 @@ SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
 // [[Rcpp::export]]
 SEXP Cfits_get_chksum(Rcpp::String filename){
   unsigned long datasum, hdusum;
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(get_chksum, fptr, &datasum, &hdusum);
   Rcpp::NumericVector out(2);
   out.attr("class") = "integer64";
