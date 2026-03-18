@@ -16,3 +16,4 @@ libcfitsio.so.*
 .Rhistory
 Rfits.Rproj
 vignettes/rsconnect/*
+_codeql_detected_source_root

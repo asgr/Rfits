@@ -74,7 +74,8 @@ plot.Rfits_pointer=function(x, useraw=TRUE, sparse='auto', interactive=FALSE, ..
     magimage(x[,,sparse=sparse,header=FALSE], sparse=1L, ...)
   }else{
     if(interactive){
-      assign(".current_image", x, envir = .GlobalEnv)
+      #assign(".current_image", x, envir = .GlobalEnv)
+      options(Rwcs.current_image = x)
     }
     Rwcs::Rwcs_image(x[,,sparse=sparse], useraw=useraw, interactive=FALSE, ...)
   }

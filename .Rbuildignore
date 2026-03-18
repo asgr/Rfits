@@ -7,3 +7,4 @@
 .*\.lo
 ^src/cfitsio/.libs$
 ^src/cfitsio/.deps$
+vignettes/rsconnect

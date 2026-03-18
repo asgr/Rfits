@@ -1,5 +1,5 @@
 Rfits_read_all=function(filename='temp.fits', pointer='auto', header=TRUE, data.table=TRUE,
-                        anycompress=TRUE, bad=NULL, zap=NULL, zaptype='full', NAcheck = TRUE,
+                        anycompress=TRUE, bad=NULL, zap=NULL, zaptype='full', NAcheck = FALSE,
                         nthreads = 1){
   assertCharacter(filename, max.len=1)
   filename = path.expand(filename)

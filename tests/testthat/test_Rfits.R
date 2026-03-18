@@ -2,7 +2,7 @@
 library(Rfits)
 library(testthat)
 library(FITSio)
-library(tdigest)
+#library(tdigest)  - ignoring now tdigest is not on CRAN :-(
 library(R.utils)
 library(bit64)
 
@@ -205,11 +205,11 @@ Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10, TS
 temp_table2 = Rfits_read_table(file_table_temp)
 expect_identical(temp_table, temp_table2)
 
-#ex 32 tdigest checks
-file_image=system.file('extdata', 'image.fits', package = "Rfits")
-temp_image=Rfits_read_image(file_image)
-td=tdigest(temp_image$imDat, compression=1e3) 
-expect_equal(median(temp_image$imDat), td[0.5], tolerance=2e-3)
+#ex 32 tdigest checks - ignoring now tdigest is not on CRAN :-(
+#file_image=system.file('extdata', 'image.fits', package = "Rfits")
+#temp_image=Rfits_read_image(file_image)
+#td=tdigest(temp_image$imDat, compression=1e3) 
+#expect_equal(median(temp_image$imDat), td[0.5], tolerance=2e-3)
 
 #ex 33 pure header
 temp_head = list(

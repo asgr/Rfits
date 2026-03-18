@@ -145,7 +145,7 @@ int mem_create_comp(char *filename, int *handle)
             return(FILE_NOT_CREATED); 
         }
 
-#if MACHINE == ALPHAVMS || MACHINE == VAXVMS
+#if CFITSIO_MACHINE == ALPHAVMS || CFITSIO_MACHINE == VAXVMS
         /* specify VMS record structure: fixed format, 2880 byte records */
         /* but force stream mode access to enable random I/O access      */
         diskfile = fopen(filename, mode, "rfm=fix", "mrs=2880", "ctx=stm"); 
@@ -166,6 +166,9 @@ int mem_create_comp(char *filename, int *handle)
 
     if (status)
     {
+        if (diskfile != stdout) 
+          fclose(diskfile);  /* close the disk file */
+
         ffpmsg("failed to create empty memory file (mem_create_comp)");
         return(status);
     }
@@ -604,7 +607,10 @@ int mem_compress_open(char *filename, int rwmode, int *hdl)
         fseek(diskfile, 0, 2);            /* move to end of file */
         filesize = ftell(diskfile);       /* position = size of file */
         fseek(diskfile, -4L, 1);          /* move back 4 bytes */
-        fread(buffer, 1, 4L, diskfile);   /* read 4 bytes */
+        if (fread(buffer, 1, 4L, diskfile) != 4) {   /* read 4 bytes */
+            fclose(diskfile);
+            return(READ_ERROR);
+        }
 
         /* have to worry about integer byte order */
 	modulosize  = buffer[0];
@@ -649,7 +655,10 @@ int mem_compress_open(char *filename, int rwmode, int *hdl)
         /* the uncompressed file size is give at byte 22 the file */
 
         fseek(diskfile, 22L, 0);            /* move to byte 22 */
-        fread(buffer, 1, 4L, diskfile);   /* read 4 bytes */
+        if (fread(buffer, 1, 4L, diskfile) != 4) {   /* read 4 bytes */
+            fclose(diskfile);
+            return(READ_ERROR);
+        }
 
         /* have to worry about integer byte order */
 	modulosize  = buffer[0];
@@ -942,8 +951,10 @@ int mem_rawfile_open(char *filename, int rwmode, int *hdl)
           dim[3] = strtol(cptr2+1, &cptr, 10);
 
           if (cptr && *cptr == ',')
+          {
             naxis = 5;
             dim[4] = strtol(cptr+1, &cptr2, 10);
+          }
         }
       }
     }

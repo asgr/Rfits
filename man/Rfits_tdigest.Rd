@@ -42,6 +42,7 @@ Aaron Robotham
 \code{\link{Rfits_point}}
 }
 \examples{
+\dontrun{
 library(tdigest)
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
@@ -66,6 +67,7 @@ median(temp_image$imDat[mask==0])
 
 td3 = Rfits_tdigest(temp_point, mask=mask)
 td3[0.5]
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
