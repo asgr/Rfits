@@ -64,7 +64,9 @@ Character vector; optional unique strings to zap out of the header. These elemen
   \item{zaptype}{
 Character scalar; the type of zap to carry out. Either the grep is done on the full 80 character string ('full'; the default) or just the keynames ('name'). The latter might be useful when you are certain a simpler grep can be made if just using the keynames. The former is useful if some other flag in the key entry (a comment etc) can help flag keys to be zapped.  
 }
+  \item{NAcheck}{
 Logical; should the read in images be explictly checked for NAs? For very big images (10k x 10k +) this has a notable overhead, so if we know it can be avoided it perhaps should be. Otherwise things we would like to be NA could appear as NaN, which will still work for most purposes but not as clean.
+}
   \item{nthreads}{
 Number of threads used to read images in parallel.
 }
