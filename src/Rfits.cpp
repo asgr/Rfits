@@ -631,7 +631,7 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 
   if (datatype==FLOAT_IMG){
   Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
-  do_read_img(filename, ext, TFLOAT, pixel_matrix, nthreads);
+  do_read_img(filename, ext, TDOUBLE, pixel_matrix, nthreads);
   return(pixel_matrix);
 }else if (datatype==DOUBLE_IMG){
   Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
