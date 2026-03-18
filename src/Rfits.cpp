@@ -6,6 +6,9 @@
 
 #include "cfitsio/fitsio.h"
 #include <memory>
+#include <cstring>
+#include <cstdlib>
+#include <cstdint>
 
 using namespace Rcpp;
 
@@ -109,11 +112,12 @@ fitsfile *fits_safe_open_file(const char *filename, int mode)
 std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
 {
   std::vector<char *> c_strings(strings.size());
-  std::transform(strings.begin(), strings.end(), c_strings.begin(),
-                 [](const Rcpp::String &string) {
-                   return const_cast<char *>(string.get_cstring());
-                 }
-  );
+  for (R_xlen_t i = 0; i < strings.size(); ++i) {
+    const char *src = strings[i];
+    // strdup allocates with malloc; callers should free()
+    char *dup = strdup(src ? src : "");
+    c_strings[i] = dup;
+  }
   return c_strings;
 }
 
@@ -283,7 +287,9 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     std::vector<int64_t> col(nrow);
     fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::NumericVector out(nrow);
-    std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(int64_t));
+    if (nrow > 0) {
+      std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(int64_t));
+    }
     out.attr("class") = "integer64";
     return out;
   }
@@ -379,6 +385,11 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
   fits_invoke(create_tbl, fptr, table_type, 0, tfields,
               c_ttypes.data(), c_tforms.data(), c_tunits.data(),
               (char *)extname.get_cstring());
+
+  // free the duplicated C strings allocated by to_string_vector
+  for (auto p : c_ttypes) free(p);
+  for (auto p : c_tforms) free(p);
+  for (auto p : c_tunits) free(p);
 }
 
 // [[Rcpp::export]]
@@ -806,7 +817,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     fits_invoke(read_subset, fptr, TLONGLONG, fpixel, lpixel, inc,
                 &nullvals, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(nelements);
-    std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(int64_t));
+    if (nelements > 0) std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(int64_t));
     pixel_matrix.attr("class") = "integer64";
     return(pixel_matrix);
   }
@@ -930,13 +941,15 @@ SEXP Cfits_verify_chksum(Rcpp::String filename, int verbose){
 
 // [[Rcpp::export]]
 SEXP Cfits_get_chksum(Rcpp::String filename){
-  unsigned long datasum, hdusum;
+  unsigned long datasum_ul, hdusum_ul;
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
-  fits_invoke(get_chksum, fptr, &datasum, &hdusum);
+  fits_invoke(get_chksum, fptr, &datasum_ul, &hdusum_ul);
+  uint64_t datasum = static_cast<uint64_t>(datasum_ul);
+  uint64_t hdusum = static_cast<uint64_t>(hdusum_ul);
   Rcpp::NumericVector out(2);
   out.attr("class") = "integer64";
-  std::memcpy(&(out[0]), &datasum, sizeof(unsigned long));
-  std::memcpy(&(out[1]), &hdusum, sizeof(unsigned long));
+  if (out.size() >= 1) std::memcpy(&(out[0]), &datasum, sizeof(uint64_t));
+  if (out.size() >= 2) std::memcpy(&(out[1]), &hdusum, sizeof(uint64_t));
   return(out);
 }
 
@@ -951,11 +964,12 @@ SEXP Cfits_encode_chksum(unsigned long sum, int complement=0){
 
 // [[Rcpp::export]]
 SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
-  unsigned long sum;
-  fits_decode_chksum((char *)ascii.get_cstring(), complement, &sum);
+  unsigned long sum_ul;
+  fits_decode_chksum((char *)ascii.get_cstring(), complement, &sum_ul);
+  uint64_t sum = static_cast<uint64_t>(sum_ul);
   Rcpp::NumericVector out(1);
   out.attr("class") = "integer64";
-  if (out.size() > 0) std::memcpy(&(out[0]), &sum, sizeof(unsigned long));
+  if (out.size() > 0) std::memcpy(&(out[0]), &sum, sizeof(uint64_t));
   return(out);
 }
 
