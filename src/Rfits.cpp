@@ -28,7 +28,8 @@ class fits_file {
 public:
   fits_file() {}
   fits_file(fitsfile *fptr) : m_fptr(fptr) {}
-  fits_file(const fits_file &other) = default;
+  fits_file(const fits_file &other) = delete;
+  fits_file &operator=(const fits_file &other) = delete;
   fits_file(fits_file &&other) = default;
   ~fits_file()
   {
@@ -105,7 +106,7 @@ static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
     auto doesnt_fit_in_r_int = std::any_of(values.begin(), values.end(), [](long value) { return value > std::numeric_limits<int32_t>::max(); });
     if (doesnt_fit_in_r_int) {
       Rcpp::NumericVector output(values.size());
-      std::memcpy(&(output[0]), &(values[0]), values.size() * sizeof(double));
+      std::memcpy(&(output[0]), &(values[0]), values.size() * sizeof(long));
       output.attr("class") = "integer64";
       return output;
     }
@@ -687,7 +688,9 @@ SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
   
   Rcpp::StringVector out(1);
   
-  char *header = (char *)malloc(FLEN_CARD * nkeys);
+  // fits_hdr2str allocates its own buffer and overwrites the pointer;
+  // do not pre-allocate here or that allocation is leaked.
+  char *header = nullptr;
   
   fits_invoke(hdr2str, fptr, 1, nullptr, 0, &header, &nkeys);
   
@@ -768,7 +771,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     }
   }
   
-  int nelements = naxis1 * naxis2 * naxis3 * naxis4;
+  long nelements = (long)naxis1 * naxis2 * naxis3 * naxis4;
   long inc[] = {sparse, sparse, sparse, sparse};
   
   // Rcpp::Rcout << nelements <<"\n";
@@ -811,7 +814,7 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
     return ensure_lossless_32bit_int(pixels);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(nelements);
-    fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
+    fits_invoke(read_subset, fptr, TLONGLONG, fpixel, lpixel, inc,
                 &nullvals, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(nelements);
     std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(double));
