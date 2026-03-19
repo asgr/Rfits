@@ -359,9 +359,14 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
                          Rcpp::CharacterVector tunits, Rcpp::String extname, int ext=2,
                          int create_ext=1, int create_file=1, int table_type=2)
 {
-  auto c_ttypes = to_string_vector(ttypes);
-  auto c_tforms = to_string_vector(tforms);
-  auto c_tunits = to_string_vector(tunits);
+  struct CStringVecGuard {
+    std::vector<char*>& vec;
+    CStringVecGuard(std::vector<char*>& v) : vec(v) {}
+    ~CStringVecGuard() { for (auto p : vec) free(p); }
+  };
+  auto c_ttypes = to_string_vector(ttypes); CStringVecGuard g1(c_ttypes);
+  auto c_tforms = to_string_vector(tforms); CStringVecGuard g2(c_tforms);
+  auto c_tunits = to_string_vector(tunits); CStringVecGuard g3(c_tunits);
 
   int nhdu, hdutype;
   
@@ -385,11 +390,6 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
   fits_invoke(create_tbl, fptr, table_type, 0, tfields,
               c_ttypes.data(), c_tforms.data(), c_tunits.data(),
               (char *)extname.get_cstring());
-
-  // free the duplicated C strings allocated by to_string_vector
-  for (auto p : c_ttypes) free(p);
-  for (auto p : c_tforms) free(p);
-  for (auto p : c_tunits) free(p);
 }
 
 // [[Rcpp::export]]
@@ -866,7 +866,7 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
     nelements = naxis1 * naxis2 * naxis3 * naxis4;
   }
   else {
-    Rcpp::stop("naxis=%d doesn't meet condition: 1 <= naxis <= 4", naxis);
+    Rcpp::stop("naxis=" + std::to_string(naxis) + " doesn't meet condition: 1 <= naxis <= 4");
   }
 
   if(datatype == TBYTE){
