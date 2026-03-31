@@ -190,7 +190,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   }
   
   if (startrow + nrow - 1 > nrow_total) {
-    Rcpp::stop("Requested range exceeds number of rows in table");
+    Rcpp::warning("Requested range exceeds number of rows in table");
   }
   
   if ( typecode == TSTRING ) {
