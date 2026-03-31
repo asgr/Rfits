@@ -38,7 +38,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_read_nrow
-int Cfits_read_nrow(Rcpp::String filename, int ext);
+long Cfits_read_nrow(Rcpp::String filename, int ext);
 RcppExport SEXP _Rfits_Cfits_read_nrow(SEXP filenameSEXP, SEXP extSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -105,13 +105,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // Cfits_write_col
-void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref, int ext, int typecode);
+void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref, int ext, int typecode);
 RcppExport SEXP _Rfits_Cfits_write_col(SEXP filenameSEXP, SEXP dataSEXP, SEXP nrowSEXP, SEXP colrefSEXP, SEXP extSEXP, SEXP typecodeSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< int >::type nrow(nrowSEXP);
+    Rcpp::traits::input_parameter< long >::type nrow(nrowSEXP);
     Rcpp::traits::input_parameter< int >::type colref(colrefSEXP);
     Rcpp::traits::input_parameter< int >::type ext(extSEXP);
     Rcpp::traits::input_parameter< int >::type typecode(typecodeSEXP);

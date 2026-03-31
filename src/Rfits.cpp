@@ -201,7 +201,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     // vector<vector<char>>. RAII ensures cleanup even if fits_invoke throws.
     std::vector<char> storage((long)nrow * (cwidth + 1), '\0');
     std::vector<char *> data(nrow);
-    for (int i = 0; i < nrow; i++) data[i] = storage.data() + i * (cwidth + 1);
+    for (long i = 0; i < nrow; i++) data[i] = storage.data() + i * (cwidth + 1);
 
     fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, data.data(), &anynull);
     Rcpp::StringVector out(nrow);
@@ -303,7 +303,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
 }
 
 // [[Rcpp::export]]
-int Cfits_read_nrow(Rcpp::String filename, int ext=2){
+long Cfits_read_nrow(Rcpp::String filename, int ext=2){
   int hdutype;
   long nrow;
 
@@ -393,7 +393,7 @@ void Cfits_create_bintable(Rcpp::String filename, int tfields,
 }
 
 // [[Rcpp::export]]
-void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, int ext=2, int typecode=1){
+void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref=1, int ext=2, int typecode=1){
   int hdutype;
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
@@ -401,7 +401,7 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, int nrow, int colref=1, i
 
   if ( typecode == TSTRING ) {
     std::vector<char *> s_data(nrow);
-    for (int i = 0; i < nrow; i++) {
+    for (long i = 0; i < nrow; i++) {
       s_data[i] = (char*)CHAR(STRING_ELT(data, i));
     }
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, s_data.data());
