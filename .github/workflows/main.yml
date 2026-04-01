@@ -19,9 +19,9 @@ jobs:
         config:
           - {os: macOS-latest,    r: 'release'}
           - {os: windows-latest,  r: 'release'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
+          # - {os: ubuntu-latest,   r: 'devel'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -44,9 +44,10 @@ jobs:
           install.packages('hdf5r')
           install.packages('knitr')
           install.packages('rmarkdown')
+          install.packages('rlang')
           remotes::install_deps(dependencies = TRUE)
-          remotes::install_cran("rcmdcheck")
           remotes::install_github("asgr/Rwcs", ref="master")
+          remotes::install_cran("rcmdcheck")
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v2
