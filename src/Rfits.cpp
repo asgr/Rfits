@@ -143,9 +143,11 @@ static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
             std::vector<int64_t> values64(n);
             std::transform(values.begin(), values.end(), values64.begin(),
                [](long v) { return static_cast<int64_t>(v); });
-if (n > 0) std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
-output.attr("class") = "integer64";
-return output;
+            if (n > 0) {
+                std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
+            }
+            output.attr("class") = "integer64";
+            return output;
         }
         int_out[i] = static_cast<int>(v);
     }
@@ -196,7 +198,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   }
   
   if (startrow + nrow - 1 > nrow_total) {
-    Rcpp::warning("Requested range exceeds number of rows in table");
+    nrow = nrow_total - startrow + 1;
   }
   
   if ( typecode == TSTRING ) {
@@ -352,8 +354,10 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   int ref = colref;
   while (status != COL_NOT_FOUND && (int)names.size() < ncol) {
     fits_get_colname(fptr, CASEINSEN, (char *)"*", colname, &ref, &status);
-    if (status != COL_NOT_FOUND) {
+    if (status == 0) {
       names.push_back(std::string(colname));
+    } else if (status != COL_NOT_FOUND) {
+      fits_throw_exception("get_colname", status);
     }
   }
 return Rcpp::wrap(names);
@@ -689,11 +693,11 @@ SEXP Cfits_read_img(Rcpp::String filename, int ext=1, int datatype= -32,
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
-  int nkeys, ii, hdutype;
+  int nkeys, ii, hdutype, keypos;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   
   Rcpp::StringVector out(nkeys);
   char card[FLEN_CARD];
@@ -707,11 +711,11 @@ SEXP Cfits_read_header(Rcpp::String filename, int ext=1){
 
 // [[Rcpp::export]]
 SEXP Cfits_read_header_raw(Rcpp::String filename, int ext=1){
-  int nkeys, hdutype;
+  int nkeys, hdutype, keypos;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   
   Rcpp::StringVector out(1);
   
@@ -747,11 +751,11 @@ void Cfits_delete_key(Rcpp::String filename, Rcpp::String keyname, int ext=1){
 
 // [[Rcpp::export]]
 void Cfits_delete_header(Rcpp::String filename, int ext=1){
-  int hdutype, nkeys, ii;
+  int hdutype, nkeys, ii, keypos;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   for (ii = 2; ii <= nkeys; ii++)  {
     fits_invoke(delete_record, fptr, 2);
   }
@@ -981,10 +985,10 @@ SEXP Cfits_decode_chksum(Rcpp::String ascii, int complement=0){
 
 // [[Rcpp::export]]
 int Cfits_read_nkey(Rcpp::String filename, int ext=1){
-  int nkeys, hdutype;
+  int nkeys, hdutype, keypos;
   fits_file fptr;
   fits_invoke(open_image, fptr, filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
-  fits_invoke(get_hdrpos, fptr, &nkeys, nullptr);
+  fits_invoke(get_hdrpos, fptr, &nkeys, &keypos);
   return(nkeys);
 }
