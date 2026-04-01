@@ -36,11 +36,14 @@ public:
   fits_file(fits_file &&other) noexcept : m_fptr(other.m_fptr) {
     other.m_fptr = nullptr;
   }
-  fits_file &operator=(fits_file &&other) noexcept {
+  fits_file &operator=(fits_file &&other) {
     if (this != &other) {
       if (m_fptr) {
         int status = 0;
         fits_close_file(m_fptr, &status);
+        if (status) {
+          fits_throw_exception("close_file", status);
+        }
       }
       m_fptr = other.m_fptr;
       other.m_fptr = nullptr;
@@ -72,6 +75,9 @@ public:
     if (m_fptr) {
       int status = 0;
       fits_close_file(m_fptr, &status);
+      if (status) {
+        fits_throw_exception("close_file", status);
+      }
     }
     m_fptr = new_fptr;
     return *this;
