@@ -198,6 +198,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   }
   
   if (startrow + nrow - 1 > nrow_total) {
+    Rcpp::warning("Requested range exceeds number of rows in table");
     nrow = nrow_total - startrow + 1;
   }
   
@@ -354,9 +355,9 @@ SEXP Cfits_read_colname(Rcpp::String filename, int colref=1, int ext=2){
   int ref = colref;
   while (status != COL_NOT_FOUND && (int)names.size() < ncol) {
     fits_get_colname(fptr, CASEINSEN, (char *)"*", colname, &ref, &status);
-    if (status == 0) {
+    if (status != COL_NOT_FOUND) {
       names.push_back(std::string(colname));
-    } else if (status != COL_NOT_FOUND) {
+    } else {
       fits_throw_exception("get_colname", status);
     }
   }
