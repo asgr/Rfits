@@ -237,7 +237,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     // vector<vector<char>>. RAII ensures cleanup even if fits_invoke throws.
     std::vector<char> storage((long)nrow * (cwidth + 1), '\0');
     std::vector<char *> col(nrow);
-    for (long i = 0; i < nrow; i++) col[i] = storage.col() + i * (cwidth + 1);
+    for (long i = 0; i < nrow; i++) col[i] = storage.data() + i * (cwidth + 1);
 
     fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, col.data(), &anynull);
     Rcpp::StringVector out(nrow);
