@@ -197,6 +197,34 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     nrow = nrow_total - startrow + 1;
   }
   
+  // NEW: If nrow collapses to 1, try NELEM from the header.
+  // This supports files where a single-row table encodes vector-length in NELEM.
+  if (nrow == 1) {
+    long nelem = 0;
+    char comment[81];
+    int status_key = 0;
+    
+    // Use CFITSIO directly so we can handle "missing keyword" gracefully.
+    fits_invoke(read_key, fptr, TLONG, const_cast<char *>("NELEM"), &nelem, comment);
+    
+    if (status_key == 0) {
+      // Only override if NELEM is sensible (>0)
+      if (nelem > 0) {
+        Rcpp::warning("Using NELEM since NAXIS2 is set to 1");
+        nrow = nelem;
+      } else {
+        Rcpp::warning("Header keyword NELEM is present but not > 0; using nrow = 1");
+      }
+    } else if (status_key == KEY_NO_EXIST) {
+      // Keyword missing: warn as requested
+      Rcpp::warning("nrow == 1 and header keyword NELEM is missing; using nrow = 1");
+      // clear status_key (not strictly necessary since we don't reuse it)
+    } else {
+      // Any other FITS error: raise
+      fits_throw_exception("read_key", status_key);
+    }
+  }
+  
   if (startrow + nrow - 1 > nrow_total) {
     Rcpp::warning("Requested range exceeds number of rows in table");
   }
