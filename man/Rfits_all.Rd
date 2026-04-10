@@ -17,6 +17,7 @@ Simple functions that either read in or write out all supported FITS extensions.
 Rfits_read_all(filename = 'temp.fits', pointer = 'auto', header = TRUE,
   data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full',
   NAcheck = FALSE, nthreads = 1)
+  
 Rfits_read(filename = 'temp.fits', pointer = 'auto', header = TRUE,
   data.table = TRUE, anycompress = TRUE, bad = NULL, zap = NULL, zaptype= 'full',
   NAcheck = FALSE, nthreads = 1)
@@ -86,7 +87,7 @@ Character vector; vector of full paths of FITS files to analyse. Both \option{fi
 Character vector; vector of full paths of directories to analyse. Both \option{filelist} and \option{dirlist} can be provided, and the unique super-set of both is used.
 }
   \item{extlist}{
-Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}
+Integer vector; the extensions to use. If length 1 then it will be used for all \option{filelist}, but otherwise it should be the same length as the final \option{filelist}. If knowingly loading FITS tables then this almost certainly wants to be set to 2 for those files (since tables cannot exist in the first FITS extension).
 }
   \item{pattern}{
 Character vector; regular expressions to filter \option{filelist} by. Most people find it easier to work via \code{\link{glob2rx}} since then you can specify file wild cards in the usual shell way, e.g. glob2rx("*F200W*fits") becomes "^.*F200W.*fits$". Note an extra check that all files are FITS files (a pattern of ".fits$") will be made whether requested or not. Note you should nearly always use a leading and trailing '*' search because the pattern match is made on the full file path string, i.e. glob2rx('u*.fits') = '^u.*\\\\.fits$' would fail on '/path/to/file/u_GAMA.fits' (because of the '/path/to/file/' before 'u_GAMA.fits'), but glob2rx('*u*.fits') = '^.*u.*\\\\.fits$' would work as expected.
@@ -113,7 +114,7 @@ The interface here is very simple. Partly this is to discourage people using thi
 
 \code{Rfits_write} is simply a convenience pointer to \code{Rfits_write_all}.
 
-\code{Rfits_make_list} creates a list of images or image pointers. The output is of class 'Rfits_list', so in most respects it is like you have read in a single multi-extension FITS rather than assembling it from multiple different target files. This can be useful when wanting to rapidly interrogate images interactively. 
+\code{Rfits_make_list} creates a list of images, image pointers and/or tables. The output is of class 'Rfits_list', so in most respects it is like you have read in a single multi-extension FITS rather than assembling it from multiple different target files. This can be useful when wanting to rapidly interrogate images interactively.
 }
 \author{
 Aaron Robotham
