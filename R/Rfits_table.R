@@ -255,7 +255,11 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       # Vector (list) columns: determine repeat count and element type
       if(any(check.list)){
         for(i in which(check.list)){
-          vec_len = length(table[[i]][[1]])
+          lens = sapply(table[[i]], length)
+          if(length(unique(lens)) != 1){
+            stop("Vector column '", ttypes[i], "' has inconsistent vector lengths across rows")
+          }
+          vec_len = lens[1]
           first_elem = table[[i]][[1]]
           if(is.integer(first_elem)){
             tforms[i] = paste0(vec_len, "J")
