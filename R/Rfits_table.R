@@ -261,7 +261,9 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
           }
           vec_len = lens[1]
           first_elem = table[[i]][[1]]
-          if(is.integer(first_elem)){
+          if(is.logical(first_elem)){
+            tforms[i] = paste0(vec_len, "L")
+          }else if(is.integer(first_elem)){
             tforms[i] = paste0(vec_len, "J")
           }else if(is.integer64(first_elem)){
             tforms[i] = paste0(vec_len, "K")
@@ -272,7 +274,7 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       }
     }
     
-    invalid = which(!(1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]', tforms)))
+    invalid = which(!(1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEIL]', tforms)))
     if(length(invalid) > 0){
       stop('Unrecognised column data type in column(s): ', paste(invalid, collapse=', '))
     }
@@ -288,7 +290,9 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   if(any(check.list)){
     for(i in which(check.list)){
       first_elem = table[[i]][[1]]
-      if(is.integer(first_elem)){
+      if(is.logical(first_elem)){
+        typecode[i] = 14 # TLOGICAL
+      }else if(is.integer(first_elem)){
         typecode[i] = 31 # TINT
       }else if(is.integer64(first_elem)){
         typecode[i] = 81 # TLONGLONG

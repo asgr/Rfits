@@ -533,7 +533,17 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
-  if (typecode == TDOUBLE || typecode == TFLOAT) {
+  if (typecode == TLOGICAL) {
+    std::vector<int> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::LogicalVector v = Rcpp::as<Rcpp::LogicalVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
+      std::copy(v.begin(), v.end(), flat.begin() + i * vec_len);
+    }
+    fits_invoke(write_col, fptr, TLOGICAL, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TDOUBLE || typecode == TFLOAT) {
     // Flatten list of numeric vectors into contiguous buffer
     std::vector<double> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {

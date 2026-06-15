@@ -316,13 +316,15 @@ file_vec_table = tempfile()
 tb_vec = data.frame(
   id = 1:3,
   vals_dbl = I(list(c(1.1, 2.2, 3.3), c(4.4, 5.5, 6.6), c(7.7, 8.8, 9.9))),
-  vals_int = I(list(1:4, 5:8, 9:12))
+  vals_int = I(list(1:4, 5:8, 9:12)),
+  vals_lgc = I(list(c(TRUE,TRUE), c(FALSE,TRUE), c(FALSE,FALSE)))
 )
 Rfits_write_table(tb_vec, file_vec_table)
 tb_vec_read = Rfits_read_table(file_vec_table)
 expect_identical(tb_vec$id, tb_vec_read$id)
 expect_equal(tb_vec$vals_dbl, as.list(tb_vec_read$vals_dbl))
 expect_identical(tb_vec$vals_int, as.list(tb_vec_read$vals_int))
+expect_identical(tb_vec$vals_lgc, as.list(tb_vec_read$vals_lgc))
 
 #ex 50 write and read integer64 vector (list) columns
 file_vec64_table = tempfile()
