@@ -310,3 +310,16 @@ temp_mat = matrix(1:9,3,3)
 Rfits_write_pix(temp_mat, file_image_temp, xlo=50, ylo=60)
 temp_image2 = Rfits_read_image(file_image_temp)
 expect_identical(temp_mat, temp_image2$imDat[50:52,60:62])
+
+#ex 49 write and read vector (list) columns
+file_vec_table = tempfile()
+tb_vec = data.frame(
+  id = 1:3,
+  vals_dbl = I(list(c(1.1, 2.2, 3.3), c(4.4, 5.5, 6.6), c(7.7, 8.8, 9.9))),
+  vals_int = I(list(1:4, 5:8, 9:12))
+)
+Rfits_write_table(tb_vec, file_vec_table)
+tb_vec_read = Rfits_read_table(file_vec_table)
+expect_identical(tb_vec$id, tb_vec_read$id)
+expect_equal(tb_vec$vals_dbl, as.list(tb_vec_read$vals_dbl))
+expect_identical(tb_vec$vals_int, as.list(tb_vec_read$vals_int))

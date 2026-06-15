@@ -98,8 +98,20 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   }
   
   if(data.table){
+    # Wrap list-columns with I() for proper data.table handling
+    for(j in seq_along(output)){
+      if(is.list(output[[j]]) && !is.data.frame(output[[j]])){
+        output[[j]] = I(output[[j]])
+      }
+    }
     data.table::setDT(output)
   }else{
+    # Wrap list-columns with I() for proper data.frame handling
+    for(j in seq_along(output)){
+      if(is.list(output[[j]]) && !is.data.frame(output[[j]])){
+        output[[j]] = I(output[[j]])
+      }
+    }
     output = as.data.frame(output)
   }
   
@@ -185,6 +197,16 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   check.integer64 = sapply(table,is.integer64)
   check.double = sapply(table,is.numeric) & (! check.int) & (! check.integer64)
   check.char = sapply(table,is.character)
+  check.list = sapply(table,is.list)
+  
+  # For list columns, override other checks
+  if(any(check.list)){
+    check.logical[check.list] = FALSE
+    check.int[check.list] = FALSE
+    check.integer64[check.list] = FALSE
+    check.double[check.list] = FALSE
+    check.char[check.list] = FALSE
+  }
   
   if(any(check.logical)){
     for(i in which(check.logical)){
@@ -230,10 +252,24 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
       tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
       tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+      # Vector (list) columns: determine repeat count and element type
+      if(any(check.list)){
+        for(i in which(check.list)){
+          vec_len = length(table[[i]][[1]])
+          first_elem = table[[i]][[1]]
+          if(is.integer(first_elem)){
+            tforms[i] = paste0(vec_len, "J")
+          }else if(is.integer64(first_elem)){
+            tforms[i] = paste0(vec_len, "K")
+          }else{
+            tforms[i] = paste0(vec_len, "D")
+          }
+        }
+      }
     }
     
-    if(length(grep('1B|1K|1J|1D|1E|1I|A',tforms)) != ncol){
-      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A',tforms))),sep='\n'))
+    if(length(grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]',tforms)) != ncol){
+      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]',tforms))),sep='\n'))
     }
   }
   
@@ -243,6 +279,19 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   typecode[check.integer64]=81
   typecode[check.double]=82
   typecode[check.char]=16
+  # Set typecodes for list (vector) columns based on element type
+  if(any(check.list)){
+    for(i in which(check.list)){
+      first_elem = table[[i]][[1]]
+      if(is.integer(first_elem)){
+        typecode[i] = 31 # TINT
+      }else if(is.integer64(first_elem)){
+        typecode[i] = 81 # TLONGLONG
+      }else{
+        typecode[i] = 82 # TDOUBLE
+      }
+    }
+  }
     
   assertCharacter(ttypes, len=ncol)
   assertCharacter(tforms, len=ncol)
@@ -278,16 +327,22 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     if(verbose){
       message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
     }
-    if(anyNA(table[[i]])){
-      table[[i]][is.na(table[[i]])] = NA_replace
+    if(check.list[i]){
+      # Write vector (list) column
+      vec_len = length(table[[i]][[1]])
+      Cfits_write_col_vector(filename=filename, data=table[[i]], nrow=nrow, vec_len=vec_len, colref=i, ext=ext, typecode=typecode[i])
+    }else{
+      if(anyNA(table[[i]])){
+        table[[i]][is.na(table[[i]])] = NA_replace
+      }
+      if(anyNaN(table[[i]])){
+        table[[i]][is.nan(table[[i]])] = NaN_replace
+      }
+      if(anyInfinite(table[[i]])){
+        table[[i]][is.infinite(table[[i]])] = Inf_replace
+      }
+      Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
     }
-    if(anyNaN(table[[i]])){
-      table[[i]][is.nan(table[[i]])] = NaN_replace
-    }
-    if(anyInfinite(table[[i]])){
-      table[[i]][is.infinite(table[[i]])] = Inf_replace
-    }
-    Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
 }
 

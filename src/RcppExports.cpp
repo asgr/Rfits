@@ -119,6 +119,22 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// Cfits_write_col_vector
+void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, long vec_len, int colref, int ext, int typecode);
+RcppExport SEXP _Rfits_Cfits_write_col_vector(SEXP filenameSEXP, SEXP dataSEXP, SEXP nrowSEXP, SEXP vec_lenSEXP, SEXP colrefSEXP, SEXP extSEXP, SEXP typecodeSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< long >::type nrow(nrowSEXP);
+    Rcpp::traits::input_parameter< long >::type vec_len(vec_lenSEXP);
+    Rcpp::traits::input_parameter< int >::type colref(colrefSEXP);
+    Rcpp::traits::input_parameter< int >::type ext(extSEXP);
+    Rcpp::traits::input_parameter< int >::type typecode(typecodeSEXP);
+    Cfits_write_col_vector(filename, data, nrow, vec_len, colref, ext, typecode);
+    return R_NilValue;
+END_RCPP
+}
 // Cfits_read_key
 SEXP Cfits_read_key(Rcpp::String filename, Rcpp::String keyname, int typecode, int ext);
 RcppExport SEXP _Rfits_Cfits_read_key(SEXP filenameSEXP, SEXP keynameSEXP, SEXP typecodeSEXP, SEXP extSEXP) {
@@ -419,6 +435,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Rfits_Cfits_read_colname", (DL_FUNC) &_Rfits_Cfits_read_colname, 3},
     {"_Rfits_Cfits_create_bintable", (DL_FUNC) &_Rfits_Cfits_create_bintable, 10},
     {"_Rfits_Cfits_write_col", (DL_FUNC) &_Rfits_Cfits_write_col, 6},
+    {"_Rfits_Cfits_write_col_vector", (DL_FUNC) &_Rfits_Cfits_write_col_vector, 7},
     {"_Rfits_Cfits_read_key", (DL_FUNC) &_Rfits_Cfits_read_key, 4},
     {"_Rfits_Cfits_update_key", (DL_FUNC) &_Rfits_Cfits_update_key, 6},
     {"_Rfits_Cfits_write_history", (DL_FUNC) &_Rfits_Cfits_write_history, 3},

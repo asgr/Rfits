@@ -229,6 +229,57 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     Rcpp::warning("Requested range exceeds number of rows in table");
   }
   
+  // Handle vector columns (repeat > 1) for numeric types.
+  // Returns an R list of vectors, one per row.
+  if ( repeat > 1 && typecode != TSTRING ) {
+    long total = nrow * repeat;
+    
+    if ( typecode == TDOUBLE || typecode == TFLOAT ) {
+      // Read all elements as double
+      double nullval = -999;
+      std::vector<double> flat(total);
+      fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::NumericVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(double));
+        out[i] = v;
+      }
+      return out;
+    }
+    else if ( typecode == TINT || typecode == TINT32BIT || typecode == TLONG ||
+              typecode == TSHORT || typecode == TUSHORT || typecode == TBYTE ||
+              typecode == TUINT || typecode == TBIT || typecode == TLOGICAL ) {
+      // Read all elements as int
+      int nullval = -999;
+      std::vector<int> flat(total);
+      fits_invoke(read_col, fptr, TINT, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::IntegerVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(int));
+        out[i] = v;
+      }
+      return out;
+    }
+    else if ( typecode == TLONGLONG ) {
+      int64_t nullval = -999;
+      std::vector<int64_t> flat(total);
+      fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::NumericVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(int64_t));
+        v.attr("class") = "integer64";
+        out[i] = v;
+      }
+      return out;
+    }
+  }
+  
   if ( typecode == TSTRING ) {
     int cwidth;
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
@@ -451,6 +502,39 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref=1, 
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
   }else if(typecode == TDOUBLE){
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
+  }
+}
+
+// [[Rcpp::export]]
+void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, long vec_len,
+                            int colref=1, int ext=2, int typecode=1){
+  int hdutype;
+  
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  if (typecode == TDOUBLE || typecode == TFLOAT) {
+    // Flatten list of numeric vectors into contiguous buffer
+    std::vector<double> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(double));
+    }
+    fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TINT) {
+    std::vector<int> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::IntegerVector v = Rcpp::as<Rcpp::IntegerVector>(data[i]);
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int));
+    }
+    fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TLONGLONG) {
+    std::vector<int64_t> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int64_t));
+    }
+    fits_invoke(write_col, fptr, TLONGLONG, colref, 1, 1, nrow * vec_len, flat.data());
   }
 }
 
