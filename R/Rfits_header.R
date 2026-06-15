@@ -123,24 +123,24 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   assertIntegerish(ext, len=1)
   
   typecode=0
-  if(is.integer(keyvalue)){typecode=31}
-  if(is.integer64(keyvalue)){typecode=81}
-  if(typecode==0 & is.numeric(keyvalue)){
+  if(is.integer(keyvalue)){typecode = 31}
+  if(is.integer64(keyvalue)){typecode = 81}
+  if(typecode == 0 & is.numeric(keyvalue)){
     if(keyvalue %% 1 == 0){
       if(keyvalue < 2^31){
         keyvalue=as.integer(keyvalue)
-        typecode=31
+        typecode = 31
       }else{
         keyvalue=as.integer64(keyvalue)
-        typecode=81
+        typecode = 81
       }
     }else{
-      typecode=82
+      typecode = 82
     }
   }
   if(is.logical(keyvalue)){
-    typecode=14
-    keyvalue=as.integer(keyvalue)
+    typecode = 14
+    keyvalue = as.integer(keyvalue)
   }
   
   if(nchar(keyname) > 8){

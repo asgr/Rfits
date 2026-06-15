@@ -233,11 +233,11 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     
     if(tforms[1] == 'auto'){
       tforms=character(ncol)
-      tforms[check.logical]="I9"
-      tforms[check.int]="I9"
-      tforms[check.integer64]='I20'
-      tforms[check.double]="D18.10"
-      tforms[check.char]=paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
+      tforms[check.logical] = "L9"
+      tforms[check.int] = "I9"
+      tforms[check.integer64] = 'I20'
+      tforms[check.double] = "D18.10"
+      tforms[check.char] = paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
     }
     if(length(grep('I|D|A',tforms)) != ncol){
       stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('I|D|A',tforms))),sep='\n'))
@@ -247,11 +247,11 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     
     if(tforms[1] == 'auto'){
       tforms=character(ncol)
-      tforms[check.logical]="1J"
-      tforms[check.int]="1J" # will become typecode = TINT = 31
-      tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
-      tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-      tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+      tforms[check.logical] = "1L"#logical flag
+      tforms[check.int] = "1J" # will become typecode = TINT = 31
+      tforms[check.integer64] = '1K' # will become typecode = TLONGLONG = 81
+      tforms[check.double] = "1D" # will become typecode = TDOUBLE = 82
+      tforms[check.char] = paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
       # Vector (list) columns: determine repeat count and element type
       if(any(check.list)){
         for(i in which(check.list)){
@@ -281,11 +281,10 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   }
   
   typecode = rep(0, ncol)
-  typecode[check.logical]=31
-  typecode[check.int]=31
-  typecode[check.integer64]=81
-  typecode[check.double]=82
-  typecode[check.char]=16
+  typecode[check.logical] = 14
+  typecode[check.int] = 31
+  typecode[check.integer64] = 81
+  typecode[check.double] = 82
   # Set typecodes for list (vector) columns based on element type
   if(any(check.list)){
     for(i in which(check.list)){
