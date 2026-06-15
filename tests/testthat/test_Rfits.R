@@ -323,3 +323,23 @@ tb_vec_read = Rfits_read_table(file_vec_table)
 expect_identical(tb_vec$id, tb_vec_read$id)
 expect_equal(tb_vec$vals_dbl, as.list(tb_vec_read$vals_dbl))
 expect_identical(tb_vec$vals_int, as.list(tb_vec_read$vals_int))
+
+#ex 50 write and read integer64 vector (list) columns
+file_vec64_table = tempfile()
+tb_vec64 = data.frame(
+  id = 1:3,
+  vals_i64 = I(list(bit64::as.integer64(c(1L, 2L, 3L)),
+                    bit64::as.integer64(c(4L, 5L, 6L)),
+                    bit64::as.integer64(c(7L, 8L, 9L))))
+)
+Rfits_write_table(tb_vec64, file_vec64_table)
+tb_vec64_read = Rfits_read_table(file_vec64_table)
+expect_identical(tb_vec64$id, tb_vec64_read$id)
+expect_equal(lapply(tb_vec64$vals_i64, as.numeric), lapply(as.list(tb_vec64_read$vals_i64), as.numeric))
+
+#ex 51 inconsistent vector lengths should error
+tb_bad = data.frame(
+  id = 1:3,
+  vals = I(list(1:3, 1:4, 1:3))
+)
+expect_error(Rfits_write_table(tb_bad, tempfile()), "inconsistent vector lengths")

@@ -272,8 +272,9 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       }
     }
     
-    if(length(grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]',tforms)) != ncol){
-      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]',tforms))),sep='\n'))
+    invalid = which(!(1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEI]', tforms)))
+    if(length(invalid) > 0){
+      stop('Unrecognised column data type in column(s): ', paste(invalid, collapse=', '))
     }
   }
   
@@ -333,7 +334,12 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     }
     if(check.list[i]){
       # Write vector (list) column
-      vec_len = length(table[[i]][[1]])
+      # Validate uniform vector length regardless of tforms mode
+      lens = sapply(table[[i]], length)
+      if(length(unique(lens)) != 1){
+        stop("Vector column '", ttypes[i], "' has inconsistent vector lengths across rows")
+      }
+      vec_len = lens[1]
       Cfits_write_col_vector(filename=filename, data=table[[i]], nrow=nrow, vec_len=vec_len, colref=i, ext=ext, typecode=typecode[i])
     }else{
       if(anyNA(table[[i]])){

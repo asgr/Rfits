@@ -149,7 +149,7 @@ Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10))
 temp_table2 = Rfits_read_table(file_table_temp)
 sum(temp_table[,..cols_check] - temp_table2[,..cols_check])
 
-#Using vector colunmns:
+#Using vector columns:
 file_vec_table = tempfile()
 tb_vec = data.frame(
   id = 1:3,

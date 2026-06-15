@@ -248,9 +248,25 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
       }
       return out;
     }
+    else if ( typecode == TBIT || typecode == TLOGICAL ) {
+      // Read as bytes (0/non-zero), convert to LogicalVector per row
+      int nullval = 0;
+      std::vector<Rbyte> flat(total);
+      fits_invoke(read_col, fptr, typecode, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::LogicalVector v(repeat);
+        for (long j = 0; j < repeat; j++) {
+          v[j] = flat[i * repeat + j] != 0;
+        }
+        out[i] = v;
+      }
+      return out;
+    }
     else if ( typecode == TINT || typecode == TINT32BIT || typecode == TLONG ||
               typecode == TSHORT || typecode == TUSHORT || typecode == TBYTE ||
-              typecode == TUINT || typecode == TBIT || typecode == TLOGICAL ) {
+              typecode == TUINT ) {
       // Read all elements as int
       int nullval = -999;
       std::vector<int> flat(total);
@@ -508,6 +524,10 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref=1, 
 // [[Rcpp::export]]
 void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, long vec_len,
                             int colref=1, int ext=2, int typecode=1){
+  if (vec_len <= 0) {
+    Rcpp::stop("vec_len must be > 0");
+  }
+  
   int hdutype;
   
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
@@ -518,6 +538,9 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
     std::vector<double> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {
       Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(double));
     }
     fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow * vec_len, flat.data());
@@ -525,6 +548,9 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
     std::vector<int> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {
       Rcpp::IntegerVector v = Rcpp::as<Rcpp::IntegerVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int));
     }
     fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow * vec_len, flat.data());
@@ -532,9 +558,14 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
     std::vector<int64_t> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {
       Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int64_t));
     }
     fits_invoke(write_col, fptr, TLONGLONG, colref, 1, 1, nrow * vec_len, flat.data());
+  } else {
+    Rcpp::stop("Unsupported typecode %d in Cfits_write_col_vector", typecode);
   }
 }
 
