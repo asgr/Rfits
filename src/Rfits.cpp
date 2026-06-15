@@ -654,14 +654,14 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
   }else if(typecode == TLONGLONG || typecode == TDOUBLE){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }else if(typecode == TLOGICAL){
-    int val = LOGICAL(keyvalue)[0];
+    int val = INTEGER(keyvalue)[0];
     char lval;
     
     if (val == NA_LOGICAL) {
       Rcpp::stop("Cannot write NA logical to FITS header keyword '%s'",
                  keyname.get_cstring());
     } else {
-      lval = val ? 'T' : 'F';
+      lval = val == 1 ? 1 : 0;
     }
     
     fits_invoke(update_key, fptr, TLOGICAL, keyname.get_cstring(), &lval, keycomment.get_cstring());
