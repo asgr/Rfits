@@ -20,7 +20,6 @@ Rfits_pixscale = function(filename, ext=1, useraw=TRUE, unit='asec', loc='cen', 
   return(pixscale(temp_header, useraw=useraw, unit=unit, loc='cen', ...))
 }
 
-
 Rfits_pixarea = function(filename, ext=1, useraw=TRUE, unit='asec2', loc='cen', ...){
   temp_header = Rfits_read_header(filename=filename, ext=ext)
   return(pixarea(temp_header, useraw=useraw, unit=unit, loc='cen', ...))

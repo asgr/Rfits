@@ -244,21 +244,31 @@ Rfits_make_list = function(filelist=NULL, dirlist=NULL, extlist=1, pattern=NULL,
   if(getDoParRegistered()){
     if(pointer){
       data = foreach(i=1:length(filelist))%dopar%{
-        return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+        return(Rfits_point(filelist[i], ext=extlist[i], header=header, ...))
       }
     }else{
       data = foreach(i=1:length(filelist))%dopar%{
-        return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+        istab = grepl(pattern = 'TABLE', Rfits_read_key(filelist[i], 'XTENSION', ext=extlist[i]))
+        if(istab){
+          return(Rfits_read_table(filelist[i], ext=extlist[i], header=header, ...))
+        }else{
+          return(Rfits_read_image(filelist[i], ext=extlist[i], header=header, ...))
+        }
       }
     }
   }else{
     if(pointer){
       data = foreach(i=1:length(filelist))%do%{
-        return(Rfits_point(filelist[i], ext=extlist[i], header=TRUE, ...))
+        return(Rfits_point(filelist[i], ext=extlist[i], header=header, ...))
       }
     }else{
       data = foreach(i=1:length(filelist))%do%{
-        return(Rfits_read_image(filelist[i], ext=extlist[i], header=TRUE, ...))
+        istab = grepl(pattern = 'TABLE', Rfits_read_key(filelist[i], 'XTENSION', ext=extlist[i]))
+        if(istab){
+          return(Rfits_read_table(filelist[i], ext=extlist[i], header=header, ...))
+        }else{
+          return(Rfits_read_image(filelist[i], ext=extlist[i], header=header, ...))
+        }
       }
     }
   }
