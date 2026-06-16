@@ -139,8 +139,7 @@ int zuncompress2mem(char *filename,  /* name of input file                 */
         return(*status);
 
     /*  save input parameters into global variables */
-    ifname[0] = '\0';
-    strncat(ifname, filename, 127);
+    snprintf(ifname, sizeof(ifname), "%s", filename);
     ifd = indiskfile;
     memptr = (void **) buffptr;
     memsize = buffsize;
@@ -443,6 +442,11 @@ local int unlzw(FILE *in, FILE *out)
 		}
 		bitmask = (1<<n_bits)-1;
 		goto resetbuf;
+	    }
+	    if (((posbits>>3)+2) >= (INBUFSIZ+INBUF_EXTRA)) {
+		error("corrupt input.");
+		exit_code = ERROR;
+		return ERROR;
 	    }
 	    input(inbuf,posbits,code,n_bits,bitmask);
 	    Tracev((stderr, "%d ", code));
