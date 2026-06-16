@@ -97,6 +97,8 @@ Integer scalar; value to replace Inf (since FITS does not support Inf). If numer
 }
 \details{
 R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
+
+Vector columns are supported in reading and writing via the R \code{\link{AsIs}} class, and they appear as a multi-element list of vectors for further interrogation (see Examples). This format is also how Parquet files support vector columns in Arrow.
 }
 \note{
 \code{Rfits_read_table} will apply TSCALn and TZEROn scaling, since this is applied at the CFITSIO level, so the column values will be VALn = (RAWn x TSCALn) + TZEROn, where VALn is what is seen in the R \code{data.frame} or \code{data.table} and RAWn is what you would find if inspecting the binary values stored on disk. The \code{Rfits_write_table} will only scale if you pass the TSCALn and TZEROn key values into the \option{tadd} argument (see Examples).
@@ -146,6 +148,22 @@ file_table_temp = tempfile()
 Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10))
 temp_table2 = Rfits_read_table(file_table_temp)
 sum(temp_table[,..cols_check] - temp_table2[,..cols_check])
+
+#Using vector columns:
+file_vec_table = tempfile()
+tb_vec = data.frame(
+  id = 1:3,
+  vals_dbl = I(list(c(1.1, 2.2, 3.3), c(4.4, 5.5, 6.6), c(7.7, 8.8, 9.9))),
+  vals_int = I(list(1:4, 5:8, 9:12))
+)
+Rfits_write_table(tb_vec, file_vec_table)
+tb_vec_read = Rfits_read_table(file_vec_table)
+tb_vec_read$vals_int[[1]] #will be a vector 1:4
+#To collapse into a matrix, this is the most efficient method:
+mat_col = do.call(rbind, tb_vec_read$vals_dbl)
+mat_col
+#And we can turn it back into the form needed to write out via asplit:
+asplit(mat_col,1)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

@@ -33,6 +33,10 @@ Cfits_write_col <- function(filename, data, nrow, colref = 1L, ext = 2L, typecod
     invisible(.Call(`_Rfits_Cfits_write_col`, filename, data, nrow, colref, ext, typecode))
 }
 
+Cfits_write_col_vector <- function(filename, data, nrow, vec_len, colref = 1L, ext = 2L, typecode = 1L) {
+    invisible(.Call(`_Rfits_Cfits_write_col_vector`, filename, data, nrow, vec_len, colref, ext, typecode))
+}
+
 Cfits_read_key <- function(filename, keyname, typecode, ext = 1L) {
     .Call(`_Rfits_Cfits_read_key`, filename, keyname, typecode, ext)
 }

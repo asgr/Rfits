@@ -94,14 +94,29 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(is.null(output[count][[1]])){
       output[[count]] = NA
     }
+    if(is.character(output[[count]])){
+      if(all(output[[count]] %in% c('T', 'F', ' '))){
+        is_TRUE = (output[[count]] == 'T')
+        is_NA = (output[[count]] == ' ')
+        output[[count]] = is_TRUE
+        output[[count]][is_NA] = NA
+      }
+    }
     count = count + 1
   }
   
-  if(data.table){
-    data.table::setDT(output)
-  }else{
-    output = as.data.frame(output)
-  }
+    # Wrap list-columns with I() for proper data.table handling
+    for(j in seq_along(output)){
+      if(is.list(output[[j]]) && !is.data.frame(output[[j]])){
+        output[[j]] = I(output[[j]])
+      }
+    }
+  
+    if(data.table){
+      data.table::setDT(output)
+    }else{
+      output = as.data.frame(output)
+    }
   
   colnames(output) = colnames
   
@@ -185,12 +200,22 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   check.integer64 = sapply(table,is.integer64)
   check.double = sapply(table,is.numeric) & (! check.int) & (! check.integer64)
   check.char = sapply(table,is.character)
+  check.list = sapply(table,is.list)
   
-  if(any(check.logical)){
-    for(i in which(check.logical)){
-      table[,i] = as.integer(table[,i])
-    }
+  # For list columns, override other checks
+  if(any(check.list)){
+    check.logical[check.list] = FALSE
+    check.int[check.list] = FALSE
+    check.integer64[check.list] = FALSE
+    check.double[check.list] = FALSE
+    check.char[check.list] = FALSE
   }
+  
+  # if(any(check.logical)){
+  #   for(i in which(check.logical)){
+  #     table[,i] = as.integer(table[,i])
+  #   }
+  # }
   
   if(inherits(table, 'Rfits_table') & tforms[1]=='get'){
     TFORMsel = grep('TFORM', attributes(table)$keynames)
@@ -211,11 +236,11 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     
     if(tforms[1] == 'auto'){
       tforms=character(ncol)
-      tforms[check.logical]="I9"
-      tforms[check.int]="I9"
-      tforms[check.integer64]='I20'
-      tforms[check.double]="D18.10"
-      tforms[check.char]=paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
+      tforms[check.logical] = "A1"
+      tforms[check.int] = "I9"
+      tforms[check.integer64] = 'I20'
+      tforms[check.double] = "D18.10"
+      tforms[check.char] = paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
     }
     if(length(grep('I|D|A',tforms)) != ncol){
       stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('I|D|A',tforms))),sep='\n'))
@@ -224,25 +249,73 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     table_type = 2
     
     if(tforms[1] == 'auto'){
-      tforms=character(ncol)
-      tforms[check.logical]="1J"
-      tforms[check.int]="1J" # will become typecode = TINT = 31
-      tforms[check.integer64]='1K' # will become typecode = TLONGLONG = 81
-      tforms[check.double]="1D" # will become typecode = TDOUBLE = 82
-      tforms[check.char]=paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+      tforms = character(ncol)
+      tforms[check.logical] = "1L"#logical flag
+      tforms[check.int] = "1J" # will become typecode = TINT = 31
+      tforms[check.integer64] = '1K' # will become typecode = TLONGLONG = 81
+      tforms[check.double] = "1D" # will become typecode = TDOUBLE = 82
+      tforms[check.char] = paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+      # Vector (list) columns: determine repeat count and element type
+      if(any(check.list)){
+        for(i in which(check.list)){
+          lens = sapply(table[[i]], length)
+          if(length(unique(lens)) != 1){
+            stop("Vector column '", ttypes[i], "' has inconsistent vector lengths across rows")
+          }
+          vec_len = lens[1]
+          if(vec_len == 0){
+            stop("Vector column '", ttypes[i], "' has zero-length vectors (vec_len must be > 0)")
+          }
+          first_elem = table[[i]][[1]]
+          if(is.logical(first_elem)){
+            tforms[i] = paste0(vec_len, "L")
+          }else if(is.integer(first_elem)){
+            tforms[i] = paste0(vec_len, "J")
+          }else if(is.integer64(first_elem)){
+            tforms[i] = paste0(vec_len, "K")
+          }else if(is.double(first_elem)){
+            tforms[i] = paste0(vec_len, "D")
+          }else{
+            stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
+          }
+        }
+      }
     }
     
-    if(length(grep('1B|1K|1J|1D|1E|1I|A',tforms)) != ncol){
-      stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A',tforms))),sep='\n'))
+    invalid = which(!(1:ncol %in% grep('1B|1K|1J|1D|1E|1I|A|[0-9]+[JKDEIL]', tforms)))
+    if(length(invalid) > 0){
+      stop('Unrecognised column data type in column(s): ', paste(invalid, collapse=', '))
     }
   }
   
   typecode = rep(0, ncol)
-  typecode[check.logical]=31
-  typecode[check.int]=31
-  typecode[check.integer64]=81
-  typecode[check.double]=82
-  typecode[check.char]=16
+  if(table_type == 1){
+    typecode[check.logical] = 16 #needs to be a CHAR for ASCII logicals
+  }else{
+    typecode[check.logical] = 14
+  }
+  typecode[check.int] = 31
+  typecode[check.integer64] = 81
+  typecode[check.double] = 82
+  typecode[check.char] = 16
+  # Set typecodes for list (vector) columns based on element type
+  if(any(check.list)){
+    if(table_type == 1){stop('ASCII tables cannot have vector columns!')}
+    for(i in which(check.list)){
+      first_elem = table[[i]][[1]]
+      if(is.logical(first_elem)){
+        typecode[i] = 14 # TLOGICAL
+      }else if(is.integer(first_elem)){
+        typecode[i] = 31 # TINT
+      }else if(is.integer64(first_elem)){
+        typecode[i] = 81 # TLONGLONG
+      }else if(is.double(first_elem)){
+        typecode[i] = 82 # TDOUBLE
+      }else{
+        stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
+      }
+    }
+  }
     
   assertCharacter(ttypes, len=ncol)
   assertCharacter(tforms, len=ncol)
@@ -278,16 +351,40 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     if(verbose){
       message("Writing column: ",ttypes[i],", which is ",i," of ", ncol)
     }
-    if(anyNA(table[[i]])){
-      table[[i]][is.na(table[[i]])] = NA_replace
+    if(check.list[i]){
+      # Write vector (list) column
+      # Validate uniform vector length regardless of tforms mode
+      lens = sapply(table[[i]], length)
+      if(length(unique(lens)) != 1){
+        stop("Vector column '", ttypes[i], "' has inconsistent vector lengths across rows")
+      }
+      vec_len = lens[1]
+      Cfits_write_col_vector(filename=filename, data=table[[i]], nrow=nrow, vec_len=vec_len, colref=i, ext=ext, typecode=typecode[i])
+    }else{
+      if(is.logical(table[[i]])){
+        if(table_type == 1){
+          # ASCII: encode logical as 'T'/'F'/' ' character strings
+          sel_TRUE = which(table[[i]])
+          sel_FALSE = which(!table[[i]])
+          table[[i]] = rep(' ', length(table[[i]]))
+          table[[i]][sel_TRUE] = 'T'
+          table[[i]][sel_FALSE] = 'F'
+        }
+        # Binary: TLOGICAL with null masking is handled in Cfits_write_col
+      }else{
+        # Apply NA/NaN/Inf replacement for all numeric columns regardless of table type
+        if(anyNA(table[[i]])){
+          table[[i]][is.na(table[[i]])] = NA_replace
+        }
+        if(anyNaN(table[[i]])){
+          table[[i]][is.nan(table[[i]])] = NaN_replace
+        }
+        if(anyInfinite(table[[i]])){
+          table[[i]][is.infinite(table[[i]])] = Inf_replace
+        }
+      }
+      Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
     }
-    if(anyNaN(table[[i]])){
-      table[[i]][is.nan(table[[i]])] = NaN_replace
-    }
-    if(anyInfinite(table[[i]])){
-      table[[i]][is.infinite(table[[i]])] = Inf_replace
-    }
-    Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
   }
 }
 

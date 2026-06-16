@@ -229,6 +229,79 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     Rcpp::warning("Requested range exceeds number of rows in table");
   }
   
+  // Handle vector columns (repeat > 1) for numeric types.
+  // Returns an R list of vectors, one per row.
+  if ( repeat > 1 && typecode != TSTRING ) {
+    long total = nrow * repeat;
+    
+    if ( typecode == TDOUBLE || typecode == TFLOAT ) {
+      // Read all elements as double
+      double nullval = -999;
+      std::vector<double> flat(total);
+      fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::NumericVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(double));
+        out[i] = v;
+      }
+      return out;
+    }
+    else if ( typecode == TBIT || typecode == TLOGICAL ) {
+      // Read as bytes with null masking to preserve NA_LOGICAL
+      std::vector<Rbyte> flat(total);
+      std::vector<char> nullmask(total, 0);
+      int anynull_local = 0;
+      fits_invoke(read_colnull, fptr, typecode, colref, startrow, 1, total, flat.data(), nullmask.data(), &anynull_local);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::LogicalVector v(repeat);
+        for (long j = 0; j < repeat; j++) {
+          long idx = i * repeat + j;
+          if (nullmask[idx]) {
+            v[j] = NA_LOGICAL;
+          } else {
+            v[j] = flat[idx] != 0;
+          }
+        }
+        out[i] = v;
+      }
+      return out;
+    }
+    else if ( typecode == TINT || typecode == TINT32BIT || typecode == TLONG ||
+              typecode == TSHORT || typecode == TUSHORT || typecode == TBYTE ||
+              typecode == TUINT ) {
+      // Read all elements as int
+      int nullval = -999;
+      std::vector<int> flat(total);
+      fits_invoke(read_col, fptr, TINT, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::IntegerVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(int));
+        out[i] = v;
+      }
+      return out;
+    }
+    else if ( typecode == TLONGLONG ) {
+      int64_t nullval = -999;
+      std::vector<int64_t> flat(total);
+      fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      
+      Rcpp::List out(nrow);
+      for (long i = 0; i < nrow; i++) {
+        Rcpp::NumericVector v(repeat);
+        std::memcpy(&v[0], &flat[i * repeat], repeat * sizeof(int64_t));
+        v.attr("class") = "integer64";
+        out[i] = v;
+      }
+      return out;
+    }
+  }
+  
   if ( typecode == TSTRING ) {
     int cwidth;
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
@@ -261,7 +334,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     return out;
   }
   else if ( typecode == TBYTE ) {
-    int nullval = 0;
+    int nullval = 2;
     std::vector<Rbyte> col(nrow);
     fits_invoke(read_col, fptr, TBYTE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
@@ -443,14 +516,112 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref=1, 
       s_data[i] = (char*)CHAR(STRING_ELT(data, i));
     }
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, s_data.data());
-  }else if (typecode == TBIT){
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, INTEGER(data));
-  }else if (typecode == TINT){
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, INTEGER(data));
-  }else if(typecode == TLONGLONG){
+  }else if (typecode == TLOGICAL){
+    // Use a dedicated null marker (2 = not FALSE/0 or TRUE/1) so fits_write_colnull
+    // can distinguish NA elements from real T/F values.
+    char null_marker = 2;
+    std::vector<char> l_data(nrow);
+    int *r_data = LOGICAL(data);
+    bool has_null = false;
+    for (long i = 0; i < nrow; i++) {
+      if (r_data[i] == NA_LOGICAL) {
+        l_data[i] = null_marker;
+        has_null = true;
+      } else {
+        l_data[i] = r_data[i] ? 1 : 0;
+      }
+    }
+    if (has_null) {
+      fits_invoke(write_colnull, fptr, TLOGICAL, colref, 1, 1, nrow, l_data.data(), &null_marker);
+    } else {
+      fits_invoke(write_col, fptr, TLOGICAL, colref, 1, 1, nrow, l_data.data());
+    }
+  }else if (typecode == TBYTE || typecode == TINT){
+    // Pass TINT as the data type so CFITSIO interprets the R int buffer correctly;
+    // CFITSIO converts to the on-disk column type automatically.
+    fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow, INTEGER(data));
+  }else if(typecode == TFLOAT){
+    // Pass TDOUBLE: R stores doubles, not floats; CFITSIO converts to float on disk.
+    fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow, REAL(data));
+  }else if(typecode == TLONGLONG || typecode == TDOUBLE){
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
-  }else if(typecode == TDOUBLE){
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
+  }
+}
+
+// [[Rcpp::export]]
+void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, long vec_len,
+                            int colref=1, int ext=2, int typecode=1){
+  if (vec_len <= 0) {
+    Rcpp::stop("vec_len must be > 0");
+  }
+  
+  int hdutype;
+  
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READWRITE);
+  fits_invoke(movabs_hdu, fptr, ext, &hdutype);
+  
+  
+  if (typecode == TLOGICAL) {
+    // Use a dedicated null marker (2 = not FALSE/0 or TRUE/1) so fits_write_colnull
+    // can distinguish NA elements from real T/F values.
+    char null_marker = 2;
+    std::vector<char> flat(nrow * vec_len);
+    
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::LogicalVector v = Rcpp::as<Rcpp::LogicalVector>(data[i]);
+      
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld",
+                   i + 1, (long)v.size(), vec_len);
+      }
+      
+      for (long j = 0; j < vec_len; j++) {
+        int val = v[j];
+        long idx = i * vec_len + j;
+        if (val == NA_LOGICAL) {
+          flat[idx] = null_marker;
+        } else {
+          flat[idx] = val ? 1 : 0;
+        }
+      }
+    }
+    
+    fits_invoke(write_colnull, fptr, TLOGICAL, colref, 1, 1, nrow * vec_len, flat.data(), &null_marker);
+  } else if (typecode == TDOUBLE || typecode == TFLOAT) {
+    // Flatten list of numeric vectors into contiguous buffer
+    std::vector<double> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(double));
+    }
+    // Always pass TDOUBLE: R buffers are double; CFITSIO converts to the on-disk type.
+    fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TINT || typecode == TBYTE) {
+    std::vector<int> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::IntegerVector v = Rcpp::as<Rcpp::IntegerVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int));
+    }
+    // Always pass TINT: R buffers are int; CFITSIO converts to the on-disk type.
+    fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TLONGLONG) {
+    std::vector<int64_t> flat(nrow * vec_len);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::NumericVector v = Rcpp::as<Rcpp::NumericVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
+      std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int64_t));
+    }
+    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow * vec_len, flat.data());
+  } else {
+    Rcpp::stop("Unsupported typecode %d in Cfits_write_col_vector", typecode);
   }
 }
 
@@ -496,15 +667,24 @@ void Cfits_update_key(Rcpp::String filename, SEXP keyvalue, Rcpp::String keyname
     char *s_keyvalue;
     s_keyvalue = (char*)CHAR(STRING_ELT(keyvalue, 0));
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), s_keyvalue, keycomment.get_cstring());
-  }else if (typecode == TINT){
+  }else if (typecode == TBYTE || typecode == TINT){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), keycomment.get_cstring());
-  }else if(typecode == TLONGLONG){
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
-  }else if(typecode == TDOUBLE){
+  }else if(typecode == TLONGLONG || typecode == TDOUBLE){
     fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), REAL(keyvalue), keycomment.get_cstring());
   }else if(typecode == TLOGICAL){
-    fits_invoke(update_key, fptr, typecode, keyname.get_cstring(), INTEGER(keyvalue), keycomment.get_cstring());
+    int val = INTEGER(keyvalue)[0];
+    char lval;
+    
+    if (val == NA_LOGICAL) {
+      Rcpp::stop("Cannot write NA logical to FITS header keyword '%s'",
+                 keyname.get_cstring());
+    } else {
+      lval = val == 1 ? 1 : 0;
+    }
+    
+    fits_invoke(update_key, fptr, TLOGICAL, keyname.get_cstring(), &lval, keycomment.get_cstring());
   }
+  
 }
 
 // [[Rcpp::export]]
