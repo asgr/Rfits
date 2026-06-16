@@ -94,26 +94,29 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
     if(is.null(output[count][[1]])){
       output[[count]] = NA
     }
+    if(is.character(output[[count]])){
+      if(all(output[[count]] %in% c('T', 'F', ' '))){
+        is_TRUE = (output[[count]] == 'T')
+        is_NA = (output[[count]] == ' ')
+        output[[count]] = is_TRUE
+        output[[count]][is_NA] = NA
+      }
+    }
     count = count + 1
   }
   
-  if(data.table){
     # Wrap list-columns with I() for proper data.table handling
     for(j in seq_along(output)){
       if(is.list(output[[j]]) && !is.data.frame(output[[j]])){
         output[[j]] = I(output[[j]])
       }
     }
-    data.table::setDT(output)
-  }else{
-    # Wrap list-columns with I() for proper data.frame handling
-    for(j in seq_along(output)){
-      if(is.list(output[[j]]) && !is.data.frame(output[[j]])){
-        output[[j]] = I(output[[j]])
-      }
+  
+    if(data.table){
+      data.table::setDT(output)
+    }else{
+      output = as.data.frame(output)
     }
-    output = as.data.frame(output)
-  }
   
   colnames(output) = colnames
   
@@ -208,11 +211,11 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     check.char[check.list] = FALSE
   }
   
-  if(any(check.logical)){
-    for(i in which(check.logical)){
-      table[,i] = as.integer(table[,i])
-    }
-  }
+  # if(any(check.logical)){
+  #   for(i in which(check.logical)){
+  #     table[,i] = as.integer(table[,i])
+  #   }
+  # }
   
   if(inherits(table, 'Rfits_table') & tforms[1]=='get'){
     TFORMsel = grep('TFORM', attributes(table)$keynames)
@@ -233,7 +236,7 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     
     if(tforms[1] == 'auto'){
       tforms=character(ncol)
-      tforms[check.logical] = "L9"
+      tforms[check.logical] = "A1"
       tforms[check.int] = "I9"
       tforms[check.integer64] = 'I20'
       tforms[check.double] = "D18.10"
@@ -246,7 +249,7 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     table_type = 2
     
     if(tforms[1] == 'auto'){
-      tforms=character(ncol)
+      tforms = character(ncol)
       tforms[check.logical] = "1L"#logical flag
       tforms[check.int] = "1J" # will become typecode = TINT = 31
       tforms[check.integer64] = '1K' # will become typecode = TLONGLONG = 81
@@ -281,12 +284,18 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   }
   
   typecode = rep(0, ncol)
-  typecode[check.logical] = 14
+  if(table_type == 1){
+    typecode[check.logical] = 16 #needs to be a CHAR for ASCII logicals
+  }else{
+    typecode[check.logical] = 14
+  }
   typecode[check.int] = 31
   typecode[check.integer64] = 81
   typecode[check.double] = 82
+  typecode[check.char] = 16
   # Set typecodes for list (vector) columns based on element type
   if(any(check.list)){
+    if(table_type == 1){stop('ASCII tables cannot have vector columns!')}
     for(i in which(check.list)){
       first_elem = table[[i]][[1]]
       if(is.logical(first_elem)){
@@ -295,8 +304,10 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
         typecode[i] = 31 # TINT
       }else if(is.integer64(first_elem)){
         typecode[i] = 81 # TLONGLONG
-      }else{
+      }else if(is.double(first_elem)){
         typecode[i] = 82 # TDOUBLE
+      }else if(is.character(first_elem)){
+        typecode[i] = 16 # CHAR
       }
     }
   }
@@ -345,14 +356,24 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       vec_len = lens[1]
       Cfits_write_col_vector(filename=filename, data=table[[i]], nrow=nrow, vec_len=vec_len, colref=i, ext=ext, typecode=typecode[i])
     }else{
-      if(anyNA(table[[i]])){
-        table[[i]][is.na(table[[i]])] = NA_replace
-      }
-      if(anyNaN(table[[i]])){
-        table[[i]][is.nan(table[[i]])] = NaN_replace
-      }
-      if(anyInfinite(table[[i]])){
-        table[[i]][is.infinite(table[[i]])] = Inf_replace
+      if(table_type == 1){
+        if(is.logical(table[[i]])){
+          sel_TRUE = which(table[[i]])
+          sel_FALSE = which(!table[[i]])
+          table[[i]] = rep(' ', length(table[[i]]))
+          table[[i]][sel_TRUE] = 'T'
+          table[[i]][sel_FALSE] = 'F'
+        }else{
+          if(anyNA(table[[i]])){
+            table[[i]][is.na(table[[i]])] = NA_replace
+          }
+          if(anyNaN(table[[i]])){
+            table[[i]][is.nan(table[[i]])] = NaN_replace
+          }
+          if(anyInfinite(table[[i]])){
+            table[[i]][is.infinite(table[[i]])] = Inf_replace
+          }
+        }
       }
       Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
     }

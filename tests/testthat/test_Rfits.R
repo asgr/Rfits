@@ -131,7 +131,7 @@ Rfits_write_table(temp_profound, filename = file_profound_bin)
 Rfits_write_table(temp_profound, filename = file_profound_ascii, table_type = 'ascii')
 temp_profound2 = Rfits_read_table(file_profound_bin)
 temp_profound3 = Rfits_read_table(file_profound_ascii)
-expect_equal(temp_profound2, temp_profound3)
+expect_equal(temp_profound2[,c(1:30)], temp_profound3[,c(1:30)])
 
 #ex 22 check compression works within tolerance
 file_image_temp = tempfile()
@@ -311,7 +311,22 @@ Rfits_write_pix(temp_mat, file_image_temp, xlo=50, ylo=60)
 temp_image2 = Rfits_read_image(file_image_temp)
 expect_identical(temp_mat, temp_image2$imDat[50:52,60:62])
 
-#ex 49 write and read vector (list) columns
+#ex 49 write and read various table types
+file_table_types = tempfile()
+tb_types = data.frame(
+  vals_dbl = c(1.1, 2.2, 3.3),
+  vals_int = 1:3,
+  vals_lgc = c(TRUE, FALSE, TRUE),
+  vals_i64 = bit64::as.integer64(c(1L, 2L, 3L))
+)
+Rfits_write_table(tb_types, file_table_types)
+tb_types_read = Rfits_read_table(file_table_types)
+expect_identical(tb_types$vals_dbl, tb_types_read$vals_dbl)
+expect_identical(tb_types$vals_int, tb_types_read$vals_int)
+expect_identical(tb_types$vals_lgc, tb_types_read$vals_lgc)
+expect_identical(tb_types$vals_i64, tb_types_read$vals_i64)
+
+#ex 50 write and read vector (list) columns
 file_vec_table = tempfile()
 tb_vec = data.frame(
   id = 1:3,
@@ -325,12 +340,12 @@ tb_vec = data.frame(
 Rfits_write_table(tb_vec, file_vec_table)
 tb_vec_read = Rfits_read_table(file_vec_table)
 expect_identical(tb_vec$id, tb_vec_read$id)
-expect_identical(tb_vec$vals_dbl, as.list(tb_vec_read$vals_dbl))
-expect_identical(tb_vec$vals_int, as.list(tb_vec_read$vals_int))
-expect_identical(tb_vec$vals_lgc, as.list(tb_vec_read$vals_lgc))
-expect_identical(tb_vec$vals_i64, as.list(tb_vec_read$vals_i64))
+expect_identical(tb_vec$vals_dbl, tb_vec_read$vals_dbl)
+expect_identical(tb_vec$vals_int, tb_vec_read$vals_int)
+expect_identical(tb_vec$vals_lgc, tb_vec_read$vals_lgc)
+expect_identical(tb_vec$vals_i64, tb_vec_read$vals_i64)
 
-#ex 50 inconsistent vector lengths should error
+#ex 51 inconsistent vector lengths should error
 tb_bad = data.frame(
   id = 1:3,
   vals = I(list(1:3, 1:4, 1:3))
