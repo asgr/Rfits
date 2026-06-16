@@ -131,7 +131,7 @@ Rfits_write_table(temp_profound, filename = file_profound_bin)
 Rfits_write_table(temp_profound, filename = file_profound_ascii, table_type = 'ascii')
 temp_profound2 = Rfits_read_table(file_profound_bin)
 temp_profound3 = Rfits_read_table(file_profound_ascii)
-expect_equal(temp_profound2[,c(1:30)], temp_profound3[,c(1:30)])
+expect_equal(temp_profound2, temp_profound3)
 
 #ex 22 check compression works within tolerance
 file_image_temp = tempfile()

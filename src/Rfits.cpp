@@ -249,16 +249,22 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
       return out;
     }
     else if ( typecode == TBIT || typecode == TLOGICAL ) {
-      // Read as bytes (0/non-zero), convert to LogicalVector per row
-      int nullval = 0;
+      // Read as bytes with null masking to preserve NA_LOGICAL
       std::vector<Rbyte> flat(total);
-      fits_invoke(read_col, fptr, typecode, colref, startrow, 1, total, &nullval, flat.data(), &anynull);
+      std::vector<char> nullmask(total, 0);
+      int anynull_local = 0;
+      fits_invoke(read_colnull, fptr, typecode, colref, startrow, 1, total, flat.data(), nullmask.data(), &anynull_local);
       
       Rcpp::List out(nrow);
       for (long i = 0; i < nrow; i++) {
         Rcpp::LogicalVector v(repeat);
         for (long j = 0; j < repeat; j++) {
-          v[j] = flat[i * repeat + j] != 0;
+          long idx = i * repeat + j;
+          if (nullmask[idx]) {
+            v[j] = NA_LOGICAL;
+          } else {
+            v[j] = flat[idx] != 0;
+          }
         }
         out[i] = v;
       }
@@ -511,22 +517,33 @@ void Cfits_write_col(Rcpp::String filename, SEXP data, long nrow, int colref=1, 
     }
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, s_data.data());
   }else if (typecode == TLOGICAL){
-    
+    // Use a dedicated null marker (2 = not FALSE/0 or TRUE/1) so fits_write_colnull
+    // can distinguish NA elements from real T/F values.
+    char null_marker = 2;
     std::vector<char> l_data(nrow);
-    int *r_data = INTEGER(data);
-    
+    int *r_data = LOGICAL(data);
+    bool has_null = false;
     for (long i = 0; i < nrow; i++) {
       if (r_data[i] == NA_LOGICAL) {
-        l_data[i] = 0;   // or handle via nullmask if needed
+        l_data[i] = null_marker;
+        has_null = true;
       } else {
-        l_data[i] = r_data[i] == 1 ? 1 : 0;
+        l_data[i] = r_data[i] ? 1 : 0;
       }
     }
-    
-    fits_invoke(write_col, fptr, TLOGICAL, colref, 1, 1, nrow, l_data.data());
+    if (has_null) {
+      fits_invoke(write_colnull, fptr, TLOGICAL, colref, 1, 1, nrow, l_data.data(), &null_marker);
+    } else {
+      fits_invoke(write_col, fptr, TLOGICAL, colref, 1, 1, nrow, l_data.data());
+    }
   }else if (typecode == TBYTE || typecode == TINT){
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, INTEGER(data));
-  }else if(typecode == TLONGLONG || typecode == TDOUBLE || typecode == TFLOAT){
+    // Pass TINT as the data type so CFITSIO interprets the R int buffer correctly;
+    // CFITSIO converts to the on-disk column type automatically.
+    fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow, INTEGER(data));
+  }else if(typecode == TFLOAT){
+    // Pass TDOUBLE: R stores doubles, not floats; CFITSIO converts to float on disk.
+    fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow, REAL(data));
+  }else if(typecode == TLONGLONG || typecode == TDOUBLE){
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow, REAL(data));
   }
 }
@@ -545,8 +562,10 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
   
   
   if (typecode == TLOGICAL) {
+    // Use a dedicated null marker (2 = not FALSE/0 or TRUE/1) so fits_write_colnull
+    // can distinguish NA elements from real T/F values.
+    char null_marker = 2;
     std::vector<char> flat(nrow * vec_len);
-    std::vector<char> nullmask(nrow * vec_len, 0);
     
     for (long i = 0; i < nrow; i++) {
       Rcpp::LogicalVector v = Rcpp::as<Rcpp::LogicalVector>(data[i]);
@@ -558,19 +577,16 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
       
       for (long j = 0; j < vec_len; j++) {
         int val = v[j];
-        
         long idx = i * vec_len + j;
-        
         if (val == NA_LOGICAL) {
-          flat[idx] = 0;        // placeholder
-          nullmask[idx] = 1;
+          flat[idx] = null_marker;
         } else {
-          flat[idx] = val == 1 ? 1 : 0;
+          flat[idx] = val ? 1 : 0;
         }
       }
     }
     
-    fits_invoke(write_colnull, fptr, typecode, colref, 1, 1, nrow * vec_len, flat.data(), nullmask.data());
+    fits_invoke(write_colnull, fptr, TLOGICAL, colref, 1, 1, nrow * vec_len, flat.data(), &null_marker);
   } else if (typecode == TDOUBLE || typecode == TFLOAT) {
     // Flatten list of numeric vectors into contiguous buffer
     std::vector<double> flat(nrow * vec_len);
@@ -581,7 +597,8 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
       }
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(double));
     }
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow * vec_len, flat.data());
+    // Always pass TDOUBLE: R buffers are double; CFITSIO converts to the on-disk type.
+    fits_invoke(write_col, fptr, TDOUBLE, colref, 1, 1, nrow * vec_len, flat.data());
   } else if (typecode == TINT || typecode == TBYTE) {
     std::vector<int> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {
@@ -591,7 +608,8 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
       }
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int));
     }
-    fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow * vec_len, flat.data());
+    // Always pass TINT: R buffers are int; CFITSIO converts to the on-disk type.
+    fits_invoke(write_col, fptr, TINT, colref, 1, 1, nrow * vec_len, flat.data());
   } else if (typecode == TLONGLONG) {
     std::vector<int64_t> flat(nrow * vec_len);
     for (long i = 0; i < nrow; i++) {

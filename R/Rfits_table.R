@@ -263,6 +263,9 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
             stop("Vector column '", ttypes[i], "' has inconsistent vector lengths across rows")
           }
           vec_len = lens[1]
+          if(vec_len == 0){
+            stop("Vector column '", ttypes[i], "' has zero-length vectors (vec_len must be > 0)")
+          }
           first_elem = table[[i]][[1]]
           if(is.logical(first_elem)){
             tforms[i] = paste0(vec_len, "L")
@@ -270,8 +273,10 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
             tforms[i] = paste0(vec_len, "J")
           }else if(is.integer64(first_elem)){
             tforms[i] = paste0(vec_len, "K")
-          }else{
+          }else if(is.double(first_elem)){
             tforms[i] = paste0(vec_len, "D")
+          }else{
+            stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
           }
         }
       }
@@ -306,8 +311,8 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
         typecode[i] = 81 # TLONGLONG
       }else if(is.double(first_elem)){
         typecode[i] = 82 # TDOUBLE
-      }else if(is.character(first_elem)){
-        typecode[i] = 16 # CHAR
+      }else{
+        stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
       }
     }
   }
@@ -356,23 +361,26 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       vec_len = lens[1]
       Cfits_write_col_vector(filename=filename, data=table[[i]], nrow=nrow, vec_len=vec_len, colref=i, ext=ext, typecode=typecode[i])
     }else{
-      if(table_type == 1){
-        if(is.logical(table[[i]])){
+      if(is.logical(table[[i]])){
+        if(table_type == 1){
+          # ASCII: encode logical as 'T'/'F'/' ' character strings
           sel_TRUE = which(table[[i]])
           sel_FALSE = which(!table[[i]])
           table[[i]] = rep(' ', length(table[[i]]))
           table[[i]][sel_TRUE] = 'T'
           table[[i]][sel_FALSE] = 'F'
-        }else{
-          if(anyNA(table[[i]])){
-            table[[i]][is.na(table[[i]])] = NA_replace
-          }
-          if(anyNaN(table[[i]])){
-            table[[i]][is.nan(table[[i]])] = NaN_replace
-          }
-          if(anyInfinite(table[[i]])){
-            table[[i]][is.infinite(table[[i]])] = Inf_replace
-          }
+        }
+        # Binary: TLOGICAL with null masking is handled in Cfits_write_col
+      }else{
+        # Apply NA/NaN/Inf replacement for all numeric columns regardless of table type
+        if(anyNA(table[[i]])){
+          table[[i]][is.na(table[[i]])] = NA_replace
+        }
+        if(anyNaN(table[[i]])){
+          table[[i]][is.nan(table[[i]])] = NaN_replace
+        }
+        if(anyInfinite(table[[i]])){
+          table[[i]][is.infinite(table[[i]])] = Inf_replace
         }
       }
       Cfits_write_col(filename=filename, data=table[[i]], nrow=nrow, colref=i, ext=ext, typecode=typecode[i])
