@@ -334,7 +334,7 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     return out;
   }
   else if ( typecode == TBYTE ) {
-    int nullval = 0;
+    int nullval = 2;
     std::vector<Rbyte> col(nrow);
     fits_invoke(read_col, fptr, TBYTE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
     Rcpp::IntegerVector out(nrow);
