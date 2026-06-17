@@ -176,7 +176,64 @@ void Cfits_create_header(Rcpp::String filename, int create_ext=1, int create_fil
     }
   }
 }
+
+
+template <typename CType, typename RVector, typename MapFunc>
+RVector read_col_with_nulls_template(
+    fitsfile* fptr,
+    int typecode,
+    int colref,
+    long startrow,
+    long nrow,
+    MapFunc map_value
+) {
+  std::vector<CType> col(nrow);
+  std::vector<char> nullmask(nrow);
+  int anynull = 0;
   
+  fits_invoke(read_colnull, fptr, typecode, colref,
+              startrow, 1, nrow,
+              col.data(), nullmask.data(), &anynull);
+  
+  RVector out(nrow);
+  
+  for (long i = 0; i < nrow; ++i) {
+    if (nullmask[i]) {
+      map_value(out, i, col[i], true);
+    } else {
+      map_value(out, i, col[i], false);
+    }
+  }
+  
+  return out;
+}
+
+inline void map_logical(Rcpp::LogicalVector& out, int i, Rbyte val, bool isnull) {
+  if (isnull) {
+    out[i] = NA_LOGICAL;
+  } else {
+    out[i] = val ? TRUE : FALSE;
+  }
+}
+
+template <typename T>
+inline void map_integer(Rcpp::IntegerVector& out, int i, T val, bool isnull) {
+  out[i] = isnull ? NA_INTEGER : static_cast<int>(val);
+}
+
+template <typename T>
+inline void map_double(Rcpp::NumericVector& out, int i, T val, bool isnull) {
+  out[i] = isnull ? NA_REAL : static_cast<double>(val);
+}
+
+inline void map_int64(Rcpp::NumericVector& out, int i, int64_t val, bool isnull) {
+  if (isnull) {
+    out[i] = NA_REAL;
+  } else {
+    std::memcpy(&(out[i]), &val, sizeof(int64_t));
+  }
+}
+
 // [[Rcpp::export]]
 SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, 
                     long startrow=1, long nrow=0){
@@ -317,95 +374,81 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     std::copy(col.begin(), col.end(), out.begin());
     return out;
   }
-  else if ( typecode == TBIT ) {
-    int nullval = 0;
-    std::vector<Rbyte> col(nrow); 
-    fits_invoke(read_col, fptr, TBIT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::LogicalVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin()); 
-    return out;
+  else if (typecode == TBIT || typecode == TLOGICAL) {
+    return read_col_with_nulls_template<Rbyte, Rcpp::LogicalVector>(
+        fptr, typecode, colref, startrow, nrow,
+        map_logical
+    );
   }
-  else if ( typecode == TLOGICAL ) {
-    int nullval = 0;
-    std::vector<Rbyte> col(nrow);
-    fits_invoke(read_col, fptr, TLOGICAL, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::LogicalVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+  else if (typecode == TBYTE) {
+    return read_col_with_nulls_template<Rbyte, Rcpp::IntegerVector>(
+        fptr, TBYTE, colref, startrow, nrow,
+        map_integer<Rbyte>
+    );
   }
-  else if ( typecode == TBYTE ) {
-    int nullval = 2;
-    std::vector<Rbyte> col(nrow);
-    fits_invoke(read_col, fptr, TBYTE, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+  else if (typecode == TINT) {
+    return read_col_with_nulls_template<int, Rcpp::IntegerVector>(
+        fptr, TINT, colref, startrow, nrow,
+        map_integer<int>
+    );
   }
-  else if ( typecode == TINT ) {
-    int nullval = -999;
-    Rcpp::IntegerVector out(Rcpp::no_init(nrow));
-    fits_invoke(read_col, fptr, TINT, colref, startrow, 1, nrow, &nullval, out.begin(), &anynull);
-    return out;
+  else if (typecode == TSHORT) {
+    return read_col_with_nulls_template<short, Rcpp::IntegerVector>(
+        fptr, TSHORT, colref, startrow, nrow,
+        map_integer<short>
+    );
   }
-  else if ( typecode == TUINT ) {
-    unsigned int nullval = 0;
-    std::vector<unsigned int> col(nrow);
-    fits_invoke(read_col, fptr, TUINT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+  else if (typecode == TUSHORT) {
+    return read_col_with_nulls_template<unsigned short, Rcpp::IntegerVector>(
+        fptr, TUSHORT, colref, startrow, nrow,
+        map_integer<unsigned short>
+    );
   }
-  else if ( typecode == TINT32BIT ) {
-    long nullval = 0;
-    std::vector<long> col(nrow);
-    fits_invoke(read_col, fptr, TINT32BIT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    return ensure_lossless_32bit_int(col);
+  else if (typecode == TUINT) {
+    return read_col_with_nulls_template<unsigned int, Rcpp::IntegerVector>(
+        fptr, TUINT, colref, startrow, nrow,
+        map_integer<unsigned int>
+    );
   }
-  else if ( typecode == TSHORT ) {
-    short nullval = -128;
-    std::vector<short> col(nrow);
-    fits_invoke(read_col, fptr, TSHORT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+  else if (typecode == TFLOAT) {
+    return read_col_with_nulls_template<float, Rcpp::NumericVector>(
+        fptr, TFLOAT, colref, startrow, nrow,
+        map_double<float>
+    );
   }
-  else if ( typecode == TUSHORT ) {
-    unsigned short nullval = 255;
-    std::vector<unsigned short> col(nrow);
-    fits_invoke(read_col, fptr, TUSHORT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::IntegerVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
+  else if (typecode == TDOUBLE) {
+    return read_col_with_nulls_template<double, Rcpp::NumericVector>(
+        fptr, TDOUBLE, colref, startrow, nrow,
+        map_double<double>
+    );
   }
-  else if ( typecode == TFLOAT ) {
-    float nullval = -999;
-    std::vector<float> col(nrow);
-    fits_invoke(read_col, fptr, TFLOAT, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
-    std::copy(col.begin(), col.end(), out.begin());
-    return out;
-  }
-  else if ( typecode == TLONG ) {
-    long nullval = -999;
-    std::vector<long> col(nrow);
-    fits_invoke(read_col, fptr, TLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    return ensure_lossless_32bit_int(col);
-  }
-  else if ( typecode == TLONGLONG ) {
-    int64_t nullval = -999;
-    std::vector<int64_t> col(nrow);
-    fits_invoke(read_col, fptr, TLONGLONG, colref, startrow, 1, nrow, &nullval, col.data(), &anynull);
-    Rcpp::NumericVector out(nrow);
-    if (nrow > 0) {
-      std::memcpy(&(out[0]), &(col[0]), nrow * sizeof(int64_t));
+  else if (typecode == TINT32BIT || typecode == TLONG) {
+  // special case to deal with ensure_lossless_32bit_int correctly
+  std::vector<long> col(nrow);
+  std::vector<char> nullmask(nrow);
+  int anynull = 0;
+
+  fits_invoke(read_colnull, fptr, typecode, colref,
+              startrow, 1, nrow,
+              col.data(), nullmask.data(), &anynull);
+
+  // Insert NA sentinel for R before handing off
+  for (long i = 0; i < nrow; ++i) {
+    if (nullmask[i]) {
+      col[i] = NA_INTEGER;  // safe placeholder
     }
-    out.attr("class") = "integer64";
-    return out;
   }
-  else if ( typecode == TDOUBLE ) {
-    double nullval = -999;
-    Rcpp::NumericVector out(Rcpp::no_init(nrow));
-    fits_invoke(read_col, fptr, TDOUBLE, colref, startrow, 1, nrow, &nullval, out.begin(), &anynull);
+
+  return ensure_lossless_32bit_int(col);
+}
+  else if (typecode == TLONGLONG) {
+    Rcpp::NumericVector out =
+      read_col_with_nulls_template<int64_t, Rcpp::NumericVector>(
+          fptr, TLONGLONG, colref, startrow, nrow,
+          map_int64
+      );
+    
+    out.attr("class") = "integer64";
     return out;
   }
   throw std::runtime_error("unsupported type");
