@@ -1,0 +1,245 @@
+#Check the Zarr image back-end, which mirrors the HDF5 one in Rfits_image_hdf5.R
+
+skip_if_not_installed("zarr")
+
+#Unique per run, so repeat runs cannot collide with existing stores
+subdir = file.path(tempdir(), paste0("zarr_test_", sample(1e8, 1)))
+dir.create(subdir)
+
+library(Rfits)
+library(testthat)
+library(bit64)
+
+context("Check Rfits Zarr image read/write")
+
+keyvalues_1d = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 1L, NAXIS1 = 10L,
+                    CRPIX1 = 5.5, CRVAL1 = 100)
+keyvalues_2d = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = 4L, NAXIS2 = 6L,
+                    CRPIX1 = 2.5, CRPIX2 = 3.5, EXTNAME = 'data1')
+keyvalues_3d = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 3L, NAXIS1 = 4L, NAXIS2 = 5L,
+                    NAXIS3 = 6L, CRPIX1 = 2.5, CRPIX2 = 3.5, CRPIX3 = 1.5)
+keyvalues_4d = list(SIMPLE = TRUE, BITPIX = -64L, NAXIS = 4L, NAXIS1 = 4L, NAXIS2 = 5L,
+                    NAXIS3 = 3L, NAXIS4 = 4L, CRPIX1 = 2.5, CRPIX2 = 3.5, CRPIX3 = 1.5,
+                    CRPIX4 = 2.5)
+
+make_comments = function(kv){
+  setNames(lapply(names(kv), function(name) paste('comment for', name)), names(kv))
+}
+
+#ex 1 the shipped example image should survive a Zarr round trip
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+file_image_zarr = file.path(subdir, 'example_image.zarr')
+Rfits_write_image_zarr(temp_image, file_image_zarr, extname = 'image')
+temp_image_zarr = Rfits_read_image_zarr(file_image_zarr, extname = 'image')
+expect_identical(dim(temp_image$imDat), dim(temp_image_zarr$imDat))
+expect_equal(temp_image$imDat, temp_image_zarr$imDat)
+expect_equal(temp_image$keyvalues$NAXIS1, temp_image_zarr$keyvalues$NAXIS1)
+expect_equal(temp_image$keyvalues$NAXIS2, temp_image_zarr$keyvalues$NAXIS2)
+expect_equal(temp_image$keyvalues$CRPIX1, temp_image_zarr$keyvalues$CRPIX1)
+expect_equal(temp_image$header, temp_image_zarr$header)
+
+#ex 2 1D/2D/3D/4D data, with the class of the output matching the dimensionality
+data_1d = as.numeric(1:10)
+data_2d = matrix(as.numeric(1:24), 4, 6)
+data_3d = array(as.numeric(1:120), c(4, 5, 6))
+data_4d = array(as.numeric(1:240), c(4, 5, 3, 4))
+
+file_dims = file.path(subdir, 'dims.zarr')
+Rfits_write_image_zarr(data_1d, file_dims, extname = 'data1', keyvalues = keyvalues_1d,
+                       keycomments = make_comments(keyvalues_1d))
+Rfits_write_image_zarr(data_2d, file_dims, extname = 'data2', keyvalues = keyvalues_2d,
+                       keycomments = make_comments(keyvalues_2d))
+Rfits_write_image_zarr(data_3d, file_dims, extname = 'data3', keyvalues = keyvalues_3d,
+                       keycomments = make_comments(keyvalues_3d))
+Rfits_write_image_zarr(data_4d, file_dims, extname = 'data4', keyvalues = keyvalues_4d,
+                       keycomments = make_comments(keyvalues_4d))
+
+read_1d = Rfits_read_image_zarr(file_dims, extname = 'data1')
+read_2d = Rfits_read_image_zarr(file_dims, extname = 'data2')
+read_3d = Rfits_read_image_zarr(file_dims, extname = 'data3')
+read_4d = Rfits_read_image_zarr(file_dims, extname = 'data4')
+
+expect_identical(class(read_1d)[1], 'Rfits_vector')
+expect_identical(class(read_2d)[1], 'Rfits_image')
+expect_identical(class(read_3d)[1], 'Rfits_cube')
+expect_identical(class(read_4d)[1], 'Rfits_array')
+
+expect_equal(read_1d$imDat, data_1d)
+expect_equal(read_2d$imDat, data_2d)
+expect_equal(read_3d$imDat, data_3d)
+expect_equal(read_4d$imDat, data_4d)
+
+#ex 3 header components are all present and consistent
+expect_true(all(c('imDat', 'header', 'hdr', 'keyvalues', 'keycomments', 'keynames',
+                  'comment', 'history', 'filename', 'ext', 'extname') %in% names(read_2d)))
+expect_equal(read_2d$keyvalues$NAXIS1, 4L)
+expect_equal(read_2d$keyvalues$NAXIS2, 6L)
+expect_equal(read_2d$keycomments$NAXIS1, 'comment for NAXIS1')
+expect_equal(read_2d$extname, 'data2')
+expect_identical(read_2d$keynames, names(read_2d$keyvalues))
+#card images are always a whole number of 80 character records
+expect_equal(nchar(read_2d$raw) %% 80, 0)
+
+#ex 4 header = FALSE gives the bare array
+expect_identical(Rfits_read_image_zarr(file_dims, extname = 'data2', header = FALSE), data_2d)
+expect_equal(dim(Rfits_read_image_zarr(file_dims, extname = 'data3', header = FALSE)),
+             c(4, 5, 6))
+
+#ex 5 subsetting, checked against the equivalent R subset
+sub_2d = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
+expect_equal(dim(sub_2d$imDat), c(2, 3))
+expect_equal(sub_2d$imDat, data_2d[2:3, 2:4])
+#reference pixels shift with the cut, and the new sizes are recorded
+expect_equal(sub_2d$keyvalues$NAXIS1, 2L)
+expect_equal(sub_2d$keyvalues$NAXIS2, 3L)
+expect_equal(sub_2d$keyvalues$CRPIX1, keyvalues_2d$CRPIX1 - 2L + 1L)
+expect_equal(sub_2d$keyvalues$CRPIX2, keyvalues_2d$CRPIX2 - 2L + 1L)
+expect_true(any(grepl('SUBMOD', sub_2d$header)))
+
+sub_4d = Rfits_read_image_zarr(file_dims, extname = 'data4', xlo = 2, xhi = 3, ylo = 1, yhi = 4,
+                               zlo = 2, zhi = 3, tlo = 1, thi = 2)
+expect_equal(dim(sub_4d$imDat), c(2, 4, 2, 2))
+expect_equal(sub_4d$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
+expect_equal(sub_4d$keyvalues$CRPIX3, keyvalues_4d$CRPIX3 - 2L + 1L)
+expect_equal(sub_4d$keyvalues$CRPIX4, keyvalues_4d$CRPIX4 - 1L + 1L)
+
+#ex 6 partially and wholly out of bounds subsets pad with NA
+sub_oob = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = -2, xhi = 6)
+expect_equal(dim(sub_oob$imDat), c(9, 6))
+expect_equal(sub_oob$imDat[4:6, 1:3], data_2d[1:3, 1:3])
+expect_true(all(is.na(sub_oob$imDat[1:3, ])))
+
+sub_far = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = 100, xhi = 105)
+expect_equal(dim(sub_far$imDat), c(6, 6))
+expect_true(all(is.na(sub_far$imDat)))
+
+#ex 7 extensions can be addressed by index as well as name
+expect_equal(Rfits_read_image_zarr(file_dims, ext = 1)$extname, 'data1')
+expect_equal(Rfits_read_image_zarr(file_dims, ext = 4)$extname, 'data4')
+
+#ex 8 writing the same extension again replaces rather than duplicates it
+file_replace = file.path(subdir, 'replace.zarr')
+Rfits_write_image_zarr(data_2d, file_replace, extname = 'data1', keyvalues = keyvalues_2d)
+Rfits_write_image_zarr(data_2d[, 1:3], file_replace, extname = 'data1', keyvalues = keyvalues_2d)
+expect_equal(dim(Rfits_read_image_zarr(file_replace, extname = 'data1', header = FALSE)), c(4, 3))
+expect_error(Rfits_write_image_zarr(data_2d, file_replace, extname = 'data1',
+                                   create_ext = FALSE), 'already exists')
+
+#ex 9 the data type round trips, including NA preservation
+file_types = file.path(subdir, 'types.zarr')
+data_dbl = matrix(c(1.5, NA, NaN, -1e300, 0, 1e-300, 9.97e36, 1e30, -5), 3, 3)
+Rfits_write_image_zarr(data_dbl, file_types, extname = 'f64', data_type = 'float64')
+expect_equal(Rfits_read_image_zarr(file_types, extname = 'f64', header = FALSE), data_dbl)
+
+data_int = matrix(c(1L, NA, 3L, 4L, -2147483646L, 6L, 7L, 8L, 9L), 3, 3)
+Rfits_write_image_zarr(data_int, file_types, extname = 'i32', data_type = 'int32')
+read_int = Rfits_read_image_zarr(file_types, extname = 'i32', header = FALSE)
+expect_identical(typeof(read_int), 'integer')
+expect_equal(read_int, data_int)
+
+#logical data defaults to int8 so that NA survives; bool is offered but NA is rejected
+data_lgl = matrix(c(TRUE, NA, FALSE, TRUE, FALSE, TRUE), 3, 2)
+Rfits_write_image_zarr(data_lgl, file_types, extname = 'lgl')
+read_lgl = Rfits_read_image_zarr(file_types, extname = 'lgl', header = FALSE)
+expect_equal(read_lgl, matrix(c(1L, NA, 0L, 1L, 0L, 1L), 3, 2))
+expect_error(Rfits_write_image_zarr(data_lgl, file_types, extname = 'bad', data_type = 'bool'),
+             'Cannot store NA')
+
+#force_logical converts an integer image back to logical on read, keeping dims
+forced = Rfits_read_image_zarr(file_types, extname = 'lgl', header = FALSE, force_logical = TRUE)
+expect_identical(typeof(forced), 'logical')
+expect_equal(dim(forced), c(3, 2))
+expect_equal(forced, data_lgl)
+
+#ex 10 integer64 is coerced to float64 with a message, since Zarr cannot write it
+expect_message(Rfits_write_image_zarr(bit64::as.integer64(1:5), file_types, extname = 'i64'),
+               'integer64')
+
+#ex 11 chunking is honoured, and a subset read of a chunked array is still correct
+file_chunk = file.path(subdir, 'chunked.zarr')
+data_big = array(as.numeric(1:4000), c(10, 10, 40))
+Rfits_write_image_zarr(data_big, file_chunk, extname = 'cube', chunk_shape = c(10, 10, 1))
+expect_equal(Rfits_read_image_zarr(file_chunk, extname = 'cube', header = FALSE), data_big)
+chunk_sub = Rfits_read_image_zarr(file_chunk, extname = 'cube', zlo = 20, zhi = 25, header = FALSE)
+expect_equal(chunk_sub, data_big[, , 20:25])
+expect_error(Rfits_write_image_zarr(data_2d, file_chunk, extname = 'badchunk',
+                                   chunk_shape = c(2, 3, 4)), 'chunk_shape')
+expect_error(Rfits_write_image_zarr(data_2d, file_chunk, extname = 'badchunk',
+                                   chunk_shape = c(2, 9)), 'chunk_shape')
+
+#ex 12 pointers read only what is asked of them
+point = Rfits_point_zarr(file_dims, extname = 'data4')
+expect_identical(class(point), 'Rfits_pointer_zarr')
+expect_equal(dim(point), c(4, 5, 3, 4))
+expect_equal(point$dim, c(4, 5, 3, 4))
+expect_equal(point$type, 'array')
+expect_equal(length(point), prod(c(4, 5, 3, 4)))
+point_sub = point[2:3, 1:4, 2:3, 1:2]
+expect_equal(dim(point_sub$imDat), c(2, 4, 2, 2))
+expect_equal(point_sub$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
+expect_equal(Rfits_point_zarr(file_dims, ext = 1)$extname, 'data1')
+
+#ex 13 comment and history strings round trip
+file_hist = file.path(subdir, 'history.zarr')
+Rfits_write_image_zarr(data_2d, file_hist, extname = 'data1', keyvalues = keyvalues_2d,
+                       comment = c('first comment', 'second comment'),
+                       history = c('made this up', 'then that'))
+read_hist = Rfits_read_image_zarr(file_hist, extname = 'data1')
+expect_equal(read_hist$comment, c('first comment', 'second comment'))
+expect_equal(read_hist$history, c('made this up', 'then that'))
+
+#ex 14 ZIMAGE style (compressed image) headers update the ZNAXIS keys
+file_zim = file.path(subdir, 'zimage.zarr')
+keyvalues_zim = list(XTENSION = 'IMAGE ', BITPIX = 8L, NAXIS = 0L, ZIMAGE = TRUE,
+                     ZBITPIX = -32L, ZNAXIS = 2L, ZNAXIS1 = 4L, ZNAXIS2 = 6L,
+                     ZCRPIX1 = 1.5, ZCRPIX2 = 3.5)
+Rfits_write_image_zarr(data_2d, file_zim, extname = 'zdata', keyvalues = keyvalues_zim)
+read_zim = Rfits_read_image_zarr(file_zim, extname = 'zdata', xlo = 2, xhi = 3)
+expect_true(isTRUE(read_zim$keyvalues$ZIMAGE))
+expect_equal(read_zim$keyvalues$ZNAXIS1, 2L)
+expect_equal(read_zim$keyvalues$ZNAXIS2, 6L)
+
+#ex 15 collapse trims trailing singleton dimensions
+file_single = file.path(subdir, 'singleton.zarr')
+data_single = array(as.numeric(1:24), c(4, 6, 1, 1))
+Rfits_write_image_zarr(data_single, file_single, extname = 'sdata',
+                       keyvalues = keyvalues_4d)
+expect_identical(class(Rfits_read_image_zarr(file_single, extname = 'sdata'))[1], 'Rfits_array')
+expect_identical(class(Rfits_read_image_zarr(file_single, extname = 'sdata', collapse = TRUE))[1],
+                 'Rfits_image')
+
+#ex 16 bad input is rejected
+expect_error(Rfits_read_image_zarr(file.path(subdir, 'definitely_not_a_store.zarr')))
+expect_error(Rfits_write_image_zarr(data_2d, file_dims, extname = 'has space'))
+expect_error(Rfits_write_image_zarr('not an image', file_dims, extname = 'strings'))
+expect_error(Rfits_write_image_zarr(array(as.numeric(1:120), c(2, 3, 4, 5)), file_dims,
+                                   extname = 'five'), NA)
+expect_error(Rfits_write_image_zarr(array(as.numeric(1:720), c(2, 3, 4, 5, 6)), file_dims,
+                                   extname = 'five'), '4 dimension')
+
+#ex 17 the back end agrees with the HDF5 back end where both can be used
+skip_if_not_installed("hdf5r")
+file_hdf5 = file.path(subdir, 'compare.h5')
+file_zarr_cmp = file.path(subdir, 'compare.zarr')
+obj_2d = Rfits_create_image(data_2d, keyvalues = keyvalues_2d,
+                           keycomments = make_comments(keyvalues_2d))
+Rfits_write_image_hdf5(obj_2d, file_hdf5, extname = 'data1')
+Rfits_write_image_zarr(obj_2d, file_zarr_cmp, extname = 'data1')
+from_hdf5 = Rfits_read_image_hdf5(file_hdf5, extname = 'data1')
+from_zarr = Rfits_read_image_zarr(file_zarr_cmp, extname = 'data1')
+expect_equal(from_hdf5$imDat, from_zarr$imDat)
+expect_equal(unclass(from_hdf5$keyvalues), unclass(from_zarr$keyvalues))
+expect_equal(from_hdf5$keycomments, from_zarr$keycomments)
+expect_equal(from_hdf5$header, from_zarr$header)
+
+sub_hdf5 = Rfits_read_image_hdf5(file_hdf5, extname = 'data1', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
+sub_zarr = Rfits_read_image_zarr(file_zarr_cmp, extname = 'data1', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
+expect_equal(sub_hdf5$imDat, sub_zarr$imDat)
+expect_equal(unclass(sub_hdf5$keyvalues), unclass(sub_zarr$keyvalues))
+
+#ex 18 Rfits_check_image style re-read of a written file is idempotent
+again = Rfits_check_image(Rfits_read_image_zarr(file_dims, extname = 'data2'))
+expect_equal(again$imDat, data_2d)
+expect_equal(again$keyvalues$NAXIS1, 4L)
+expect_equal(again$keyvalues$NAXIS2, 6L)
