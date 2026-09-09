@@ -23,7 +23,144 @@
   zarr::create_zarr(filename)
 }
 
+#A store object (zarr_s3store, zarr_localstore, ...) may be given wherever a
+#path to a store is normally expected, which is the only way to reach stores
+#that need credentials, since open_zarr() builds the store itself and cannot be
+#passed one. A zarr object wrapping a store is accepted too, so that methods can
+#hand back what they were given.
+.zarr_is_store = function(filename){
+  return(inherits(filename, c('zarr_store', 'zarr')))
+}
+
+#The store behind either a store object or an open zarr object
+.zarr_store_of = function(filename){
+  if(inherits(filename, 'zarr')){
+    return(filename$store)
+  }
+  return(filename)
+}
+
+#A store has no local path, but the filename field of every output is expected to
+#say where the data came from, so use the store URI where there is one. Stores
+#with no URI (e.g. a memory store) fall back to a type name. Short circuit
+#operators are required here, since some stores return NULL rather than a string
+.zarr_store_label = function(filename){
+  store = .zarr_store_of(filename)
+  uri = tryCatch(store$uri, error = function(e) NULL)
+  if(is.character(uri) && length(uri) == 1 && nzchar(uri)){
+    return(uri)
+  }
+  name = tryCatch(store$friendlyClassName, error = function(e) NULL)
+  if(is.character(name) && length(name) == 1 && nzchar(name)){
+    return(name)
+  }
+  return('Zarr store')
+}
+
+#The metadata for a new array, completed the way Zarr itself would complete it.
+#Zarr fills in chunk_key_encoding when it writes array metadata, but only the
+#local and memory stores hand the completed version back to the caller, and the
+#array object is built from that return value. Over S3 the field is therefore
+#missing on the object that has just been written, and any attempt to work out
+#its own chunk names fails with an opaque error. Supplying it up front avoids
+#the asymmetry without changing what ends up in the store.
+.zarr_array_metadata = function(builder, store){
+  meta = builder$metadata()
+  sep = meta$chunk_key_encoding$configuration$separator
+  if(is.null(sep) || !(sep %in% c('.', '/'))){
+    chunk_sep = tryCatch(store$.__enclos_env__$private$.chunk_sep, error = function(e) NULL)
+    if(!is.character(chunk_sep) || length(chunk_sep) != 1 || !nzchar(chunk_sep)){
+      chunk_sep = '.'
+    }
+    meta$chunk_key_encoding = list(name = 'default',
+                                   configuration = list(separator = chunk_sep))
+  }
+  return(meta)
+}
+
+#Delete everything in a store object. Used for overwrite_file, since there is no
+#directory to unlink
+.zarr_store_clear = function(filename){
+  store = .zarr_store_of(filename)
+  if(!isTRUE(tryCatch(store$supports_deletes, error = function(e) FALSE))){
+    stop('The Zarr store (', .zarr_store_label(filename), ') does not support deletes, ',
+         'so overwrite_file = TRUE cannot be used!', call. = FALSE)
+  }
+  store$clear()
+  return(invisible(NULL))
+}
+
+#Does the store have a root group? Tri state: NA means it could not be
+#established, which for a remote store usually means credentials or a prefix
+#mistake. Deliberately kept apart from FALSE, since only a genuine absence may
+#be bootstrapped over.
+.zarr_store_has_root = function(store){
+  root3 = tryCatch(store$exists('zarr.json'), error = function(e) NA)
+  if(isTRUE(root3)){
+    return(TRUE)
+  }
+  root2 = tryCatch(store$exists('.zgroup'), error = function(e) NA)
+  if(isTRUE(root2)){
+    return(TRUE)
+  }
+  if(anyNA(root3) && anyNA(root2)){
+    return(NA)
+  }
+  return(FALSE)
+}
+
+#The root group is what a Zarr store is, so its absence is reported the same way
+#for both back ends. Only a genuine absence may be bootstrapped by a writer,
+#hence the separate NA branch rather than treating unknown as empty.
+.zarr_store_root_error = function(store, opened){
+  has_root = .zarr_store_has_root(store)
+  if(is.na(has_root)){
+    stop('Cannot determine whether the Zarr store (', .zarr_store_label(store), ') ',
+         'exists, so it cannot be opened: ', conditionMessage(opened), call. = FALSE)
+  }
+  if(!has_root){
+    stop('Zarr store has no root group, so there is nothing to read: ',
+         .zarr_store_label(store), call. = FALSE)
+  }
+  stop('Cannot open the Zarr store (', .zarr_store_label(store), '): ',
+       conditionMessage(opened), call. = FALSE)
+}
+
+.zarr_store_open_object = function(filename, write=FALSE){
+  .zarr_require()
+  store = .zarr_store_of(filename)
+  read_only = tryCatch(store$read_only, error = function(e) FALSE)
+  if(isTRUE(write) & isTRUE(read_only)){
+    stop('The Zarr store (', .zarr_store_label(filename), ') is read only, so it cannot be ',
+         'written to. Create it with read_only = FALSE.', call. = FALSE)
+  }
+  #Already open, e.g. a store handed back by a previous read
+  if(inherits(filename, 'zarr')){
+    return(filename)
+  }
+  #Opening a store with no root group produces a baffling error from Zarr. Try it
+  #first so the common case costs nothing extra, and only go looking for the root
+  #group once we know something is wrong.
+  opened = tryCatch(zarr::zarr$new(store), error = function(e) e)
+  if(!inherits(opened, 'error')){
+    return(opened)
+  }
+  if(!isTRUE(write)){
+    .zarr_store_root_error(store, opened)
+  }
+  #A new store, e.g. one that has just been created, is bootstrapped here rather
+  #than by create_zarr(), which cannot be given a store object at all.
+  if(isFALSE(.zarr_store_has_root(store))){
+    store$create_group(name='')
+    return(zarr::zarr$new(store))
+  }
+  .zarr_store_root_error(store, opened)
+}
+
 .zarr_store_open = function(filename, write=FALSE){
+  if(.zarr_is_store(filename)){
+    return(.zarr_store_open_object(filename, write=write))
+  }
   if(!dir.exists(filename)){
     stop('Zarr store does not exist: ', filename, call. = FALSE)
   }
@@ -161,8 +298,17 @@ Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL
                                  collapse=FALSE){
   .zarr_require()
 
-  assertCharacter(filename, max.len=1)
-  filename = path.expand(filename)
+  #A store object is neither a path nor a character, so it cannot be asserted or
+  #expanded. It stays the thing we open, while the output records the store URI
+  #in place of a file path.
+  filename_source = filename
+  if(.zarr_is_store(filename)){
+    filename = .zarr_store_label(filename)
+  }else{
+    assertCharacter(filename, max.len=1)
+    filename = path.expand(filename)
+    filename_source = filename
+  }
   assertCharacter(extname, max.len=1)
   assertFlag(header)
   assertIntegerish(xlo, null.ok=TRUE)
@@ -177,7 +323,7 @@ Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL
   assertFlag(force_logical)
   assertFlag(collapse)
 
-  store = .zarr_store_open(filename)
+  store = .zarr_store_open(filename_source)
   extnames = .zarr_extnames(store)
 
   output = NULL
@@ -466,29 +612,43 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                                   clevel=6L, keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
-  assertCharacter(filename, max.len=1)
+  filename_is_store = .zarr_is_store(filename)
+  if(filename_is_store){
+    store_label = .zarr_store_label(filename)
+  }else{
+    assertCharacter(filename, max.len=1)
+    filename = path.expand(filename)
+  }
   assertCharacter(extname, max.len=1)
   assertFlag(create_ext)
   assertFlag(overwrite_file)
   assertIntegerish(clevel, len=1, lower=0, upper=9)
-  filename = path.expand(filename)
 
   if(!zarr::is_valid_node_name(sub('^/', '', extname))){
     stop('extname is not a valid Zarr array name: ', extname, call. = FALSE)
   }
 
-  if(overwrite_file & !create_ext & dir.exists(filename)){
-    assertAccess(filename, access='w')
-    unlink(filename, recursive=TRUE)
-  }else{
-    #A Zarr store is a directory, so assertPathForOutput checks its parent
-    assertPathForOutput(filename, overwrite=TRUE)
-  }
-
-  if(dir.exists(filename)){
+  if(filename_is_store){
+    #There is no directory to unlink or check the permissions of, so an emptied
+    #store stands in for a removed one, and nothing else is verified locally
+    if(overwrite_file & !create_ext){
+      .zarr_store_clear(filename)
+    }
     store = .zarr_store_open(filename, write=TRUE)
   }else{
-    store = .zarr_store_new(filename)
+    if(overwrite_file & !create_ext & dir.exists(filename)){
+      assertAccess(filename, access='w')
+      unlink(filename, recursive=TRUE)
+    }else{
+      #A Zarr store is a directory, so assertPathForOutput checks its parent
+      assertPathForOutput(filename, overwrite=TRUE)
+    }
+
+    if(dir.exists(filename)){
+      store = .zarr_store_open(filename, write=TRUE)
+    }else{
+      store = .zarr_store_new(filename)
+    }
   }
 
   hdr_from_object = NULL
@@ -570,7 +730,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   builder$remove_codec('blosc')
   builder$add_codec('blosc', list(clevel = as.integer(clevel)))
 
-  node = store$add_array('/', sub('^/', '', extname), builder)
+  node = store$add_array('/', sub('^/', '', extname), .zarr_array_metadata(builder, store$store))
 
   node$write(data)
 
@@ -596,7 +756,8 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
 
   node$save()
 
-  return(invisible(list(filename = filename, extname = extname,
+  return(invisible(list(filename = if(filename_is_store) store_label else filename,
+                        extname = extname,
                         dim = shape, data_type = typed$data_type,
                         chunk_shape = chunk_shape)))
 }
@@ -608,12 +769,17 @@ Rfits_write_array_zarr = Rfits_write_image_zarr
 Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, header=TRUE){
   .zarr_require()
 
-  assertCharacter(filename, max.len=1)
-  filename = path.expand(filename)
+  if(.zarr_is_store(filename)){
+    store = .zarr_store_open(filename)
+    filename = .zarr_store_label(filename)
+  }else{
+    assertCharacter(filename, max.len=1)
+    filename = path.expand(filename)
+    store = .zarr_store_open(filename)
+  }
   assertCharacter(extname, max.len=1)
   assertFlag(header)
 
-  store = .zarr_store_open(filename)
   extnames = .zarr_extnames(store)
 
   if(is.null(ext)){
@@ -643,9 +809,18 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
   meta = .zarr_get_meta(node)
 
   output = list(filename=filename, extname=extname, ext=ext, header=header,
-                keyvalues=meta$keyvalues, dim=dim, type=type)
+                keyvalues=meta$keyvalues, dim=dim, type=type, store=store)
   class(output) = 'Rfits_pointer_zarr'
   return(invisible(output))
+}
+
+#What to hand to .zarr_store_open to re-read a pointer. A pointer made from a
+#store object cannot be rebuilt from its filename, which is only a label.
+.zarr_pointer_source = function(x){
+  if(!is.null(x$store)){
+    return(x$store)
+  }
+  return(path.expand(x$filename))
 }
 
 `[.Rfits_pointer_zarr` = function(x, i=NULL, j=NULL, k=NULL, m=NULL, header=x$header){
@@ -681,7 +856,7 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
     thi = NULL
   }
 
-  data = Rfits_read_image_zarr(x$filename, extname=x$extname, ext=x$ext,
+  data = Rfits_read_image_zarr(.zarr_pointer_source(x), extname=x$extname, ext=x$ext,
                                xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
                                tlo=tlo, thi=thi, header=header)
   return(data)
@@ -693,7 +868,7 @@ length.Rfits_pointer_zarr = function(x){
 
 dim.Rfits_pointer_zarr = function(x){
   .zarr_require()
-  store = .zarr_store_open(path.expand(x$filename))
+  store = .zarr_store_open(.zarr_pointer_source(x))
   node = store$get_node(.zarr_name_to_path(x$extname))
   return(as.integer(node$shape))
 }

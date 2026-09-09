@@ -57,7 +57,7 @@ Rfits_point_zarr(filename = 'temp.zarr', extname = 'data1', ext = NULL, header =
 Numeric or integer matrix (i.e. image), vector, cube or 4D array; data to be written out as a Zarr image. For convenience you can pass the output of \code{Rfits_read_image} directly into this argument and it will split out the \option{imDat}, and various header inputs as required (if you also directly provide a header related input, this takes precedence).
 }
   \item{filename}{
-Character scalar; path to the Zarr store, either to be written to or read. Unlike FITS and HDF5, a Zarr file is a directory.
+Character scalar; path to the Zarr store, either to be written to or read. Unlike FITS and HDF5, a Zarr file is a directory. A store object may be given instead of a path (see Details), in which case it is used directly.
 }
   \item{extname}{
 Character scalar; name of the extension to be read in, which is the name of the array node within the store. Must be a valid Zarr node name (no \code{/} or spaces).
@@ -138,6 +138,14 @@ These functions mimic a FITS like data structure using Zarr. A Zarr store is a d
 The card images are authoritative; on read they are parsed in exactly the same way as the HDF5 back-end parses its stored header, so a file written with \code{Rfits_write_image_zarr} can be read back by any tool that understands Zarr attributes. The structured keyword lists are stored as well, so that non-R consumers can reach the metadata directly without having to parse FITS cards.
 
 Subsets are read by asking Zarr for only the requested chunk block, so cutting a small region out of a large cube does not require loading the whole array. Because missing data is represented by the array fill value, the types available in \option{data_type} each have their own missing value marker, and pixels which happen to equal that marker will read back as NA (a warning is issued when writing integer data that contains the marker).
+
+\strong{Remote stores}
+
+Wherever \option{filename} is expected, a store object created by \code{\link[zarr]{zarr_s3store}} (or \code{zarr_localstore}, \code{zarr_memorystore}, \code{zarr_httpstore}) may be given instead of a path. This is the only way to reach a store that needs credentials, because \code{\link[zarr]{open_zarr}} builds the store itself and cannot be passed one, so it has no way to accept a key or a non-AWS endpoint. The store must already be configured and authenticated; Rfits never sees a secret key. An open \code{zarr} object may also be given, so the result of \code{zarr::zarr$new(store)} can be reused across calls.
+
+For a store object, the \option{filename} component of the output holds the store URI (for example \code{s3://bucket/prefix/}) rather than a local path, and falls back to a description of the store type when there is no URI. A writer will bootstrap a store that has no root group yet, which is the state a newly created local or memory store is in, but a reader will not: reading refuses rather than creating anything, so an empty store is never mistaken for a populated one and nothing can be written over existing data. Note that \code{zarr_s3store} cannot itself be constructed over a prefix that holds no store, so a brand new remote store has to be created by other means first.
+
+Writes require a store created with \option{read_only} = FALSE; that flag cannot be changed afterwards, so the error is reported rather than a silently failing write. Because there is no directory to remove, \option{overwrite_file} = TRUE empties a store object in place using its \code{clear} method. Note that subsetting over a remote store is only as efficient as the store's chunking, and that \code{Rfits_write_image_zarr} on a remote store transfers the whole array.
 }
 \value{
 \code{Rfits_read_xxx_zarr} reads image data from a Zarr store. The different variants actually all point to \code{Rfits_read_image_zarr} internally, but for code clarity it is often good to make the data type more explicit.
@@ -161,7 +169,9 @@ These functions are a proof of concept for creating more generic astronomy data 
 library(zarr)
 
 #Read full image
-file_image = system.file('extdata', 'image.fits', package = "Rfits")
+cut <- Rfits_read_image_zarr(store, extname = "data1", xlo = 101, xhi = 200, ylo = 301, yhi = 400)
+cat("dim:", dim(cut$imDat), "\n")cut <- Rfits_read_image_zarr(store, extname = "data1", xlo = 101, xhi = 200, ylo = 301, yhi = 400)
+cat("dim:", dim(cut$imDat), "\n") = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 
 #write it out
@@ -178,6 +188,26 @@ sum(temp_image$imDat - temp_image_zarr$imDat)
 point = Rfits_point_zarr(file_image_temp, extname = 'image')
 point
 small = point[c(1, 10), c(1, 10)]
+
+#A remote store, given as a store object rather than a path. The store has to
+#already exist, since zarr_s3store cannot be constructed over an empty prefix.
+#The session_token must be a string, since passing NULL is mishandled by paws at
+#the time of writing. Use an AWS_PROFILE, or keys held outside the code, rather
+#than hard coding one.
+store = zarr::zarr_s3store$new(
+  bucket = 'my-bucket',
+  prefix = 'images/example.zarr/',
+  region = 'auto',
+  endpoint = 'https://account.r2.cloudflarestorage.com',
+  access_key = Sys.getenv('R2_KEY'),
+  secret_key = Sys.getenv('R2_SECRET'),
+  session_token = '')
+
+#Reads only the chunks the cut needs, however far away the store is
+image = Rfits_read_image_zarr(store, extname = 'data1', xlo = 1, xhi = 100, ylo = 1, yhi = 100)
+image$filename
+#Write back to the same store, creating the root group if it has none yet
+Rfits_write_image_zarr(image, store, extname = 'cutout')
 }
 }
 

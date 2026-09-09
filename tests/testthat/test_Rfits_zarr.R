@@ -243,3 +243,88 @@ again = Rfits_check_image(Rfits_read_image_zarr(file_dims, extname = 'data2'))
 expect_equal(again$imDat, data_2d)
 expect_equal(again$keyvalues$NAXIS1, 4L)
 expect_equal(again$keyvalues$NAXIS2, 6L)
+
+#ex 19 store objects, which is how remote stores are reached. A local store and a
+#memory store stand in for a remote one, so this needs no network or credentials
+store_local = zarr::zarr_localstore$new(file_dims, read_only = TRUE)
+via_store = Rfits_read_image_zarr(store_local, extname = 'data2')
+expect_equal(via_store$imDat, data_2d)
+expect_equal(via_store$header, read_2d$header)
+expect_equal(via_store$keyvalues$NAXIS1, 4L)
+#the filename field records the store rather than a local path
+expect_equal(via_store$filename, store_local$uri)
+#ext and subset arguments work the same way over a store object
+expect_equal(Rfits_read_image_zarr(store_local, ext = 1)$extname, 'data1')
+sub_store = Rfits_read_image_zarr(store_local, extname = 'data2', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
+expect_equal(sub_store$imDat, data_2d[2:3, 2:4])
+expect_equal(sub_store$keyvalues$CRPIX1, keyvalues_2d$CRPIX1 - 2L + 1L)
+expect_identical(Rfits_read_image_zarr(store_local, extname = 'data2', header = FALSE), data_2d)
+#an already open zarr object is accepted in place of its store
+expect_equal(Rfits_read_image_zarr(zarr::zarr$new(store_local), extname = 'data2')$imDat, data_2d)
+
+#ex 20 writing to a store object, including one that has no root group yet. The
+#constructor makes the directory but writes no root, so the store is unusable
+#until something bootstraps it (this is the same shape a new remote store has)
+file_writable = file.path(subdir, 'store_writable.zarr')
+fresh = zarr::zarr_localstore$new(file_writable, read_only = FALSE)
+expect_true(dir.exists(file_writable))
+expect_setequal(list.files(file_writable, all.files = TRUE), c('.', '..'))
+expect_false(fresh$exists('zarr.json'))
+expect_error(Rfits_read_image_zarr(fresh), 'no root group')
+written = Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_2d)
+expect_true(fresh$exists('zarr.json'))
+expect_equal(written$filename, fresh$uri)
+expect_equal(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE), data_2d)
+#appending a second extension to the same store object keeps the first
+Rfits_write_image_zarr(data_1d, fresh, extname = 'data1', keyvalues = keyvalues_1d)
+expect_equal(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE), data_2d)
+expect_equal(Rfits_read_image_zarr(fresh, extname = 'data1', header = FALSE), data_1d)
+#rewriting an existing extension replaces it rather than erroring or duplicating
+Rfits_write_image_zarr(data_2d[, 1:3], fresh, extname = 'data2', keyvalues = keyvalues_2d)
+expect_equal(dim(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE)), c(4, 3))
+expect_error(Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', create_ext = FALSE),
+             'already exists')
+
+#ex 21 overwrite_file empties a store object, since there is no directory to remove
+Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_2d,
+                       create_ext = FALSE, overwrite_file = TRUE)
+read_over = Rfits_read_image_zarr(fresh, extname = 'data2')
+expect_equal(read_over$imDat, data_2d)
+#the cleared store lost the other extension. A missing extension is reported by
+#the try() wrapper inside the reader, so it returns NULL rather than raising.
+#Identical to what a path does for the same case
+expect_null(Rfits_read_image_zarr(fresh, extname = 'data1'))
+
+#ex 22 a read only store object is refused by the writer
+expect_error(Rfits_write_image_zarr(data_2d, store_local, extname = 'nope'), 'read only')
+
+#ex 23 an un-bootstrapped memory store, the shape a new remote store arrives in
+mem = zarr::zarr_memorystore$new()
+expect_error(Rfits_read_image_zarr(mem), 'no root group')
+expect_error(Rfits_point_zarr(mem), 'no root group')
+Rfits_write_image_zarr(data_3d, mem, extname = 'data3', keyvalues = keyvalues_3d)
+read_mem = Rfits_read_image_zarr(mem, extname = 'data3')
+expect_equal(read_mem$imDat, data_3d)
+expect_identical(class(read_mem)[1], 'Rfits_cube')
+#memory stores have no URI, so the label falls back to the store type
+expect_equal(read_mem$filename, 'memory store')
+
+#ex 24 pointers over a store object re-read through the store rather than the
+#filename. A memory store makes this checkable, since its filename label is not a
+#path and so any attempt to open it by path would fail
+point_mem = zarr::zarr_memorystore$new()
+Rfits_write_image_zarr(data_4d, point_mem, extname = 'data4', keyvalues = keyvalues_4d)
+ptr = Rfits_point_zarr(point_mem, extname = 'data4')
+expect_identical(class(ptr), 'Rfits_pointer_zarr')
+expect_equal(ptr$filename, 'memory store')
+expect_equal(dim(ptr), c(4, 5, 3, 4))
+expect_equal(ptr$type, 'array')
+sub_ptr = ptr[2:3, 1:4, 2:3, 1:2]
+expect_equal(sub_ptr$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
+#and the open store is carried through to the pointer, so it stays re-readable
+expect_true(inherits(ptr$store, 'zarr'))
+expect_equal(Rfits_read_image_zarr(ptr$store, extname = 'data4', header = FALSE), data_4d)
+#pointers made from a path keep working unchanged
+ptr_path = Rfits_point_zarr(file_dims, extname = 'data4')
+expect_equal(dim(ptr_path), c(4, 5, 3, 4))
+expect_equal(ptr_path[2:3, 1:4, 2:3, 1:2]$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
