@@ -84,6 +84,7 @@
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
 \alias{[.Rfits_pointer_hdf5}
+\alias{[.Rfits_pointer_zarr}
 
 \alias{[<-.Rfits_pointer}
 
@@ -201,6 +202,8 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
   sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 \method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
+\method{[}{Rfits_pointer_zarr}(x, i, j, k, m, box=201, type='pix', header=x$header,
+  collapse=TRUE)
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)

@@ -284,9 +284,17 @@
   # }
   
   #This is Rigo's version of the above (a bit more maintainable):
+  #A singleton third dimension must not short circuit the collapse below (as
+  #[.Rfits_array also allows for its third and fourth dimensions), since zdim==1
+  #always "spans up to" 1 and collapse would then never run. But only when a
+  #collapse was actually asked for, so a full extent read with no k still returns
+  #x untouched rather than rebuilding the header.
   arrays = list(i, j, k)
   upper_limits = list(xdim, ydim, zdim)
-  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  collapse_possible = (zdim == 1L & k_prov & collapse)
+  if(all(mapply(.spans_up_to, arrays, upper_limits)) & !collapse_possible){
+    return(x)
+  }
   
   safedim_i = .safedim(1, xdim, min(i), max(i))
   safedim_j = .safedim(1, ydim, min(j), max(j))

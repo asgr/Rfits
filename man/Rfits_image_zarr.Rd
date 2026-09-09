@@ -152,7 +152,19 @@ Writes require a store created with \option{read_only} = FALSE; that flag cannot
 
 \code{Rfits_write_xxx_zarr} writes image data to a Zarr store, adding it as a new array node (or replacing the node of that name if it already exists). The different variants actually all point to \code{Rfits_write_image_zarr} internally, but for code clarity it is often good to make the data type more explicit.
 
-\code{Rfits_point_zarr} returns an object of class \option{Rfits_pointer_zarr} without reading any data. Subsetting that object with \code{[} reads only the requested region.
+\code{Rfits_point_zarr} returns an object of class \option{Rfits_pointer_zarr} without reading any data. Subsetting that object with \code{[} reads only the requested region, which is the point of a pointer.
+
+Subsetting an \option{Rfits_pointer_zarr} mirrors \code{\link{Rfits_image}} (and so \code{\link{Rfits_point}}), so the same calls work whichever back-end the pointer was made from:
+
+\itemize{
+\item \option{i} and \option{j} may be ranges (\code{p[50:150, 50:150]}), a pair of bounds given as a vector (\code{p[c(50,150), c(60,160)]}), or a single location to centre a box on.
+\item \code{a:end} reads from \code{a} to the end of that dimension, and works for \option{i}, \option{j}, \option{k} and \option{m}.
+\item \option{box} sets the size of the cutout around a single location, with \option{box}[1] for x and \option{box}[2] for y (a scalar is used for both). With \option{i} and \option{j} omitted, the box is centred on the image.
+\item \option{type} = 'coord' treats \option{i} and \option{j} as RA and Dec rather than pixels, which needs \code{Rwcs} and requires both to be length 1.
+\item \option{collapse} drops a trailing dimension that the caller sliced down to a single value, turning a cube slice into an \option{Rfits_image} and so on.
+}
+
+Two FITS pointer features are deliberately not available here, because the Zarr reader has no equivalent: matrix indexing for random access (\code{p[cbind(x, y)]}), which is rejected with an error rather than silently returning the wrong shape, and \option{sparse} / \option{scale_sparse} subsampling.
 }
 \author{
 Aaron Robotham
@@ -168,10 +180,12 @@ These functions are a proof of concept for creating more generic astronomy data 
 \dontrun{
 library(zarr)
 
-#Read full image
+#Read a region of a store object without reading the whole array
 cut <- Rfits_read_image_zarr(store, extname = "data1", xlo = 101, xhi = 200, ylo = 301, yhi = 400)
-cat("dim:", dim(cut$imDat), "\n")cut <- Rfits_read_image_zarr(store, extname = "data1", xlo = 101, xhi = 200, ylo = 301, yhi = 400)
-cat("dim:", dim(cut$imDat), "\n") = system.file('extdata', 'image.fits', package = "Rfits")
+cat("dim:", dim(cut$imDat), "\n")
+
+#The same region via a local file, working from the package example image
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
 
 #write it out
@@ -188,6 +202,18 @@ sum(temp_image$imDat - temp_image_zarr$imDat)
 point = Rfits_point_zarr(file_image_temp, extname = 'image')
 point
 small = point[c(1, 10), c(1, 10)]
+
+#Subsetting works the same as for a FITS pointer
+dim(point[50:150, 50:150])      #a range
+dim(point[c(50, 150), c(60, 160)]) #the same, given as bounds
+dim(point[101, 101, box = 100]) #a box centred on a location
+dim(point[box = 50])            #a box centred on the image
+dim(point[50:end])              #from 50 to the end of that dimension
+
+#By RA/Dec rather than pixels, which needs Rwcs
+library(Rwcs)
+coords = Rwcs_p2s(101, 101, temp_image$keyvalues)
+dim(point[coords[1], coords[2], box = 100, type = 'coord'])
 
 #A remote store, given as a store object rather than a path. The store has to
 #already exist, since zarr_s3store cannot be constructed over an empty prefix.

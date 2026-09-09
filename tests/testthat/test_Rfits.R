@@ -182,6 +182,32 @@ expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,header=FALSE])
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,header=FALSE])
 
+#ex 29b check cube slices collapse, as documented for the collapse argument. A
+#singleton third dimension used to short circuit the subset and so never collapsed
+expect_identical(class(temp_cube[26:30,26:30,1])[1], 'Rfits_image')
+expect_identical(dim(temp_cube[26:30,26:30,1]), c(5L, 5L))
+expect_identical(temp_cube[26:30,26:30,1]$imDat, temp_cube$imDat[26:30,26:30,1])
+#collapse = FALSE keeps the trailing dimension
+expect_identical(class(temp_cube[26:30,26:30,1,collapse=FALSE])[1], 'Rfits_cube')
+expect_identical(dim(temp_cube[26:30,26:30,1,collapse=FALSE]), c(5L, 5L, 1L))
+#the collapsed header no longer describes a third axis
+expect_identical(temp_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
+expect_null(temp_cube[26:30,26:30,1]$keyvalues$NAXIS3)
+#leaving k out is not a request to collapse, so a full extent read is unchanged
+expect_identical(class(temp_cube[])[1], 'Rfits_cube')
+expect_identical(dim(temp_cube[]), c(50L, 50L, 4L))
+expect_identical(class(temp_cube[26:30,26:30,])[1], 'Rfits_cube')
+#and the pointer collapses the same slice identically
+temp_point_cube = Rfits_point(system.file('extdata', 'cube.fits', package = "Rfits"))
+expect_identical(class(temp_point_cube[26:30,26:30,1])[1], 'Rfits_image')
+expect_identical(temp_point_cube[26:30,26:30,1]$imDat, temp_cube[26:30,26:30,1]$imDat)
+expect_identical(temp_point_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
+expect_identical(temp_point_cube[26:30,26:30,1]$keyvalues$CRPIX1,
+                 temp_cube[26:30,26:30,1]$keyvalues$CRPIX1)
+#Note the pointer re-subsets to collapse, so XCUTLO/YCUTLO are relative to the
+#already cut out array rather than to the original file, as for every
+#Rfits_pointer collapse. The full header therefore differs from the in RAM one
+
 #ex 30 check consistent BZERO and BSCALE reading and writing
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)

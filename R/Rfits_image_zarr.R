@@ -823,13 +823,136 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
   return(path.expand(x$filename))
 }
 
-`[.Rfits_pointer_zarr` = function(x, i=NULL, j=NULL, k=NULL, m=NULL, header=x$header){
+#Drop trailing dimensions. An Rfits object goes through its own [ method so the
+#header keywords are rebuilt for the smaller array, while the plain array that
+#header=FALSE returns has no method and is just re-dimensioned
+.zarr_collapse = function(data, ndim, header){
+  if(header){
+    if(ndim == 2L & length(dim(data)) == 4L){
+      return(data[,,1,1, collapse=TRUE])
+    }
+    if(ndim == 2L){
+      return(data[,,1, collapse=TRUE])
+    }
+    return(data[,,,1, collapse=TRUE])
+  }
+  dim(data) = dim(data)[seq_len(ndim)]
+  return(data)
+}
+
+#Subsetting mirrors [.Rfits_image (and so [.Rfits_pointer), so that box cutouts,
+#RA/Dec positions and the i=c(x,y) shorthand all behave the same whichever
+#back-end the pointer was made from. What gets read is still only the requested
+#region, which is the point of a pointer.
+`[.Rfits_pointer_zarr` = function(x, i=NULL, j=NULL, k=NULL, m=NULL, box=201, type='pix',
+                                  header=x$header, collapse=TRUE){
+  assertChoice(type, c('pix', 'coord'))
+  assertFlag(header)
+  assertFlag(collapse)
+
+  dim_x = x$dim
+  Ndim = length(dim_x)
+
+  #`a:end` means "from a to the end of that dimension". This has to be resolved
+  #before anything else touches i, j, k or m, because they are promises here and
+  #the bare name `end` is stats::end, so merely asking is.null(i) would try to
+  #evaluate `50:end` and fail. Expanding it to the two bounds also avoids the
+  #vector as long as the image that spelling out the whole range would allocate.
+  #The flag records that i came from a range expression, since the length-2 rule
+  #below would otherwise read c(a, dim) as a centre to put a box around.
+  i_range = FALSE
+  if(!missing(i)){
+    express = as.character(substitute(i))
+    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3]) && Ndim >= 1L){
+      i = c(as.numeric(express[2]), dim_x[1])
+      i_range = TRUE
+    }
+  }
+  if(!missing(j) && Ndim >= 2L){
+    express = as.character(substitute(j))
+    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
+      j = c(as.numeric(express[2]), dim_x[2])
+    }
+  }
+  if(!missing(k) && Ndim >= 3L){
+    express = as.character(substitute(k))
+    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
+      k = c(as.numeric(express[2]), dim_x[3])
+    }
+  }
+  if(!missing(m) && Ndim >= 4L){
+    express = as.character(substitute(m))
+    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
+      m = c(as.numeric(express[2]), dim_x[4])
+    }
+  }
+
+  #Random access by row matrix is a FITS pointer feature (cfitsio reads single
+  #pixels), and the Zarr reader has no equivalent, so reject it rather than let it
+  #fall through and return the wrong shape
+  if(is.matrix(i) | is.matrix(j) | is.matrix(k) | is.matrix(m)){
+    stop('Matrix indexing (e.g. p[cbind(x, y)]) is not supported for Zarr pointers!',
+         call. = FALSE)
+  }
+
+  #A box with no location given is cut out around the centre of the image. Box
+  #cutouts are a two dimensional feature, so higher dimensions are left alone
+  if(!missing(box) & Ndim == 2L & is.null(i) & is.null(j)){
+    i = ceiling(dim_x[1]/2)
+    j = ceiling(dim_x[2]/2)
+  }
+
+  #Two values given for i alone are a location, not a range, so that
+  #p[c(50,150)] centres a box there rather than cutting out 50:150. Adjacent
+  #values really are a range, and so is anything that came from `a:end`. This is
+  #only for arrays that can hold a box at all: a 1D pointer keeps range meaning
+  #for c(a,b), as [.Rfits_vector does
+  if(Ndim >= 2L & !is.null(i) & is.null(j) & !i_range){
+    if(length(i) == 2L){
+      if(i[2] - i[1] != 1){
+        j = ceiling(i[2])
+        i = ceiling(i[1])
+      }
+    }
+  }
+
+  if(type == 'coord'){
+    if(requireNamespace("Rwcs", quietly=TRUE)){
+      if(is.null(x$keyvalues)){
+        stop('No FITS style metadata is stored for this Zarr array, so type = "coord" ',
+             'cannot be used!', call. = FALSE)
+      }
+      assertNumeric(i, len=1)
+      assertNumeric(j, len=1)
+      #The pointer keeps no raw header, so rebuild the fixed width form from the
+      #keywords. Rwcs uses it for the full distortion terms when it is present
+      ij = Rwcs::Rwcs_s2p(i, j, keyvalues=x$keyvalues, pixcen='R',
+                          header=Rfits_keyvalues_to_raw(x$keyvalues))[1,]
+      i = ceiling(ij[1])
+      j = ceiling(ij[2])
+    }else{
+      message('The Rwcs package is needed to use type=coord.')
+    }
+  }
+
+  #A box is only applied to a single location, and only in two dimensions
+  if(Ndim == 2L & !is.null(i) & !is.null(j)){
+    if(length(i) == 1 & length(j) == 1){
+      if(length(box) == 1){box = c(box, box)}
+      i = ceiling(i + c(-(box[1]-1L)/2, (box[1]-1L)/2))
+      j = ceiling(j + c(-(box[2]-1L)/2, (box[2]-1L)/2))
+    }
+  }
+
+  #The FITS pointer reports too many dimensions as a NULL NAXIS keyword, but a
+  #Zarr array may carry no FITS metadata at all, so go by the stored shape
+  if(Ndim < 2L & !is.null(j)){stop('The Zarr array is 1 dimensional: specifying too many dimensions!')}
+  if(Ndim < 3L & !is.null(k)){stop('The Zarr array has no third dimension: specifying too many dimensions!')}
+  if(Ndim < 4L & !is.null(m)){stop('The Zarr array has no fourth dimension: specifying too many dimensions!')}
 
   if(!is.null(i)){
-    if(is.vector(i)){
-      xlo = ceiling(min(i))
-      xhi = ceiling(max(i))
-    }
+    xlo = ceiling(min(i))
+    xhi = ceiling(max(i))
   }else{
     xlo = NULL
     xhi = NULL
@@ -856,9 +979,26 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
     thi = NULL
   }
 
+  #Collapsing is done here rather than by the reader, since only a dimension the
+  #caller actually sliced may be dropped
   data = Rfits_read_image_zarr(.zarr_pointer_source(x), extname=x$extname, ext=x$ext,
                                xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                               tlo=tlo, thi=thi, header=header)
+                               tlo=tlo, thi=thi, header=header, collapse=FALSE)
+
+  if(collapse){
+    if(length(dim(data)) == 3L){
+      if(dim(data)[3L] == 1L & !is.null(k)){
+        data = .zarr_collapse(data, 2L, header=header)
+      }
+    }else if(length(dim(data)) == 4L){
+      if(dim(data)[3L] == 1L & dim(data)[4L] == 1L & !is.null(k) & !is.null(m)){
+        data = .zarr_collapse(data, 2L, header=header)
+      }else if(dim(data)[4L] == 1L & !is.null(m)){
+        data = .zarr_collapse(data, 3L, header=header)
+      }
+    }
+  }
+
   return(data)
 }
 
