@@ -862,29 +862,23 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
   #below would otherwise read c(a, dim) as a centre to put a box around.
   i_range = FALSE
   if(!missing(i)){
-    express = as.character(substitute(i))
-    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3]) && Ndim >= 1L){
-      i = c(as.numeric(express[2]), dim_x[1])
+    i_res = .resolve_a_to_end(substitute(i), dim_x[1], parent.frame())
+    if(!is.null(i_res)){
+      i = i_res
       i_range = TRUE
     }
   }
   if(!missing(j) && Ndim >= 2L){
-    express = as.character(substitute(j))
-    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
-      j = c(as.numeric(express[2]), dim_x[2])
-    }
+    j_res = .resolve_a_to_end(substitute(j), dim_x[2], parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
   if(!missing(k) && Ndim >= 3L){
-    express = as.character(substitute(k))
-    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
-      k = c(as.numeric(express[2]), dim_x[3])
-    }
+    k_res = .resolve_a_to_end(substitute(k), dim_x[3], parent.frame())
+    if(!is.null(k_res)){k = k_res}
   }
   if(!missing(m) && Ndim >= 4L){
-    express = as.character(substitute(m))
-    if(length(express) == 3L && express[1] == ':' && grepl('end', express[3])){
-      m = c(as.numeric(express[2]), dim_x[4])
-    }
+    m_res = .resolve_a_to_end(substitute(m), dim_x[4], parent.frame())
+    if(!is.null(m_res)){m = m_res}
   }
 
   #Random access by row matrix is a FITS pointer feature (cfitsio reads single

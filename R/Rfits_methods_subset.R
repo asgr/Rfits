@@ -719,65 +719,48 @@
     j = ceiling(ydim/2)
   }
   
+  #`a:end` means "from a to the end of that dimension", and it has to be resolved
+  #before anything else touches i, j, k or m. They are promises here and the bare
+  #name `end` is stats::end, so merely forcing one (the is.matrix(i) check used to
+  #do exactly that) tries to evaluate `50:end` and dies with an NA/NaN argument.
+  #i_range records that i came from a range expression, since the length-2 rule
+  #below would otherwise read c(a, xdim) as a centre to put a box around.
+  i_range = FALSE
   if(!missing(i)){
-    if(!is.matrix(i)){
-      express = as.character(substitute(i))
-      
-      if(express[1] == ':' & length(express) == 3L){
-        if(grepl('end',substitute(i))[3]){
-          start = express[2]
-          end = xdim
-          i = eval(parse(text=paste0(start,':',end)))
-        }
-      }
+    i_res = .resolve_a_to_end(substitute(i), xdim, parent.frame())
+    if(!is.null(i_res)){
+      i = i_res
+      i_range = TRUE
     }
   }
-  
+
   if(!missing(j)){
-    express = as.character(substitute(j))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(j))[3]){
-        start = express[2]
-        end = ydim
-        j = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    j_res = .resolve_a_to_end(substitute(j), ydim, parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
-  
+
   if(!missing(k)){
-    express = as.character(substitute(k))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(k))[3]){
-        start = express[2]
-        end = zdim
-        k = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    k_res = .resolve_a_to_end(substitute(k), zdim, parent.frame())
+    if(!is.null(k_res)){k = k_res}
     k_prov = TRUE
   }else{
     k_prov = FALSE
   }
-  
+
   if(!missing(m)){
-    express = as.character(substitute(m))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(m))[3]){
-        start = express[2]
-        end = tdim
-        m = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    m_res = .resolve_a_to_end(substitute(m), tdim, parent.frame())
+    if(!is.null(m_res)){m = m_res}
     m_prov = TRUE
   }else{
     m_prov = FALSE
   }
-  
+
+  #Two values given for i alone are a location, not a range, so that
+  #p[c(50,150)] centres a box there rather than cutting out 50:150. Adjacent
+  #values really are a range, and so is anything that came from `a:end`
   if(!missing(i)){
     if(is.vector(i)){
-      if(length(i)==2 & missing(j)){
+      if(length(i)==2 & missing(j) & !i_range){
         if(i[2] - i[1] != 1){
           j = ceiling(i[2])
           i = ceiling(i[1])

@@ -377,3 +377,56 @@ tb_bad = data.frame(
   vals = I(list(1:3, 1:4, 1:3))
 )
 expect_error(Rfits_write_table(tb_bad, tempfile()), "inconsistent vector lengths")
+
+#ex 52 a:end works on Rfits_pointer subsetting, matching the Zarr back-end. The
+#index arguments are promises and `end` is stats::end, so the range must be
+#resolved from the unevaluated expression: forcing it first used to die with an
+#NA/NaN argument
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+temp_point_image = Rfits_point(file_image)
+#i alone, and j alone
+expect_equal(temp_point_image[50:end]$imDat, temp_image$imDat[50:356, ])
+expect_equal(temp_point_image[50:150, 60:end]$imDat, temp_image$imDat[50:150, 60:356])
+expect_equal(temp_point_image[50:end]$imDat, temp_point_image[50:356, ]$imDat)
+#header=FALSE gives back just the array
+expect_equal(temp_point_image[50:end, header=FALSE], temp_image$imDat[50:356, ])
+#the start may be a variable or an expression, not just a literal
+nn = 50
+expect_equal(temp_point_image[nn:end]$imDat, temp_image$imDat[50:356, ])
+expect_equal(temp_point_image[ceiling(356/2):end]$imDat, temp_image$imDat[178:356, ])
+#`a:end` is a range, so it must not be read as a centre to put a box around
+expect_equal(dim(temp_point_image[50:end]$imDat), c(307L, 356L))
+#but a pair of bounds still is, so the two must not be confused
+expect_equal(dim(temp_point_image[c(50, 150)]$imDat), c(201L, 201L))
+expect_equal(dim(temp_point_image[c(50, 51)]$imDat), c(2L, 356L))
+
+#ex 53 a:end works on every dimension of a pointer, and still collapses a
+#singleton slice the caller asked for
+temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
+temp_point_cube = Rfits_point(system.file('extdata', 'cube.fits', package = "Rfits"))
+expect_equal(temp_point_cube[45:end, , ]$imDat, temp_cube$imDat[45:50, , ])
+expect_equal(temp_point_cube[26:30, 26:30, 2:end]$imDat, temp_cube$imDat[26:30, 26:30, 2:4])
+#4:end is a single slice, so it collapses to an image as for an explicit k
+expect_identical(class(temp_point_cube[26:30, 26:30, 4:end])[1], 'Rfits_image')
+expect_equal(temp_point_cube[26:30, 26:30, 4:end]$imDat, temp_cube[26:30, 26:30, 4]$imDat)
+#and a 4D array, for all four dimensions
+data_4d = array(as.numeric(1:240), c(4, 5, 3, 4))
+file_4d = tempfile()
+Rfits_write_image(data_4d, file_4d)
+temp_point_4d = Rfits_point(file_4d)
+expect_equal(temp_point_4d[2:end, , 2:end, 3:end]$imDat, data_4d[2:4, , 2:3, 3:4])
+
+#ex 54 a 1D pointer keeps range meaning for a:end, as [.Rfits_vector does
+data_1d = as.numeric(1:10)
+file_1d = tempfile()
+Rfits_write_image(data_1d, file_1d)
+temp_point_vec = Rfits_point(file_1d)
+expect_identical(temp_point_vec$type, 'vector')
+expect_equal(temp_point_vec[3:end]$imDat, data_1d[3:10])
+expect_equal(temp_point_vec[3:end]$imDat, temp_point_vec[3:10]$imDat)
+
+#ex 55 matrix indexing (random single pixel access) still works, since the fix
+#stopped forcing i to work out whether it was a range
+expect_equal(temp_point_image[cbind(c(1,2,3), c(1,2,3))],
+             diag(temp_image$imDat[1:3, 1:3]))
