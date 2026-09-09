@@ -430,3 +430,94 @@ expect_equal(temp_point_vec[3:end]$imDat, temp_point_vec[3:10]$imDat)
 #stopped forcing i to work out whether it was a range
 expect_equal(temp_point_image[cbind(c(1,2,3), c(1,2,3))],
              diag(temp_image$imDat[1:3, 1:3]))
+
+#ex 56 a:end on the in RAM [.Rfits_image. This failed for a different reason to
+#the pointer: the start was deparsed to text and glued into c(start, end) as the
+#string "50", so i was character and every later min/max/arithmetic died
+expect_equal(temp_image[50:end]$imDat, temp_image$imDat[50:356, ])
+expect_equal(temp_image[50:150, 60:end]$imDat, temp_image$imDat[50:150, 60:356])
+expect_equal(temp_image[50:end, 60:end]$imDat, temp_image$imDat[50:356, 60:356])
+expect_equal(temp_image[50:end, header=FALSE], temp_image$imDat[50:356, ])
+#the start may be a variable or an expression, not just a literal
+expect_equal(temp_image[nn:end]$imDat, temp_image$imDat[50:356, ])
+expect_equal(dim(temp_image[ceiling(356/2):end]$imDat), c(179L, 356L))
+#keywords are fixed up for the cutout
+expect_equal(temp_image[50:end]$keyvalues$NAXIS1, 307L)
+expect_equal(temp_image[50:end]$keyvalues$CRPIX1, temp_image$keyvalues$CRPIX1 - 50 + 1L)
+#and the pointer agrees with the in RAM image for the same call
+expect_equal(temp_image[50:end]$imDat, temp_point_image[50:end]$imDat)
+
+#ex 57 a resolved a:end must not be mistaken for a location to centre a box on,
+#while a genuine pair of bounds still is
+expect_equal(dim(temp_image[50:end]$imDat), c(307L, 356L))
+expect_equal(dim(temp_image[c(50, 150)]$imDat), c(201L, 201L))
+#adjacent values really are a range
+expect_equal(dim(temp_image[c(50, 51)]$imDat), c(2L, 356L))
+
+#ex 58 a:end on [.Rfits_vector, which had no handling for it at all
+data_1d = as.numeric(1:10)
+file_1d_vec = tempfile()
+Rfits_write_vector(data_1d, file_1d_vec)
+temp_vec = Rfits_read_vector(file_1d_vec)
+expect_identical(class(temp_vec)[1], 'Rfits_vector')
+#as for every [.Rfits_vector subset the result is a 1D array rather than a bare
+#numeric, so compare the values
+expect_equal(as.vector(temp_vec[3:end]$imDat), data_1d[3:10])
+expect_equal(dim(temp_vec[3:end]$imDat), 8L)
+expect_equal(temp_vec[3:end]$imDat, temp_vec[3:10]$imDat)
+expect_equal(as.vector(temp_vec[3:end, header=FALSE]), data_1d[3:10])
+#variable and expression starts
+nn2 = 4
+expect_equal(as.vector(temp_vec[nn2:end]$imDat), data_1d[4:10])
+#NAXIS1 describes the subset that came back
+expect_equal(temp_vec[3:end]$keyvalues$NAXIS1, 8L)
+expect_equal(temp_vec[3:end]$keyvalues$XCUTLO, 3L)
+expect_equal(temp_vec[3:end]$keyvalues$XCUTHI, 10L)
+#a 1D vector keeps range meaning for c(a,b), since there is no box to centre
+expect_equal(as.vector(temp_vec[c(3, 8)]$imDat), data_1d[3:8])
+
+#ex 59 a:end on [.Rfits_cube and [.Rfits_array, now resolved through the same
+#helper as the pointer and the image. These already worked via eval(parse()), so
+#the point of these tests is that the shared path keeps their semantics, notably
+#a start that is a variable or an expression rather than a literal
+temp_cube_ram = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
+expect_equal(temp_cube_ram[46:end, 46:end, 3:end]$imDat,
+             temp_cube_ram$imDat[46:50, 46:50, 3:4])
+expect_equal(temp_cube_ram[46:end, , ]$imDat, temp_cube_ram$imDat[46:50, , ])
+expect_equal(temp_cube_ram[, 1:end, ]$imDat, temp_cube_ram$imDat)
+expect_equal(dim(temp_cube_ram[, , 3:end]$imDat), c(50L, 50L, 2L))
+#variable and expression starts
+n45 = 45
+expect_equal(dim(temp_cube_ram[n45:end, , ]$imDat), c(6L, 50L, 4L))
+expect_equal(dim(temp_cube_ram[ceiling(50/2):end, , ]$imDat), c(26L, 50L, 4L))
+#a start above the end still runs backwards to 1, as min/max is all it is used for
+expect_equal(dim(temp_cube_ram[40:10, , ]$imDat), c(31L, 50L, 4L))
+#a slice of 1:end covers the whole dimension, so the object is returned untouched
+expect_identical(temp_cube_ram[1:end, 1:end, 1:end], temp_cube_ram)
+#keywords fixed up, and a singleton k:end still collapses to an image
+expect_equal(temp_cube_ram[46:end, , ]$keyvalues$NAXIS1, 5L)
+expect_equal(temp_cube_ram[46:end, , ]$keyvalues$CRPIX1,
+             temp_cube_ram$keyvalues$CRPIX1 - 46 + 1L)
+expect_identical(class(temp_cube_ram[26:30, 26:30, 4:end])[1], 'Rfits_image')
+expect_equal(dim(temp_cube_ram[26:30, 26:30, 4:end, collapse = FALSE]$imDat),
+             c(5L, 5L, 1L))
+expect_equal(dim(temp_cube_ram[46:end, , , header = FALSE]), c(5L, 50L, 4L))
+
+#ex 60 the same for a 4D array, across all four dimensions
+data_4d_ram = array(as.numeric(1:240), c(4, 5, 3, 4))
+file_4d_ram = tempfile()
+Rfits_write_image(data_4d_ram, file_4d_ram)
+temp_array_ram = Rfits_read_image(file_4d_ram)
+expect_identical(class(temp_array_ram)[1], 'Rfits_array')
+expect_equal(temp_array_ram[2:end, 3:end, 2:end, 2:end]$imDat,
+             data_4d_ram[2:4, 3:5, 2:3, 2:4])
+expect_equal(dim(temp_array_ram[2:end, , , ]$imDat), c(3L, 5L, 3L, 4L))
+expect_equal(dim(temp_array_ram[, , , 2:end]$imDat), c(4L, 5L, 3L, 3L))
+expect_equal(dim(temp_array_ram[2:3, 1:end, , 3:end]$imDat), c(2L, 5L, 3L, 2L))
+n2 = 2
+expect_equal(dim(temp_array_ram[n2:end, , , ]$imDat), c(3L, 5L, 3L, 4L))
+#collapsing still keys off the slice being a singleton, however it was written
+expect_identical(class(temp_array_ram[1:2, 1:2, 1:2, 4:end])[1], 'Rfits_cube')
+expect_identical(class(temp_array_ram[1:2, 1:2, 3:end, 4:end])[1], 'Rfits_image')
+expect_equal(dim(temp_array_ram[2:end, , , , header = FALSE]), c(3L, 5L, 3L, 4L))
+expect_equal(temp_array_ram[2:end, , , ]$keyvalues$NAXIS1, 3L)

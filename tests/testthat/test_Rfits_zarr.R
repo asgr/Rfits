@@ -291,7 +291,7 @@ Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_
 read_over = Rfits_read_image_zarr(fresh, extname = 'data2')
 expect_equal(read_over$imDat, data_2d)
 #the cleared store lost the other extension. A missing extension is reported by
-#the try() wrapper inside the reader, so it returns NULL rather than raising.
+#the try() wrapper inside the reader, so it returns NULL rather than raising. Will print an error message to screen and stop.
 #Identical to what a path does for the same case
 expect_null(Rfits_read_image_zarr(fresh, extname = 'data1'))
 
