@@ -523,10 +523,11 @@ expect_equal(dim(temp_array_ram[2:end, , , , header = FALSE]), c(3L, 5L, 3L, 4L)
 expect_equal(temp_array_ram[2:end, , , ]$keyvalues$NAXIS1, 3L)
 
 #ex 61 pixscale / pixarea on a cube pointer. wcslib takes the number of
-#coordinate axes from NAXIS, so the three pixel positions these methods probe
-#could not be passed as one vector against a cube header. Rwcs reported the
-#failure on stderr and returned zeros, which is what both methods gave back.
-#Probing a position at a time is accepted whatever NAXIS says
+#coordinate axes from the header, so a cube header while only RA and Dec are
+#being projected leaves ncoord and nelem inconsistent with the wcsprm. Rwcs
+#reported that on stderr and returned zeros, which is what both methods gave
+#back, and repeated calls corrupted memory in Cwcs_head_p2s. The keywords are
+#now trimmed to the two celestial axes before projecting
 skip_if_not_installed("Rwcs")
 file_cube_fits = system.file('extdata', 'cube.fits', package = "Rfits")
 point_cube_fits = Rfits_point(file_cube_fits)
@@ -539,12 +540,32 @@ expect_equal(pixscale(point_cube_fits, loc = 'bl'), cube_scale, tolerance = 1e-6
 expect_equal(pixscale(point_cube_fits, loc = c(20, 30)), cube_scale, tolerance = 1e-6)
 #units are still honoured
 expect_equal(pixscale(point_cube_fits, unit = 'deg') * 3600, cube_scale, tolerance = 1e-6)
+#centre and corners only ever project one position at a time, so they were
+#already right, and must stay right now the header is trimmed. There is no
+#centre / corners method for an in RAM Rfits_cube, so the header is the
+#independent path to check the pointer against
+cube_header = Rfits_read_header(file_cube_fits)
+expect_equal(centre(point_cube_fits), centre(cube_header))
+expect_equal(corners(point_cube_fits), corners(cube_header))
+#the corruption needed repeated calls to show, so loop. One assertion at the end
+#keeps the expectation count down while still running the calls
+for(i in 1:200){
+  scale_loop = pixscale(point_cube_fits)
+  area_loop = pixarea(point_cube_fits)
+}
+expect_equal(c(scale_loop, area_loop), c(cube_scale, cube_scale^2), tolerance = 1e-6)
 
-#ex 62 a 2D image is unaffected by the per position probing, since it always
-#worked. The value must be unchanged from the image held in RAM
+#ex 62 a 2D image is unaffected, since a header that claims no more than two
+#axes is passed through untouched. Comparing a pointer with the same image in RAM
+#would be circular here, as both go through the one shared method, so the values
+#image.fits has always produced are pinned instead
+pixscale_ref = 0.339000044241
+pixarea_ref = 0.114921029995
 point_image_fits = Rfits_point(file_image)
-expect_equal(pixscale(point_image_fits), pixscale(temp_image))
-expect_equal(pixarea(point_image_fits), pixarea(temp_image))
+expect_equal(pixscale(point_image_fits), pixscale_ref, tolerance = 1e-10)
+expect_equal(pixarea(point_image_fits), pixarea_ref, tolerance = 1e-10)
+expect_equal(pixscale(temp_image), pixscale_ref, tolerance = 1e-10)
+expect_equal(pixarea(temp_image), pixarea_ref, tolerance = 1e-10)
 #and every documented loc option still returns a sensible scale
 for(loc in c('cen', 'bl', 'tl', 'tr', 'br')){
   expect_equal(pixscale(point_image_fits, loc = loc), pixscale(temp_image, loc = loc))
@@ -552,3 +573,6 @@ for(loc in c('cen', 'bl', 'tl', 'tr', 'br')){
 }
 expect_equal(pixscale(point_image_fits, loc = c(100, 200)), pixscale(temp_image, loc = c(100, 200)))
 expect_equal(pixscale(point_image_fits, useraw = FALSE), pixscale(point_image_fits))
+#centre and corners on the 2D image, likewise pinned
+expect_equal(corners(point_image_fits)[1, 'RA'], 352.311115817, tolerance = 1e-8)
+expect_equal(corners(point_image_fits)[1, 'Dec'], -31.839058568, tolerance = 1e-8)
