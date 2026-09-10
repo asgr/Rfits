@@ -17,17 +17,42 @@
 
 .minmax = function(x) c(min(x), max(x))
 
-#Project several pixel positions on to the sky, one position per call. wcslib
-#takes the number of coordinate axes from NAXIS, so a multi-point vector is
-#refused whenever the header describes more than two axes (a cube, or a 4D
-#array), and Rwcs hands back zeros rather than failing loudly. A single position
-#is accepted whatever NAXIS says, which is why centre and corners have always
-#worked on cubes while pixscale and pixarea quietly returned 0.
-.Rwcs_p2s_rows = function(x, y, keyvalues, header=NULL, ...){
-  pts = lapply(seq_along(x), function(i){
-    Rwcs::Rwcs_p2s(x[i], y[i], keyvalues = keyvalues, header = header, pixcen = 'R', ...)
-  })
-  return(do.call(rbind, pts))
+#Projecting pixels needs a WCS with exactly two coordinate axes, but wcslib takes
+#the number of axes from NAXIS. Handing it the header of a cube or a 4D array,
+#while only ever asking about RA and Dec, leaves ncoord and nelem inconsistent
+#with the parsed wcsprm. Rwcs reports that on stderr and returns zeros rather
+#than failing, and repeated calls corrupt memory inside Cwcs_head_p2s, so this is
+#not simply a matter of getting a bad answer.
+#
+#Trim the keywords to the two celestial axes: drop every keyword that names an
+#axis beyond the second, and make NAXIS / WCSAXES agree with what is left. A
+#header that already describes two axes is returned untouched, so the ordinary
+#image case cannot change at all. The raw form is only rebuilt when something
+#actually had to be dropped.
+.wcs2_axes = function(keyvalues, header=NULL){
+  naxis = if(!is.null(keyvalues$WCSAXES)) keyvalues$WCSAXES else keyvalues$NAXIS
+  if(is.null(naxis) | naxis <= 2){
+    return(list(keyvalues = keyvalues, header = header))
+  }
+  
+  nms = names(keyvalues)
+  drop = grepl('^(Z)?NAXIS[3-9]$', nms) |
+    grepl('^(Z)?(CRPIX|CRVAL|CTYPE|CUNIT|CDELT|CROTA|LONPOLE|LATPOLE)[3-9]$', nms) |
+    grepl('^(Z)?(CD|PC)[0-9]+_[3-9]$', nms) |
+    grepl('^(Z)?(CD|PC)[3-9]_[0-9]+$', nms) |
+    grepl('^(Z)?WCSAXES[3-9]$', nms)
+  if(all(!drop)){
+    #More axes are claimed than any keyword describes, so NAXIS alone is the
+    #thing that is wrong
+    drop = grepl('^(WCSAXES|NAXIS)$', nms)
+  }
+  
+  keyvalues = keyvalues[!drop]
+  keyvalues$NAXIS = 2L
+  if(!is.null(keyvalues$WCSAXES)){keyvalues$WCSAXES = 2L}
+  if(!is.null(header)){header = Rfits_keyvalues_to_raw(keyvalues)}
+  
+  return(list(keyvalues = keyvalues, header = header))
 }
 
 .spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))

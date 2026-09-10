@@ -81,6 +81,11 @@ centre.Rfits_image = function(x, useraw=TRUE, ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
@@ -155,6 +160,11 @@ corners.Rfits_image = function(x, useraw=TRUE, RAneg=FALSE, ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
     TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
@@ -341,7 +351,12 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
     }else{
       header = NULL
     }
-    output = .Rwcs_p2s_rows(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, ...)
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
+    output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
@@ -450,7 +465,12 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
     }else{
       header = NULL
     }
-    output = .Rwcs_p2s_rows(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, ...)
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
+    output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
     }
