@@ -516,3 +516,267 @@ point_nowcs = Rfits_point_zarr(file_nowcs, extname = 'bare')
 expect_error(centre(point_nowcs), 'No FITS style metadata')
 expect_error(corners(point_nowcs), 'No FITS style metadata')
 expect_error(rotation(point_nowcs), 'No FITS style metadata')
+
+#ex 35 the store describes itself. Root attributes exist after a write, list that
+#array, and agree with what the array actually is
+file_root = file.path(subdir, 'root.zarr')
+Rfits_write_image_zarr(data_2d, file_root, extname = 'alpha', keyvalues = keyvalues_2d,
+                       compressor = 'lz4', clevel = 5L)
+root_of = function(path){
+  zarr::open_zarr(path, protocol = 'local', read_only = TRUE)$root$attributes
+}
+attrs = root_of(file_root)
+expect_equal(attrs$convention, 'Rfits.zarr')
+expect_identical(attrs$schema_version, 1L)
+expect_true(is.character(attrs$Rfits_version))
+expect_match(attrs$created, '^[0-9]{4}-[0-9]{2}-[0-9]{2}T')
+expect_identical(attrs$images_array, 'alpha')
+#total_images is the total number of elements across all arrays, not a count of them
+expect_identical(attrs$total_images, 24L)
+expect_equal(attrs$images_shape$alpha, as.integer(dim(data_2d)))
+expect_equal(attrs$data_type$alpha, 'float64')
+expect_equal(attrs$codec$alpha, 'blosc')
+expect_equal(attrs$compressor$alpha, 'lz4')
+expect_equal(attrs$compression_level$alpha, 5L)
+expect_equal(attrs$fill_value$alpha, 'NaN')
+expect_identical(attrs$fits_header$alpha, TRUE)
+expect_identical(attrs$key_count$alpha, length(keyvalues_2d))
+expect_equal(attrs$creation_info$batched_nchw, FALSE)
+#recorded values are read off the array, so they must match the array itself
+node_alpha = zarr::open_zarr(file_root, protocol = 'local', read_only = TRUE)$get_node('/alpha')
+expect_equal(as.integer(node_alpha$shape), attrs$images_shape$alpha)
+expect_equal(node_alpha$metadata$data_type, attrs$data_type$alpha)
+expect_equal(node_alpha$metadata$chunk_grid$configuration$chunk_shape, attrs$chunk_shape$alpha)
+
+#a second array is added to the lists rather than replacing the first
+Rfits_write_image_zarr(data_1d, file_root, extname = 'beta', keyvalues = keyvalues_1d)
+attrs = root_of(file_root)
+expect_setequal(attrs$images_array, c('alpha', 'beta'))
+expect_identical(attrs$total_images, 34L)
+#rewriting an array refreshes its entry without duplicating it
+Rfits_write_image_zarr(data_2d[, 1:3], file_root, extname = 'beta', keyvalues = keyvalues_2d)
+attrs = root_of(file_root)
+expect_setequal(attrs$images_array, c('alpha', 'beta'))
+expect_equal(attrs$images_shape$beta, c(4L, 3L))
+expect_identical(attrs$total_images, 36L)
+#the per array mirror agrees with the root
+b_node = zarr::open_zarr(file_root, protocol = 'local', read_only = TRUE)$get_node('/beta')
+expect_equal(b_node$attributes$compressor, attrs$compressor$beta)
+expect_equal(as.integer(b_node$attributes$chunk_shape), attrs$chunk_shape$beta)
+expect_equal(b_node$attributes$data_type, attrs$data_type$beta)
+
+#ex 36 append grows dimension 1, which is the slowest varying axis in FITS, R and
+#Zarr alike, so the existing elements keep their indices
+file_app = file.path(subdir, 'append.zarr')
+kv_app = keyvalues_2d
+kv_app$NAXIS1 = 4L
+Rfits_write_image_zarr(data_2d, file_app, extname = 'data1', keyvalues = kv_app)
+before = Rfits_read_image_zarr(file_app, extname = 'data1')
+inc = matrix(as.numeric(101:118), 3, 6)
+ap = Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE)
+expect_identical(ap$start_index, 5L)
+expect_identical(ap$end_index, 7L)
+expect_identical(ap$appended, 3L)
+expect_equal(ap$dim, c(7L, 6L))
+after = Rfits_read_image_zarr(file_app, extname = 'data1')
+expect_equal(dim(after$imDat), c(7, 6))
+expect_equal(after$imDat[1:4, ], before$imDat)
+expect_equal(after$imDat[5:7, ], inc)
+expect_equal(after$keyvalues$NAXIS1, 7L)
+expect_equal(after$keyvalues$NAXIS2, 6L)
+expect_true(any(grepl('Rfits appended 3 elements', after$history)))
+hist1 = root_of(file_app)$append_history
+expect_length(hist1, 1)
+expect_identical(hist1[[1]]$start_index, 5L)
+expect_identical(hist1[[1]]$end_index, 7L)
+expect_equal(hist1[[1]]$extname, 'data1')
+#a second append adds a second entry rather than replacing the first
+Rfits_write_image_zarr(matrix(as.numeric(201:212), 2, 6), file_app, extname = 'data1',
+                       append = TRUE)
+hist2 = root_of(file_app)$append_history
+expect_length(hist2, 2)
+expect_identical(hist2[[2]]$start_index, 8L)
+expect_identical(hist2[[2]]$end_index, 9L)
+expect_equal(root_of(file_app)$total_images, 54L)
+#matrix(201:212, 2, 6) fills by column, so the second new row is the even values
+expect_equal(Rfits_read_image_zarr(file_app, extname = 'data1', header = FALSE)[9, ],
+             as.numeric(c(202, 204, 206, 208, 210, 212)))
+#the named wrapper does the same thing
+expect_equal(Rfits_append_image_zarr(matrix(as.numeric(1:12), 2, 6), file_app,
+                                     extname = 'data1')$dim, c(11L, 6L))
+#dimension 1 of a 1D array is all there is, so it grows the same way
+file_app1 = file.path(subdir, 'append1.zarr')
+Rfits_write_image_zarr(data_1d, file_app1, extname = 'v', keyvalues = keyvalues_1d)
+Rfits_write_image_zarr(as.numeric(11:15), file_app1, extname = 'v', append = TRUE)
+expect_equal(Rfits_read_image_zarr(file_app1, extname = 'v', header = FALSE),
+             as.numeric(c(1:10, 11:15)))
+
+#ex 37 the append guards
+expect_error(Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE,
+                                    overwrite_file = TRUE), 'both append and overwrite_file')
+expect_error(Rfits_write_image_zarr(matrix(as.numeric(1:15), 3, 5), file_app,
+                                    extname = 'data1', append = TRUE), 'dimensions')
+expect_error(Rfits_write_image_zarr(data_3d[1:2, , ], file_app, extname = 'data1',
+                                    append = TRUE), 'dimensions')
+expect_error(Rfits_write_image_zarr(inc, file_app, extname = 'nope', append = TRUE),
+             'non-existent')
+#an append never widens or narrows the stored type. Unrequested, it coerces with
+#a message; requested explicitly, it is an error rather than a silent rewrite
+expect_message(Rfits_write_image_zarr(matrix(1L:18, 3, 6), file_app, extname = 'data1',
+                                      append = TRUE), 'float64')
+expect_equal(Rfits_read_image_zarr(file_app, extname = 'data1')$keyvalues$NAXIS1, 14L)
+expect_error(Rfits_write_image_zarr(matrix(1L:18, 3, 6), file_app, extname = 'data1',
+                                    append = TRUE, data_type = 'int32'), 'data_type')
+#a compressor cannot be changed on an array that already exists, and says so
+expect_message(Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE,
+                                      compressor = 'blosclz'), 'were not applied')
+
+#ex 38 compressor mapping, and the recorded level is the applied level
+file_comp = file.path(subdir, 'codecs.zarr')
+codec_of = function(path, extname){
+  zarr::open_zarr(path, protocol = 'local', read_only = TRUE)$get_node(.zarr_name_to_path(extname))
+}
+for(name in c('blosc', 'blosclz', 'lz4', 'lz4hc', 'zstd')){
+  ext = paste0('c_', name)
+  res = Rfits_write_image_zarr(data_2d, file_comp, extname = ext, compressor = name, clevel = 9L)
+  #the default name is not itself a blosc cname, it means zarr's own default
+  want = if(name == 'blosc') 'zstd' else name
+  expect_equal(root_of(file_comp)$compressor[[ext]], want)
+  expect_identical(root_of(file_comp)$compression_level[[ext]], 9L)
+  expect_equal(res$compressor, want)
+  expect_equal(res$compression_level, 9L)
+}
+#gzip and zlib are the same thing, carried by blosc since the standalone codec
+#needs a package that is not a dependency of zarr or Rfits
+Rfits_write_image_zarr(data_2d, file_comp, extname = 'gz', compressor = 'gzip', clevel = 3L)
+expect_equal(root_of(file_comp)$compressor$gz, 'zlib')
+#names blosc cannot produce fall back with a warning rather than being recorded
+expect_warning(Rfits_write_image_zarr(data_2d, file_comp, extname = 'bz',
+                                      compressor = 'bz2'), 'cannot be produced')
+expect_equal(root_of(file_comp)$compressor$bz, 'zstd')
+expect_warning(Rfits_write_image_zarr(data_2d, file_comp, extname = 'nope',
+                                      compressor = 'not_a_thing'), 'not recognised')
+expect_equal(root_of(file_comp)$compressor$nope, 'zstd')
+#shuffle is recorded as a blosc shuffle name, never as a logical
+Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_on', shuffle = TRUE)
+Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_off', shuffle = FALSE)
+expect_equal(root_of(file_comp)$shuffle$shuf_on, 'shuffle')
+expect_equal(root_of(file_comp)$shuffle$shuf_off, 'noshuffle')
+expect_error(Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_bad',
+                                    shuffle = 'sometimes'), 'shuffle')
+#what is recorded matches what the array actually carries
+n = codec_of(file_comp, 'shuf_on')
+expect_equal(n$metadata$codecs[[3]]$configuration$shuffle, 'shuffle')
+expect_equal(n$metadata$codecs[[3]]$configuration$cname, root_of(file_comp)$compressor$shuf_on)
+#the logical path really does work end to end, which is the point of the mapping
+expect_equal(Rfits_read_image_zarr(file_comp, extname = 'shuf_on', header = FALSE), data_2d)
+expect_equal(Rfits_read_image_zarr(file_comp, extname = 'gz', header = FALSE), data_2d)
+
+#ex 39 Rfits_inspect_zarr reports what it can state truthfully
+info = Rfits_inspect_zarr(file_root, print = FALSE)
+expect_equal(info$filename, file_root)
+expect_equal(info$zarr_format, 3L)
+expect_true(info$self_describing)
+expect_equal(info$convention, 'Rfits.zarr')
+expect_identical(info$n_arrays, 2L)
+expect_setequal(info$array_names, c('alpha', 'beta'))
+expect_identical(info$total_elements, 36L)
+expect_identical(info$arrays$alpha$shape, c(4L, 6L))
+expect_equal(info$arrays$alpha$compressor, 'lz4')
+expect_identical(info$arrays$alpha$fill_value, 'NaN')
+expect_true(info$arrays$alpha$fits_header)
+expect_identical(info$store_bytes, unlist(file.info(
+  list.files(file_root, recursive = TRUE, full.names = TRUE))$size) |> sum())
+expect_silent(Rfits_inspect_zarr(file_root, print = FALSE))
+printed = capture.output(Rfits_inspect_zarr(file_root))
+expect_true(any(grepl('SUMMARY STATISTICS', printed)))
+expect_true(any(grepl('alpha', printed)))
+#no pixel statistics are computed, so inspect stays cheap over a remote store
+expect_false(any(grepl('min_value', names(unlist(info)))))
+
+#a store with no self-description is reported as such rather than guessed at
+file_older = file.path(subdir, 'older.zarr')
+Rfits_write_image_zarr(data_2d, file_older, extname = 'data1', keyvalues = keyvalues_2d,
+                       update_root = FALSE)
+info_old = Rfits_inspect_zarr(file_older, print = FALSE)
+expect_false(info_old$self_describing)
+expect_true(is.na(info_old$convention))
+expect_identical(info_old$n_arrays, 1L)
+expect_equal(info_old$arrays$data1$compressor, 'zstd')
+printed_old = capture.output(Rfits_inspect_zarr(file_older))
+expect_true(any(grepl('absent', printed_old)))
+
+#ex 40 update_root = FALSE leaves the root stale, and a later refresh fixes it
+attrs_stale = root_of(file_older)
+expect_true(is.null(attrs_stale$images_array))
+Rfits_write_image_zarr(data_1d, file_older, extname = 'later', keyvalues = keyvalues_1d,
+                       update_root = FALSE)
+expect_true(is.null(root_of(file_older)$images_array))
+Rfits_write_image_zarr(data_1d, file_older, extname = 'later2', keyvalues = keyvalues_1d)
+attrs_fixed = root_of(file_older)
+expect_setequal(attrs_fixed$images_array, c('data1', 'later', 'later2'))
+expect_identical(attrs_fixed$total_images, 44L)
+#refreshing rebuilds the description but the store is still the one created first,
+#so the original timestamp has to survive it
+created_1 = attrs_fixed$created
+expect_match(created_1, '^[0-9]{4}-')
+Sys.sleep(1.1)
+Rfits_write_image_zarr(data_1d, file_older, extname = 'later3', keyvalues = keyvalues_1d)
+expect_equal(root_of(file_older)$created, created_1)
+expect_setequal(root_of(file_older)$images_array,
+                c('data1', 'later', 'later2', 'later3'))
+
+#ex 41 a foreign store says so, rather than reporting missing FITS metadata
+file_foreign = file.path(subdir, 'foreign.zarr')
+Rfits_write_image_zarr(data_2d, file_foreign, extname = 'images', update_root = FALSE)
+#overwrite the data without any FITS metadata, then hand the root the key names a
+#plain image to zarr converter writes, with no convention marker
+fr = zarr::open_zarr(file_foreign, protocol = 'local', read_only = FALSE)
+meta = fr$root$metadata
+meta$attributes = list(total_images = 24L, images_array = list('images'))
+fr$store$set_metadata('/', meta)
+expect_null(root_of(file_foreign)$convention)
+read_foreign = NULL
+expect_message(read_foreign <- Rfits_read_image_zarr(file_foreign, extname = 'images'),
+               'not written by Rfits')
+expect_equal(read_foreign, data_2d)
+#and an ordinary Rfits array with no metadata still gets the old warning
+expect_warning(Rfits_read_image_zarr(file_nowcs, extname = 'bare'),
+               'No FITS style metadata')
+
+#ex 42 the new attributes must not disturb the FITS metadata in any way, so the
+#round trip is still exact and the technical names never leak into the keywords
+expect_equal(Rfits_read_image_zarr(file_image_zarr, extname = 'image')$header,
+             temp_image$header)
+leaked = intersect(c('data_type', 'chunk_shape', 'codec', 'compressor',
+                     'compression_level', 'shuffle', 'fill_value'),
+                   Rfits_read_image_zarr(file_root, extname = 'alpha')$keynames)
+expect_length(leaked, 0)
+skip_if_not_installed("hdf5r")
+file_zarr_cmp2 = file.path(subdir, 'compare2.zarr')
+Rfits_write_image_zarr(obj_2d, file_zarr_cmp2, extname = 'data1')
+from_zarr2 = Rfits_read_image_zarr(file_zarr_cmp2, extname = 'data1')
+expect_equal(unclass(from_hdf5$keyvalues), unclass(from_zarr2$keyvalues))
+expect_equal(from_hdf5$header, from_zarr2$header)
+
+#and the whole self describing plus append cycle works on a store object too. A
+#memory store matters here because the root group prefix and the store key for it
+#are not the same thing, so writing the root through the node API leaves a second
+#phantom key behind that makes the store impossible to reopen
+mem_app = zarr::zarr_memorystore$new()
+Rfits_write_image_zarr(data_2d, mem_app, extname = 'data1', keyvalues = keyvalues_2d)
+expect_equal(zarr::zarr$new(mem_app)$root$attributes$total_images, 24L)
+mem_ap = Rfits_write_image_zarr(matrix(as.numeric(101:112), 2, 6), mem_app,
+                                extname = 'data1', append = TRUE)
+expect_equal(mem_ap$dim, c(6, 6))
+#the store must still be openable by anyone after the root was rewritten
+expect_silent(zarr::zarr$new(mem_app))
+mem_read = Rfits_read_image_zarr(mem_app, extname = 'data1')
+expect_equal(mem_read$imDat[1:4, ], data_2d)
+expect_equal(mem_read$imDat[5:6, ], matrix(as.numeric(101:112), 2, 6))
+expect_equal(mem_read$keyvalues$NAXIS1, 6L)
+mem_info = Rfits_inspect_zarr(mem_app, print = FALSE)
+expect_equal(mem_info$total_elements, 36L)
+expect_length(mem_info$append_history, 1)
+#no local directory, so no size to report
+expect_true(is.na(mem_info$store_bytes))

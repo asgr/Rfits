@@ -8,6 +8,10 @@
 \alias{Rfits_write_image_zarr}
 \alias{Rfits_write_cube_zarr}
 \alias{Rfits_write_array_zarr}
+\alias{Rfits_append_vector_zarr}
+\alias{Rfits_append_image_zarr}
+\alias{Rfits_append_cube_zarr}
+\alias{Rfits_append_array_zarr}
 \alias{Rfits_point_zarr}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
@@ -35,19 +39,31 @@ Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, hea
 
 Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
+  compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
+  compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
+  compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
+  compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
+
+Rfits_append_image_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
+
+Rfits_append_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
+
+Rfits_append_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
+
+Rfits_append_array_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
 
 Rfits_point_zarr(filename = 'temp.zarr', extname = 'data1', ext = NULL, header = TRUE)
 }
@@ -114,7 +130,19 @@ Character scalar; the Zarr data type to store the data as. One of \code{'int8'},
 Integer vector; the chunk shape to use when storing the array, with one entry per dimension, each between 1 and the size of that dimension. The default, NULL, uses \code{\link[zarr]{optimal_chunking}}, which targets roughly 4 MB chunks. Chunks are what make partial reads of large archives efficient.
 }
   \item{clevel}{
-Integer scalar between 0 and 9; the blosc compression level to apply.
+Integer scalar between 0 and 9; the blosc compression level to apply. Note that zarr's own default is 1, whereas this is 6, because a FITS archive is written rarely and read often. Whatever is applied is what gets recorded in the store metadata, so the two cannot disagree.
+}
+  \item{compressor}{
+Character scalar; the blosc compressor to use. One of \code{'blosc'} (the default, which means \code{'zstd'}, the zarr default), \code{'blosclz'}, \code{'lz4'}, \code{'lz4hc'}, \code{'zstd'}, \code{'zlib'} or \code{'gzip'} (an alias for \code{'zlib'}). The names \code{'bz2'} and \code{'lzma'} are accepted but cannot be produced by the blosc codec, so they warn and fall back to \code{'zstd'} rather than being recorded under a name that does not match the bytes on disk. The compressor of an existing array cannot be changed by an append, which says so rather than doing nothing.
+}
+  \item{shuffle}{
+Logical or character scalar; the blosc shuffle to apply. Either \code{TRUE}/\code{FALSE} (which map to \code{'shuffle'}/\code{'noshuffle'}) or one of \code{'shuffle'}, \code{'noshuffle'}, \code{'bitshuffle'}. The default, NULL, leaves the choice to zarr, which picks a shuffle suited to the data type.
+}
+  \item{append}{
+Logical scalar; if TRUE the data is appended along dimension 1 of an existing array rather than replacing it. See Details.
+}
+  \item{update_root}{
+Logical scalar; if TRUE (default) the store level description is rebuilt after a successful write. Set FALSE when writing many arrays in a loop, and then do at least one final write with it left at TRUE, since the refresh reads the metadata of every array in the store. Note that \code{\link{Rfits_inspect_zarr}} only reports what is there, it never repairs it.
 }
   \item{keyvalues}{
 Named list; keyword values to store, as produced by \code{\link{Rfits_read_header}}. Only needed for data which is not already an \option{Rfits_image} style object.
@@ -131,6 +159,10 @@ Character vector; COMMENT lines to store.
   \item{history}{
 Character vector; HISTORY lines to store.
 }
+  \item{...}{
+For the \code{Rfits_append_xxx_zarr} wrappers, any of the other arguments of
+\code{Rfits_write_image_zarr} except \option{append}, which is always set to TRUE.
+}
 }
 \details{
 These functions mimic a FITS like data structure using Zarr. A Zarr store is a directory rather than a single file, and each extension is stored as an array node inside it. The FITS style meta data is stored in the attributes of each array node, in \code{zarr.json} alongside the array metadata, under the names \option{header} (a character vector of 80 column FITS card images), \option{keyvalues}, \option{keycomments}, \option{comment} and \option{history}.
@@ -138,6 +170,20 @@ These functions mimic a FITS like data structure using Zarr. A Zarr store is a d
 The card images are authoritative; on read they are parsed in exactly the same way as the HDF5 back-end parses its stored header, so a file written with \code{Rfits_write_image_zarr} can be read back by any tool that understands Zarr attributes. The structured keyword lists are stored as well, so that non-R consumers can reach the metadata directly without having to parse FITS cards.
 
 Subsets are read by asking Zarr for only the requested chunk block, so cutting a small region out of a large cube does not require loading the whole array. Because missing data is represented by the array fill value, the types available in \option{data_type} each have their own missing value marker, and pixels which happen to equal that marker will read back as NA (a warning is issued when writing integer data that contains the marker).
+
+\strong{Store self-description}
+
+A Zarr store has no header of its own, so the root group carries a summary of everything the store holds: the array names, and for each array the shape, chunk shape, data type, codec, compressor, level, shuffle and fill value. Each array additionally carries those same technical parameters as its own attributes. Every recorded value is read back off the array that was created rather than echoed from the request, so the metadata cannot claim a compression setting that was never applied.
+
+The key names follow the wider images-to-Zarr convention where the meaning transfers, so a foreign reader can at least locate the arrays. Two differences matter. \code{convention} is always \code{'Rfits.zarr'}, which is what distinguishes these stores from a converter output. And \code{total_images} is the total number of \emph{elements} across all arrays rather than a count of images, since a single FITS file may hold one large cube; the per-array truth is in \code{images_shape}.
+
+Stores written before this existed have no root description, which is reported honestly rather than filled in, and is repaired by the next write. Reading a store that advertises the images-to-Zarr keys without the \code{convention} marker produces a message saying the FITS headers were never stored, rather than the generic warning about missing metadata.
+
+\strong{Appending}
+
+With \option{append} = TRUE the data is the increment, not the complete final array: writing \code{3 x 6} to an existing \code{4 x 6} array produces a \code{7 x 6} array. Growth happens along dimension 1 only, which is the slowest varying axis in FITS, R and Zarr alike, so the elements already in the store keep their indices. Every other dimension must match exactly, and the rank must not change.
+
+The stored data type is never widened or narrowed: an unrequested type difference is coerced to the existing array's type with a message, while an explicit \option{data_type} that disagrees is an error. The compressor of an existing array cannot be changed, which is reported rather than ignored. \option{NAXIS1} (or \option{ZNAXIS1} for a compressed image) is updated to follow the array, and a HISTORY line records the event on the array and in the root's \code{append_history}. Keywords already in the header win over any supplied with the append, since the alternative would be silently rewriting the WCS of a whole extension. Appending to an array with no FITS metadata leaves nothing invented behind: the array grows, and a message says no keys were updated.
 
 \strong{Remote stores}
 
@@ -151,6 +197,12 @@ Writes require a store created with \option{read_only} = FALSE; that flag cannot
 \code{Rfits_read_xxx_zarr} reads image data from a Zarr store. The different variants actually all point to \code{Rfits_read_image_zarr} internally, but for code clarity it is often good to make the data type more explicit.
 
 \code{Rfits_write_xxx_zarr} writes image data to a Zarr store, adding it as a new array node (or replacing the node of that name if it already exists). The different variants actually all point to \code{Rfits_write_image_zarr} internally, but for code clarity it is often good to make the data type more explicit.
+
+Invisibly, a list with components \option{filename}, \option{extname}, \option{dim}, \option{data_type}, \option{chunk_shape}, \option{compressor} and \option{compression_level}. The last two are the values applied to the array as created, which is not necessarily what was asked for.
+
+\code{Rfits_append_xxx_zarr} is \code{Rfits_write_image_zarr} called with \option{append} = TRUE. Its return value additionally carries \option{start_index}, \option{end_index} and \option{appended}, so the range that was written is known without reading the array back.
+
+\code{\link{Rfits_inspect_zarr}} summarises a store without reading any pixel data.
 
 \code{Rfits_point_zarr} returns an object of class \option{Rfits_pointer_zarr} without reading any data. Subsetting that object with \code{[} reads only the requested region, which is the point of a pointer.
 
@@ -197,6 +249,22 @@ temp_image_zarr = Rfits_read_image_zarr(file_image_temp, extname = 'image')
 
 #Check
 sum(temp_image$imDat - temp_image_zarr$imDat)
+
+#Append to an existing extension. The data is the increment, so this grows the
+#array along dimension 1 rather than replacing it
+first = matrix(as.numeric(1:24), 4, 6)
+Rfits_write_image_zarr(first, file_image_temp, extname = 'stack',
+                       keyvalues = temp_image$keyvalues)
+grown = Rfits_write_image_zarr(matrix(as.numeric(101:112), 2, 6), file_image_temp,
+                               extname = 'stack', append = TRUE)
+grown$start_index
+grown$end_index
+dim(Rfits_read_image_zarr(file_image_temp, extname = 'stack')$imDat)
+
+#Choose a compressor; what is applied is what gets recorded
+Rfits_write_image_zarr(first, file_image_temp, extname = 'fast', compressor = 'lz4',
+                       clevel = 3L)
+Rfits_inspect_zarr(file_image_temp, print = FALSE)$arrays$fast
 
 #A pointer, which only reads what you ask of it
 point = Rfits_point_zarr(file_image_temp, extname = 'image')

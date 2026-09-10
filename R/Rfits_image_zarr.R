@@ -444,7 +444,16 @@ Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL
       meta = .zarr_get_meta(node, remove_HIERARCH=remove_HIERARCH)
 
       if(is.null(meta)){
-        warning('No FITS style metadata found for extension: ', extname)
+        #A store produced by a plain image-to-zarr converter carries the shared
+        #root key names but no FITS metadata at all, which is worth separating
+        #from a genuinely unnamed Rfits extension
+        if(.zarr_is_foreign_store(store)){
+          message('This Zarr store was not written by Rfits (it advertises the images to Zarr ',
+                  'root attributes but no convention marker). FITS headers are not stored by ',
+                  'such converters, so the array is returned without any metadata.')
+        }else{
+          warning('No FITS style metadata found for extension: ', extname)
+        }
         output = image
       }else{
         header = meta$header
@@ -551,6 +560,409 @@ Rfits_read_vector_zarr = Rfits_read_image_zarr
 Rfits_read_cube_zarr = Rfits_read_image_zarr
 Rfits_read_array_zarr = Rfits_read_image_zarr
 
+#A Zarr array carries no FITS node structure of its own, so the store is made
+#self-describing in two places: a set of root group attributes summarising every
+#array, and a small mirror of the technical parameters on each array itself. The
+#names follow the wider images-to-Zarr convention where the meaning transfers, so
+#that a foreign reader can at least find the arrays, but every value recorded is
+#read back off the array that was written rather than echoed from the request.
+
+#A fill or missing value cannot be stored as NA at the top level of an attribute,
+#since jsonlite drops it and the key silently disappears. Missing text is
+#therefore written as an empty string, and absent keys mean unavailable.
+.zarr_root_keys = c('convention', 'schema_version', 'Rfits_version', 'created',
+                    'total_images', 'images_array', 'images_shape', 'image_shape',
+                    'chunk_shape', 'data_type', 'codec', 'compressor',
+                    'compression_level', 'shuffle', 'fill_value', 'fits_header',
+                    'key_count', 'supported_extensions', 'creation_info',
+                    'append_history')
+
+.zarr_array_keys = c('data_type', 'chunk_shape', 'codec', 'compressor',
+                     'compression_level', 'shuffle', 'fill_value')
+
+#The blosc cname values accepted by zarr (0.5.0). Note that 'blosc' is not one of
+#them, so the user facing default name maps to zarr's own default compressor.
+#Throughout, 'codec' means the Zarr codec family (always 'blosc' for us) and
+#'compressor' means the cname that codec carries, on arrays and at the root alike.
+.zarr_cnames = c('blosclz', 'lz4', 'lz4hc', 'zstd', 'zlib')
+
+.zarr_compressor_names = c('blosc', 'blosclz', 'lz4', 'lz4hc', 'zstd', 'zlib', 'gzip',
+                           'bz2', 'lzma')
+
+.zarr_shuffle_names = c('shuffle', 'noshuffle', 'bitshuffle')
+
+#Logical shuffle values must never reach the codec: zarr only validates shuffle
+#when it is character or integer, so TRUE/FALSE pass add_codec() unchanged and
+#then fail deep inside write() with an opaque error. NULL means leave it to zarr,
+#which picks a shuffle appropriate to the data type.
+.zarr_shuffle = function(shuffle){
+  if(is.null(shuffle)){
+    return(NULL)
+  }
+  if(is.logical(shuffle)){
+    if(length(shuffle) != 1 | is.na(shuffle)){
+      stop('shuffle must be TRUE, FALSE, NULL, or one of: ',
+           paste(.zarr_shuffle_names, collapse = ', '), call. = FALSE)
+    }
+    return(if(shuffle) 'shuffle' else 'noshuffle')
+  }
+  assertCharacter(shuffle, len=1)
+  if(!(shuffle %in% .zarr_shuffle_names)){
+    stop('shuffle must be TRUE, FALSE, NULL, or one of: ',
+         paste(.zarr_shuffle_names, collapse = ', '), call. = FALSE)
+  }
+  return(shuffle)
+}
+
+#Resolve a requested compressor into a blosc configuration. Names that blosc
+#cannot produce fall back with a warning rather than being recorded under a name
+#that does not match the bytes on disk.
+.zarr_compressor = function(compressor = 'blosc', clevel = 6L, shuffle = NULL){
+  assertCharacter(compressor, len=1)
+  assertIntegerish(clevel, len=1, lower=0, upper=9)
+
+  compressor = tolower(compressor)[1]
+  shuffle = .zarr_shuffle(shuffle)
+
+  cname = switch(compressor,
+                 #zarr's own blosc default, and what a plain blosc request means
+                 blosc = 'zstd',
+                 blosclz = 'blosclz',
+                 lz4 = 'lz4',
+                 lz4hc = 'lz4hc',
+                 zstd = 'zstd',
+                 #The standalone gzip codec needs the zlib package, which is not a
+                 #dependency of either Rfits or zarr, so blosc carrying zlib is the
+                 #only honest way to honour a gzip request.
+                 zlib = 'zlib',
+                 gzip = 'zlib',
+                 NULL)
+
+  if(is.null(cname)){
+    if(compressor %in% c('bz2', 'lzma')){
+      warning('Compressor "', compressor, '" cannot be produced by the Zarr blosc codec, ',
+              'falling back to "zstd"!', call. = FALSE)
+    }else{
+      warning('Compressor "', compressor, '" is not recognised, falling back to "zstd". ',
+              'Supported names are: ', paste(.zarr_compressor_names, collapse = ', '), '!',
+              call. = FALSE)
+    }
+    cname = 'zstd'
+  }
+
+  config = list(cname = cname, clevel = as.integer(clevel))
+  if(!is.null(shuffle)){
+    config$shuffle = shuffle
+  }
+  return(config)
+}
+
+#The codec actually applied to an array, read back from its metadata. Returns
+#NULL when the array carries no blosc codec, which is how a foreign array looks.
+.zarr_codec_of = function(node){
+  codecs = tryCatch(node$metadata$codecs, error = function(e) NULL)
+  if(is.null(codecs) | length(codecs) == 0){
+    return(NULL)
+  }
+  #Completed metadata holds plain lists; a freshly built array holds codec objects
+  names_of = vapply(codecs, function(x){
+    if(is.list(x)){
+      return(as.character(x$name))
+    }
+    return(as.character(tryCatch(x$name, error = function(e) '')))
+  }, character(1))
+  loc = which(names_of == 'blosc')
+  if(length(loc) == 0){
+    return(NULL)
+  }
+  conf = codecs[[loc[1]]]
+  if(is.list(conf)){
+    conf = conf$configuration
+  }else{
+    conf = tryCatch(conf$configuration, error = function(e) NULL)
+  }
+  if(is.null(conf)){
+    return(NULL)
+  }
+  return(list(name = 'blosc',
+              cname = as.character(conf$cname),
+              clevel = as.integer(conf$clevel),
+              shuffle = as.character(conf$shuffle)))
+}
+
+#The chunk shape of an array, which zarr keeps nested inside the chunk grid
+.zarr_chunk_shape_of = function(node){
+  cs = tryCatch(node$metadata$chunk_grid$configuration$chunk_shape, error = function(e) NULL)
+  if(is.null(cs)){
+    return(NULL)
+  }
+  return(as.vector(as.integer(cs)))
+}
+
+.zarr_fill_text = function(fill){
+  if(is.null(fill)){
+    return('')
+  }
+  #NaN and NA cannot survive a JSON round trip as themselves, so record the
+  #marker as the string a consumer would have to compare against
+  if(is.logical(fill)){
+    return(ifelse(isTRUE(fill), 'true', 'false'))
+  }
+  #is.na() is TRUE for NaN, so the NaN test has to come first
+  if(length(fill) == 1 && is.nan(fill)){
+    return('NaN')
+  }
+  if(length(fill) == 1 && is.na(fill)){
+    return('NA')
+  }
+  return(as.character(fill))
+}
+
+#Trim the trailing singleton dimensions that FITS itself would not have written
+.zarr_trim_shape = function(shape){
+  shape = as.vector(as.integer(shape))
+  if(length(shape) > 1){
+    last = max(which(shape != 1L))
+    shape = shape[1:last]
+  }
+  return(shape)
+}
+
+#Counts stay integers while they fit, because that is what they are, but a large
+#archive overflows easily (4096 x 4096 x 1000 is 1.7e10) and as.integer() would
+#turn that into NA. Accumulate in double and narrow only when it is safe.
+.zarr_count = function(x){
+  if(length(x) == 1 && !is.na(x) && abs(x) <= .Machine$integer.max){
+    return(as.integer(round(x)))
+  }
+  return(as.numeric(x))
+}
+
+#Always a double, so that a running total cannot overflow on the way. Two counts
+#that each fit in the integer range can still sum past it, so narrowing happens
+#only at the boundary, in .zarr_count().
+.zarr_element_count = function(shape){
+  prod(as.numeric(as.vector(as.integer(shape))))
+}
+
+#Counts may exceed the integer range, so they cannot be printed with %i, which
+#errors on a double that large
+.zarr_count_text = function(x){
+  if(is.na(x)){
+    return('NA')
+  }
+  sprintf('%.0f', x)
+}
+
+#The technical parameters of one array, as they are actually stored. zarr keeps
+#the dtype and fill value in the completed metadata rather than on readable
+#bindings (node$data_type is an R6 object that cannot be coerced to character),
+#so metadata is the only trustworthy source for them.
+.zarr_array_tech = function(node){
+  shape = as.vector(as.integer(node$shape))
+  codec = .zarr_codec_of(node)
+  meta = tryCatch(node$metadata, error = function(e) NULL)
+  data_type = if(is.null(meta)) '' else as.character(meta$data_type)
+  return(list(
+    shape = shape,
+    image_shape = .zarr_trim_shape(shape),
+    chunk_shape = .zarr_chunk_shape_of(node),
+    data_type = data_type,
+    codec = if(is.null(codec)) '' else codec$name,
+    compressor = if(is.null(codec)) '' else codec$cname,
+    clevel = if(is.null(codec)) NA_integer_ else codec$clevel,
+    shuffle = if(is.null(codec)) '' else codec$shuffle,
+    fill_value = .zarr_fill_text(if(is.null(meta)) NULL else meta$fill_value),
+    fits_header = is.character(tryCatch(node$attribute('header'), error = function(e) NULL)),
+    key_count = length(tryCatch(node$attribute('keyvalues'), error = function(e) NULL))
+  ))
+}
+
+#Write the per-array technical mirror. These sit alongside header/keyvalues, and
+#use the names in .zarr_array_keys so that they cannot collide with the FITS
+#metadata that .zarr_get_meta() reads.
+.zarr_array_tech_set = function(node, tech){
+  vals = list(data_type = tech$data_type,
+              chunk_shape = tech$chunk_shape,
+              codec = tech$codec,
+              compressor = tech$compressor,
+              compression_level = tech$clevel,
+              shuffle = tech$shuffle,
+              fill_value = tech$fill_value)
+  for(key in .zarr_array_keys){
+    node$set_attribute(key, vals[[key]])
+  }
+  return(invisible(NULL))
+}
+
+#Every root attribute that is not append history, rebuilt from the arrays that
+#currently exist. Rebuilt rather than merged, because set_attribute() keeps keys
+#that were written for an array which no longer exists.
+.zarr_root_values = function(store, created = NULL, append_history = NULL){
+  extnames = .zarr_extnames(store)
+
+  images_array = as.vector(extnames, 'character')
+  shapes = list()
+  image_shapes = list()
+  chunk_shapes = list()
+  data_types = list()
+  codecs = list()
+  compressors = list()
+  levels = list()
+  shuffles = list()
+  fills = list()
+  fits_flags = list()
+  key_counts = list()
+
+  #Double, so that summing integer-sized counts cannot overflow
+  total = 0
+  for(name in images_array){
+    node = tryCatch(store$get_node(.zarr_name_to_path(name)), error = function(e) NULL)
+    if(is.null(node)){
+      next
+    }
+    tech = .zarr_array_tech(node)
+    shapes[[name]] = tech$shape
+    image_shapes[[name]] = tech$image_shape
+    chunk_shapes[[name]] = tech$chunk_shape
+    data_types[[name]] = tech$data_type
+    codecs[[name]] = tech$codec
+    #The cname is the informative part, and is what a foreign reader expects to
+    #find under compressor. The codec family is recorded separately.
+    compressors[[name]] = tech$compressor
+    levels[[name]] = tech$clevel
+    shuffles[[name]] = tech$shuffle
+    fills[[name]] = tech$fill_value
+    fits_flags[[name]] = tech$fits_header
+    key_counts[[name]] = tech$key_count
+    total = total + .zarr_element_count(tech$shape)
+  }
+
+  attrs = list(
+    convention = 'Rfits.zarr',
+    schema_version = 1L,
+    Rfits_version = tryCatch(as.character(utils::packageVersion('Rfits')),
+                             error = function(e) ''),
+    created = if(is.null(created)) format(Sys.time(), '%Y-%m-%dT%H:%M:%SZ', tz = 'UTC') else created,
+    #Not a count of images: we are not batched, so this is the total number of
+    #elements across all arrays. The per array truth is in images_shape.
+    total_images = .zarr_count(total),
+    images_array = if(length(images_array)) as.list(images_array) else NULL,
+    images_shape = shapes,
+    image_shape = image_shapes,
+    chunk_shape = chunk_shapes,
+    data_type = data_types,
+    codec = codecs,
+    compressor = compressors,
+    compression_level = levels,
+    shuffle = shuffles,
+    fill_value = fills,
+    fits_header = fits_flags,
+    key_count = key_counts,
+    supported_extensions = list('fits'),
+    creation_info = list(rfits_backend = TRUE, batched_nchw = FALSE)
+  )
+  if(!is.null(append_history)){
+    attrs$append_history = append_history
+  }
+  return(attrs)
+}
+
+#Refresh the store level description. The attribute set is rebuilt from the arrays
+#that currently exist and written whole, because zarr only ever merges attributes
+#and an entry for a deleted array would otherwise be described forever. Foreign
+#attributes on the root are carried across untouched; only our own keys are
+#replaced. Written through the store rather than root$save(), because on a memory
+#store the root prefix is the empty string while its metadata lives under the key
+#root, and save() therefore writes a second phantom entry that makes the store
+#impossible to reopen.
+.zarr_root_refresh = function(store, append_entry = NULL){
+  meta = tryCatch(store$root$metadata, error = function(e) NULL)
+  if(is.null(meta)){
+    return(invisible(NULL))
+  }
+  existing = tryCatch(store$root$attributes, error = function(e) NULL)
+  if(!is.list(existing)){
+    existing = list()
+  }
+
+  created = existing$created
+  if(!(is.character(created) && length(created) == 1 && nzchar(created))){
+    created = NULL
+  }
+
+  history = existing$append_history
+  if(is.list(history) & length(history) > 0){
+    history = .zarr_json_to_list(history)
+  }else{
+    history = NULL
+  }
+  if(!is.null(append_entry)){
+    history = c(history, list(append_entry))
+  }
+
+  attrs = .zarr_root_values(store, created = created, append_history = history)
+
+  keep = existing[!(names(existing) %in% .zarr_root_keys)]
+  new = list()
+  for(key in names(attrs)){
+    val = attrs[[key]]
+    #NULL and empty entries cannot be represented in JSON at all, so they are left
+    #out rather than written as something a reader would have to guess about
+    if(is.null(val)){
+      next
+    }
+    if(is.list(val) && length(val) == 0){
+      next
+    }
+    new[[key]] = .zarr_clean_list(list(val))[[1]]
+  }
+
+  meta$attributes = c(keep, new)
+  written = tryCatch({store$store$set_metadata('/', meta); TRUE}, error = function(e) FALSE)
+  if(!written){
+    #Fall back to the node API, which works on every store except a memory one
+    tryCatch({
+      for(key in names(new)){
+        store$root$set_attribute(key, new[[key]])
+      }
+      store$root$save()
+    }, error = function(e) NULL)
+  }
+  return(invisible(attrs))
+}
+
+#Read the store level description back. Absent is normal for stores written
+#before this existed, and returns NULL rather than erroring.
+.zarr_root_attrs = function(store){
+  attrs = tryCatch(store$root$attributes, error = function(e) NULL)
+  if(!is.list(attrs) | length(attrs) == 0){
+    return(NULL)
+  }
+  return(lapply(attrs, .zarr_json_to_list_final))
+}
+
+.zarr_json_to_list_final = function(x){
+  if(is.list(x)){
+    return(.zarr_json_to_list(x))
+  }
+  return(x)
+}
+
+#A foreign store written by a plain image-to-zarr converter has the shared key
+#names but no FITS metadata and no convention marker. Worth saying so, since
+#otherwise the only message is the generic one about missing metadata.
+.zarr_is_foreign_store = function(store){
+  attrs = .zarr_root_attrs(store)
+  if(is.null(attrs)){
+    return(FALSE)
+  }
+  if(!is.null(attrs$convention)){
+    return(FALSE)
+  }
+  return(!is.null(attrs$total_images) | !is.null(attrs$images_array))
+}
+
 #Work out the zarr data type (and coerce the data) for an R object. Each type
 #also needs a fill value, since zarr read() converts anything equal to the fill
 #back into NA. The defaults are dangerous (float64 fills at 9.97e+36, which
@@ -607,9 +1019,202 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   return(list(data_type=data_type, data=data, fill_value=fill))
 }
 
+#Grow an existing array along dimension 1 and write the new elements into the
+#space. The data is the increment, not the complete final array: an array that is
+#currently 4 x 6 grows to 7 x 6 when given 3 x 6. Dimension 1 is the slowest
+#varying axis in FITS, R and Zarr alike, so the existing elements keep their
+#indices. low is never touched in the resize, because shrinking is out of scope
+#and zarr warns about chunk rounding for a non zero low.
+.zarr_append = function(store, extname, data, shape, typed, data_type_requested,
+                        codec_config, compressor_requested, update_root, filename_out){
+  path = .zarr_name_to_path(extname)
+  if(!(path %in% store$arrays)){
+    stop('Cannot append to non-existent store extension: ', extname, call. = FALSE)
+  }
+  node = store$get_node(path)
+  if(is.null(node)){
+    stop('Cannot find node for extension: ', extname, call. = FALSE)
+  }
+
+  old_shape = as.vector(as.integer(node$shape))
+  inc_shape = as.vector(as.integer(shape))
+  Ndim = length(old_shape)
+
+  if(length(inc_shape) != Ndim){
+    stop('Image dimensions do not match: the existing array ', extname, ' has ', Ndim,
+         ' dimensions and the appended data has ', length(inc_shape),
+         '. Appending can only grow dimension 1, so write a new extension instead!',
+         call. = FALSE)
+  }
+  if(Ndim > 1 & any(old_shape[-1] != inc_shape[-1])){
+    stop('Image dimensions do not match: all dimensions except the first must be equal ',
+         '(', paste(old_shape, collapse = ' x '), ' vs ',
+         paste(old_shape[1], inc_shape[-1], collapse = ' x '), ')!', call. = FALSE)
+  }
+  if(inc_shape[1] < 1L){
+    stop('Cannot append: the data has no elements along dimension 1!', call. = FALSE)
+  }
+
+  total_shape = inc_shape
+  total_shape[1] = old_shape[1] + inc_shape[1]
+
+  #The stored type is never widened or narrowed by an append
+  existing_type = tryCatch(as.character(node$metadata$data_type), error = function(e) '')
+  if(nzchar(existing_type) & typed$data_type != existing_type){
+    if(!is.null(data_type_requested)){
+      stop('Cannot append: data_type "', typed$data_type, '" was requested but the existing ',
+           'array ', extname, ' is "', existing_type, '"!', call. = FALSE)
+    }
+    message('Appending to an existing ', existing_type, ' array; converting the new data ',
+            'from ', typed$data_type, ' to match.')
+    typed = .zarr_data_type(data, data_type = existing_type)
+    data = typed$data
+  }
+
+  #An append cannot change how an existing array is compressed. Only say so when
+  #the caller actually asked, since otherwise every append to a non default array
+  #would complain about a setting nobody requested
+  if(compressor_requested){
+    applied = .zarr_codec_of(node)
+    if(!is.null(applied)){
+      want_shuffle = codec_config$shuffle
+      if(is.null(want_shuffle)){
+        shuffle_differs = FALSE
+      }else{
+        shuffle_differs = !(want_shuffle %in% c(applied$shuffle,
+                                .zarr_default_shuffle_for(existing_type)))
+      }
+      if(applied$cname != codec_config$cname | applied$clevel != codec_config$clevel |
+         shuffle_differs){
+        message('The existing array ', extname, ' is compressed with blosc/', applied$cname,
+                ' at level ', applied$clevel, '; the compressor arguments were not applied.')
+      }
+    }
+  }
+
+  N0 = old_shape[1]
+  grew = inc_shape[1]
+  start_index = N0 + 1L
+  end_index = N0 + grew
+
+  node$resize(low = rep(0L, Ndim), high = c(grew, rep(0L, Ndim - 1)))
+
+  selection = vector(mode = 'list', length = Ndim)
+  selection[[1]] = c(start_index, end_index)
+  if(Ndim > 1){
+    for(i in 2:Ndim){
+      selection[[i]] = c(1L, total_shape[i])
+    }
+  }
+  node$write(data, selection = selection)
+
+  meta = .zarr_get_meta(node)
+  append_entry = list(appended_count = as.integer(grew),
+                      start_index = as.integer(start_index),
+                      end_index = as.integer(end_index),
+                      extname = extname)
+
+  if(!is.null(meta)){
+    .zarr_append_header(node, meta, existing_type = node$metadata$data_type,
+                        new_shape = total_shape, grew = grew, start_index = start_index,
+                        end_index = end_index)
+  }else{
+    #A bare array has no FITS metadata to keep in step. Nothing is invented for it,
+    #since a half populated header would be worse than none at all.
+    message('The existing array ', extname, ' has no FITS style metadata, so no header ',
+            'keys were updated by the append.')
+  }
+
+  node$save()
+
+  if(update_root){
+    .zarr_root_refresh(store, append_entry = append_entry)
+  }
+
+  return(list(filename = filename_out,
+              extname = extname,
+              start_index = as.integer(start_index),
+              end_index = as.integer(end_index),
+              appended = as.integer(grew),
+              dim = as.vector(as.integer(node$shape)),
+              data_type = as.character(node$metadata$data_type),
+              chunk_shape = .zarr_chunk_shape_of(node)))
+}
+
+#zarr picks a shuffle appropriate to the dtype when none is given, which is not a
+#mismatch with an explicit request for it
+.zarr_default_shuffle_for = function(data_type){
+  if(!nzchar(data_type)){
+    return(NULL)
+  }
+  if(data_type %in% c('bool', 'int8', 'uint8')){
+    return('noshuffle')
+  }
+  if(data_type %in% c('int16', 'uint16', 'int32', 'uint32', 'int64', 'float32')){
+    return('shuffle')
+  }
+  return('bitshuffle')
+}
+
+#Keep the FITS metadata honest after an append: the shape keys follow the array,
+#and a HISTORY line records what happened. Keywords already in the header win,
+#since the alternative is silently rewriting the WCS of a whole extension; keys
+#supplied with the append are added only where they do not conflict.
+.zarr_append_header = function(node, meta, existing_type, new_shape, grew, start_index,
+                               end_index){
+  keyvalues = meta$keyvalues
+  keycomments = meta$keycomments
+  comment = meta$comment
+  history = meta$history
+
+  naxis_key = ifelse(isTRUE(keyvalues$ZIMAGE), 'ZNAXIS', 'NAXIS')
+  key1 = paste0(naxis_key, '1')
+  keyvalues[[key1]] = as.integer(new_shape[1])
+  if(is.null(keycomments[[key1]])){
+    keycomments[[key1]] = 'APPENDED'
+  }else if(!grepl('APPENDED', keycomments[[key1]])){
+    keycomments[[key1]] = paste(keycomments[[key1]], 'APPENDED')
+  }
+  if(length(new_shape) > 1){
+    keyvalues[[paste0(naxis_key, '2')]] = as.integer(new_shape[2])
+  }
+
+  new_keyvalues = .zarr_json_to_list(node$attribute('keyvalues'))
+  if(!is.null(new_keyvalues)){
+    added = setdiff(names(new_keyvalues), names(keyvalues))
+    if(length(added) > 0){
+      for(name in added){
+        keyvalues[[name]] = new_keyvalues[[name]]
+      }
+      aligned = as.list(rep('', length(keyvalues)))
+      names(aligned) = names(keyvalues)
+      matched = match(names(aligned), names(keycomments), nomatch = 0)
+      aligned[matched > 0] = keycomments[matched[matched > 0]]
+      keycomments = aligned
+    }
+  }
+
+  stamp = format(Sys.time(), '%Y-%m-%dT%H:%M:%SZ', tz = 'UTC')
+  line = paste('Rfits appended', grew, 'elements to dimension 1 at',
+               paste0('[', start_index, ',', end_index, ']'), 'on', stamp)
+  history = c(history, line)
+
+  header = Rfits_keyvalues_to_header(keyvalues, keycomments, comment, history)
+  node$set_attribute('header', as.character(header))
+  node$set_attribute('keyvalues', .zarr_clean_list(keyvalues))
+  node$set_attribute('keycomments', .zarr_clean_list(keycomments))
+  node$set_attribute('history', as.character(history))
+  if(!is.null(comment)){
+    node$set_attribute('comment', as.character(comment))
+  }
+  return(invisible(header))
+}
+
 Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', create_ext=TRUE,
                                   overwrite_file=FALSE, data_type=NULL, chunk_shape=NULL,
-                                  clevel=6L, keyvalues, keycomments, keynames, comment, history){
+                                  clevel=6L, compressor='blosc', shuffle=NULL,
+                                  append=FALSE, update_root=TRUE,
+                                  keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
   filename_is_store = .zarr_is_store(filename)
@@ -622,7 +1227,19 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   assertCharacter(extname, max.len=1)
   assertFlag(create_ext)
   assertFlag(overwrite_file)
+  assertFlag(append)
+  assertFlag(update_root)
   assertIntegerish(clevel, len=1, lower=0, upper=9)
+
+  if(append & overwrite_file){
+    stop('Cannot use both append and overwrite_file!', call. = FALSE)
+  }
+  #Resolved before anything is created, so a bad name warns rather than silently
+  #recording a compressor that does not match the bytes
+  codec_config = .zarr_compressor(compressor, clevel=clevel, shuffle=shuffle)
+  #Whether the caller asked for a compression setting at all, which the append
+  #path uses to decide whether to report that a request went unfulfilled
+  compressor_requested = !(missing(compressor) & missing(clevel) & missing(shuffle))
 
   if(!zarr::is_valid_node_name(sub('^/', '', extname))){
     stop('extname is not a valid Zarr array name: ', extname, call. = FALSE)
@@ -702,11 +1319,27 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     stop('Only up to 4 dimensional data can be stored as a FITS style image!')
   }
 
+  filename_out = if(filename_is_store) store_label else filename
+
   typed = .zarr_data_type(data, data_type=data_type)
   data = typed$data
 
   path = .zarr_name_to_path(extname)
-  if(path %in% store$arrays){
+  exists_already = path %in% store$arrays
+
+  #Appending grows the array that is already there, so it has to branch before
+  #anything is deleted or created
+  if(append){
+    return(invisible(.zarr_append(store = store, extname = extname, data = data,
+                                  shape = shape, typed = typed,
+                                  data_type_requested = data_type,
+                                  codec_config = codec_config,
+                                  compressor_requested = compressor_requested,
+                                  update_root = update_root,
+                                  filename_out = filename_out)))
+  }
+
+  if(exists_already){
     if(!create_ext){
       stop('Extension ', extname, ' already exists, and create_ext = FALSE!')
     }
@@ -728,7 +1361,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   }
   builder$chunk_shape = chunk_shape
   builder$remove_codec('blosc')
-  builder$add_codec('blosc', list(clevel = as.integer(clevel)))
+  builder$add_codec('blosc', codec_config)
 
   node = store$add_array('/', sub('^/', '', extname), .zarr_array_metadata(builder, store$store))
 
@@ -754,17 +1387,231 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     node$set_attribute('history', as.character(history))
   }
 
+  #The technical parameters are recorded from the array that now exists, not from
+  #what was asked for, so a clamped or defaulted value cannot be misreported
+  tech = .zarr_array_tech(node)
+  .zarr_array_tech_set(node, tech)
+  applied = .zarr_codec_of(node)
+  if(!is.null(applied) & (applied$cname != codec_config$cname |
+                          applied$clevel != codec_config$clevel)){
+    message('Requested blosc/', codec_config$cname, ' at level ', codec_config$clevel,
+            '; the array was created with blosc/', applied$cname, ' at level ',
+            applied$clevel, '. The recorded values are the applied ones.')
+  }
+
   node$save()
 
-  return(invisible(list(filename = if(filename_is_store) store_label else filename,
+  if(update_root){
+    .zarr_root_refresh(store)
+  }
+
+  return(invisible(list(filename = filename_out,
                         extname = extname,
                         dim = shape, data_type = typed$data_type,
-                        chunk_shape = chunk_shape)))
+                        chunk_shape = chunk_shape,
+                        compressor = if(is.null(applied)) codec_config$cname else applied$cname,
+                        compression_level = if(is.null(applied)) codec_config$clevel else applied$clevel)))
 }
 
 Rfits_write_vector_zarr = Rfits_write_image_zarr
 Rfits_write_cube_zarr = Rfits_write_image_zarr
 Rfits_write_array_zarr = Rfits_write_image_zarr
+
+#Thin wrappers, provided because a name that says what is happening is clearer at
+#the call site than remembering the argument that switches the writer to it. Built
+#as a call rather than passing append = TRUE directly, so that a caller who also
+#supplies append gets the sensible value rather than the R error for an argument
+#matched by multiple actual arguments. Anything left out stays missing, which the
+#writer relies on to tell an absent keyvalues from an explicitly NULL one.
+Rfits_append_image_zarr = function(data, filename='temp.zarr', extname='data1', ...){
+  args = list(...)
+  args$append = TRUE
+  return(do.call(Rfits_write_image_zarr,
+                 c(list(data = data, filename = filename, extname = extname), args)))
+}
+
+Rfits_append_vector_zarr = Rfits_append_image_zarr
+Rfits_append_cube_zarr = Rfits_append_image_zarr
+Rfits_append_array_zarr = Rfits_append_image_zarr
+
+#Summarise a Zarr store without reading any pixel data. Nothing here is derived
+#from the data itself, since for a remote store that would transfer the whole
+#array; the numbers come from the metadata and the key sizes on disk.
+Rfits_inspect_zarr = function(filename, print = TRUE, ...){
+  .zarr_require()
+  assertFlag(print)
+
+  is_store = .zarr_is_store(filename)
+  if(is_store){
+    label = .zarr_store_label(filename)
+  }else{
+    assertCharacter(filename, max.len=1)
+    label = path.expand(filename)
+  }
+  store = .zarr_store_open(if(is_store) filename else label)
+
+  extnames = .zarr_extnames(store)
+  root = .zarr_root_attrs(store)
+  self_describing = !is.null(root) && !is.null(root$convention)
+  #The format version sits on whatever metadata the store does have, so fall back
+  #to the root when the store holds no arrays yet
+  zarr_format = tryCatch(store$root$metadata$zarr_format, error = function(e) NULL)
+
+  arrays = list()
+  #Doubles, so that summing counts cannot overflow on the way to the total
+  total_elements = 0
+  total_chunks = 0
+  for(name in extnames){
+    node = tryCatch(store$get_node(.zarr_name_to_path(name)), error = function(e) NULL)
+    if(is.null(node)){
+      next
+    }
+    tech = .zarr_array_tech(node)
+
+    nchunks = tryCatch(length(store$store$list_chunks(node$prefix)), error = function(e) NA_integer_)
+    #Chunk keys are the data; zarr.json holds the metadata
+    keys = tryCatch(store$store$list_dir(node$prefix), error = function(e) character(0))
+    chunk_keys = setdiff(keys, c('zarr.json', '.zarray', '.zattrs'))
+    sizes = tryCatch(vapply(chunk_keys, function(k){
+      gz = tryCatch(store$store$getsize(paste0(node$prefix, k)), error = function(e) NA_real_)
+      if(is.null(gz) | length(gz) != 1){return(NA_real_)}
+      return(as.numeric(gz))
+    }, numeric(1)), error = function(e) NA_real_)
+    chunk_bytes = if(all(is.na(sizes))) NA_real_ else sum(sizes, na.rm = TRUE)
+
+    meta = tryCatch(.zarr_get_meta(node), error = function(e) NULL)
+    keynames = if(is.null(meta)) NULL else meta$keynames
+
+    arrays[[name]] = list(
+      name = name,
+      shape = tech$shape,
+      image_shape = tech$image_shape,
+      data_type = tech$data_type,
+      chunk_shape = tech$chunk_shape,
+      codec = tech$codec,
+      compressor = tech$compressor,
+      compression_level = tech$clevel,
+      shuffle = tech$shuffle,
+      fill_value = tech$fill_value,
+      n_chunks = nchunks,
+      chunk_bytes = chunk_bytes,
+      avg_chunk_bytes = if(is.na(chunk_bytes) | is.na(nchunks) | nchunks == 0){
+        NA_real_
+      }else{
+        chunk_bytes / nchunks
+      },
+      elements = .zarr_count(.zarr_element_count(tech$shape)),
+      fits_header = tech$fits_header,
+      key_count = tech$key_count,
+      first_key = if(is.null(keynames) | length(keynames) == 0) NA_character_ else keynames[1],
+      last_key = if(is.null(keynames) | length(keynames) == 0) NA_character_ else
+        keynames[length(keynames)],
+      has_wcs = !is.null(keynames) & any(grepl('^CRVAL', keynames))
+    )
+    total_elements = total_elements + .zarr_element_count(tech$shape)
+    if(!is.na(nchunks)){
+      total_chunks = total_chunks + nchunks
+    }
+  }
+
+  #Size on disk is only meaningful for a store that is a directory we can see
+  store_bytes = NA_real_
+  if(!is_store){
+    if(dir.exists(label)){
+      files = list.files(label, recursive = TRUE, full.names = TRUE, all.files = TRUE,
+                         include.dirs = TRUE)
+      info = file.info(files)
+      store_bytes = sum(info$size[!info$isdir], na.rm = TRUE)
+    }
+  }
+
+  out = list(filename = label,
+             is_store_object = is_store,
+             zarr_format = if(is.null(zarr_format)) NA_integer_ else as.integer(zarr_format),
+             zarr_version = tryCatch(as.character(utils::packageVersion('zarr')),
+                                     error = function(e) NA_character_),
+             Rfits_version = tryCatch(as.character(utils::packageVersion('Rfits')),
+                                      error = function(e) NA_character_),
+             self_describing = self_describing,
+             convention = if(is.null(root)) NA_character_ else root$convention,
+             created = if(is.null(root)) NA_character_ else root$created,
+             n_arrays = length(arrays),
+             array_names = names(arrays),
+             total_elements = .zarr_count(total_elements),
+             total_chunks = .zarr_count(total_chunks),
+             store_bytes = store_bytes,
+             append_history = if(is.null(root)) NULL else root$append_history,
+             arrays = arrays)
+
+  if(print){
+    rule = strrep('=', 80)
+    cat(rule, '\n')
+    cat('SUMMARY STATISTICS\n')
+    cat(rule, '\n')
+    cat(sprintf('store path:            %s\n', out$filename))
+    if(is_store){
+      cat('store type:            object (remote or in-memory; no local path)\n')
+    }
+    cat(sprintf('zarr format:           %s (zarr package %s)\n',
+                out$zarr_format, out$zarr_version))
+    cat(sprintf('Rfits version:         %s\n', out$Rfits_version))
+    cat(sprintf('store self-description: %s\n',
+                if(self_describing) paste0('present (convention "', out$convention,
+                                           '", created ', out$created, ')')
+                else 'absent (written by an older Rfits, or not by Rfits at all)'))
+    if(!self_describing & .zarr_is_foreign_store(store)){
+      cat('  note: the root advertises the images to Zarr keys without a convention\n')
+      cat('  marker, so this store was probably not written by Rfits and holds no\n')
+      cat('  FITS headers.\n')
+    }
+    cat(sprintf('arrays:                %s\n', .zarr_count_text(out$n_arrays)))
+    cat(sprintf('total elements:        %s\n', .zarr_count_text(out$total_elements)))
+    cat(sprintf('total chunks:          %s\n', .zarr_count_text(out$total_chunks)))
+    if(is.na(out$store_bytes)){
+      cat('store size (bytes):    NA (not a local directory)\n')
+    }else{
+      cat(sprintf('store size (bytes):    %.0f\n', out$store_bytes))
+    }
+    if(!is.null(out$append_history)){
+      cat(sprintf('append events:         %i\n', length(out$append_history)))
+    }
+
+    if(length(arrays) > 0){
+      cat(rule, '\n')
+      cat('ARRAYS\n')
+      cat(rule, '\n')
+      for(name in names(arrays)){
+        a = arrays[[name]]
+        cat(sprintf('\n%s\n', name))
+        cat(sprintf('  shape:               %s\n', paste(a$shape, collapse = ' x ')))
+        cat(sprintf('  data type:           %s\n', a$data_type))
+        cat(sprintf('  chunks:              %s (%s total)\n',
+                    paste(a$chunk_shape, collapse = ' x '),
+                    if(is.na(a$n_chunks)) 'unknown' else a$n_chunks))
+        if(nzchar(a$codec)){
+          cat(sprintf('  compression:         %s/%s level %s shuffle %s\n',
+                      a$codec, a$compressor, a$compression_level, a$shuffle))
+        }else{
+          cat('  compression:         none recorded\n')
+        }
+        cat(sprintf('  fill value:          %s\n', a$fill_value))
+        if(!is.na(a$chunk_bytes)){
+          cat(sprintf('  chunk bytes:         %.0f (avg %.0f)\n', a$chunk_bytes,
+                      a$avg_chunk_bytes))
+        }
+        cat(sprintf('  FITS header:         %s\n', if(a$fits_header) 'yes' else 'no'))
+        cat(sprintf('  keywords:            %i\n', a$key_count))
+        if(a$key_count > 0){
+          cat(sprintf('  first/last keyword:  %s / %s\n', a$first_key, a$last_key))
+          cat(sprintf('  WCS keys present:    %s\n', if(a$has_wcs) 'yes' else 'no'))
+        }
+      }
+    }
+    cat(rule, '\n')
+  }
+
+  return(invisible(out))
+}
 
 Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, header=TRUE){
   .zarr_require()
