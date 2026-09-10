@@ -451,3 +451,68 @@ expect_equal(dim(point_cube_bare[10:20, 10:20, 1, collapse = FALSE]), c(11L, 11L
 expect_equal(dim(point_cube_bare[10:20, 10:20, 1:3]), c(11L, 11L, 3L))
 #header = FALSE can be given per call, overriding the pointer
 expect_equal(dim(point_cube[10:20, 10:20, 1, header = FALSE]), c(11L, 11L))
+
+#ex 32 the WCS class methods work on a pointer, and agree with the same calls on
+#the FITS pointer and on the image in RAM. The pointer carries the keywords but
+#no raw header, so the fixed width form has to be rebuilt from them
+expect_equal(centre(point_img), centre(point_fits))
+expect_equal(centre(point_img), centre(temp_image))
+#center is the alias
+expect_equal(center(point_img), centre(point_img))
+
+expect_equal(corners(point_img), corners(point_fits))
+expect_equal(corners(point_img), corners(temp_image))
+expect_identical(row.names(corners(point_img)), c('BL', 'TL', 'TR', 'BR'))
+#RAneg is passed through to the shared method
+expect_equal(corners(point_img, RAneg = TRUE), corners(point_fits, RAneg = TRUE))
+
+expect_equal(extremes(point_img), extremes(point_fits))
+expect_equal(extremes(point_img), extremes(temp_image))
+expect_identical(row.names(extremes(point_img)), c('min', 'max', 'range'))
+#unit converts the range row, and the amin default matches the generic
+expect_equal(extremes(point_img, unit = 'deg')['range'] * 60, extremes(point_img)['range'],
+             tolerance = 1e-8)
+
+expect_equal(pixscale(point_img), pixscale(point_fits))
+expect_equal(pixscale(point_img), pixscale(temp_image))
+#loc selects where the scale is measured, and works for both spellings
+expect_equal(pixscale(point_img, loc = 'tl'), pixscale(point_fits, loc = 'tl'))
+expect_equal(pixscale(point_img, loc = c(100, 200)), pixscale(point_fits, loc = c(100, 200)))
+expect_equal(pixscale(point_img, unit = 'deg') * 3600, pixscale(point_img), tolerance = 1e-8)
+
+expect_equal(pixarea(point_img), pixarea(point_fits))
+expect_equal(pixarea(point_img), pixarea(temp_image))
+#on square pixels the area is the square of the scale
+expect_equal(pixarea(point_img), pixscale(point_img)^2, tolerance = 1e-6)
+
+expect_equal(rotation(point_img), rotation(point_fits))
+expect_equal(rotation(point_img), rotation(temp_image))
+#keypass = FALSE skips the keyword conversion, as for the other classes
+expect_equal(rotation(point_img, keypass = FALSE), rotation(point_fits, keypass = FALSE))
+
+#useraw = FALSE drops the fixed width header, which is the one case the pointer
+#and the FITS file genuinely differ. The simple TAN WCS here gives the same
+#answer either way
+expect_equal(centre(point_img, useraw = FALSE), centre(point_img))
+expect_equal(corners(point_img, useraw = FALSE), corners(point_img))
+
+#ex 33 a cube pointer works off the first two dimensions, as any cube does. The
+#scale and area are only defined for the celestial axes, so the extra dimension
+#must not disturb them, which is checked against CDELT as well as the FITS one
+expect_equal(centre(point_cube), centre(Rfits_point(file_cube_fits)))
+expect_equal(corners(point_cube), corners(Rfits_point(file_cube_fits)))
+expect_equal(pixscale(point_cube), pixscale(Rfits_point(file_cube_fits)))
+expect_equal(pixarea(point_cube), pixarea(Rfits_point(file_cube_fits)))
+expect_equal(pixscale(point_cube), abs(temp_cube$keyvalues$CDELT1) * 3600, tolerance = 1e-6)
+
+#ex 34 the guards. A 1D pointer is not an image, and gives NA with a message, as
+#the header and keylist methods do for an array with too few dimensions
+expect_message(expect_true(is.na(centre(point_vec))), 'Probably not an image')
+expect_message(expect_true(is.na(corners(point_vec))), 'Probably not an image')
+
+#an array with no FITS metadata has no WCS to use, which is an error rather than
+#an NA, since there is no way to tell the caller anything useful otherwise
+point_nowcs = Rfits_point_zarr(file_nowcs, extname = 'bare')
+expect_error(centre(point_nowcs), 'No FITS style metadata')
+expect_error(corners(point_nowcs), 'No FITS style metadata')
+expect_error(rotation(point_nowcs), 'No FITS style metadata')

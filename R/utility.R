@@ -17,6 +17,19 @@
 
 .minmax = function(x) c(min(x), max(x))
 
+#Project several pixel positions on to the sky, one position per call. wcslib
+#takes the number of coordinate axes from NAXIS, so a multi-point vector is
+#refused whenever the header describes more than two axes (a cube, or a 4D
+#array), and Rwcs hands back zeros rather than failing loudly. A single position
+#is accepted whatever NAXIS says, which is why centre and corners have always
+#worked on cubes while pixscale and pixarea quietly returned 0.
+.Rwcs_p2s_rows = function(x, y, keyvalues, header=NULL, ...){
+  pts = lapply(seq_along(x), function(i){
+    Rwcs::Rwcs_p2s(x[i], y[i], keyvalues = keyvalues, header = header, pixcen = 'R', ...)
+  })
+  return(do.call(rbind, pts))
+}
+
 .spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))
 
 #Is this subset expression an `a:end` range? In Rfits `end` means "the end of

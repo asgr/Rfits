@@ -521,3 +521,34 @@ expect_identical(class(temp_array_ram[1:2, 1:2, 1:2, 4:end])[1], 'Rfits_cube')
 expect_identical(class(temp_array_ram[1:2, 1:2, 3:end, 4:end])[1], 'Rfits_image')
 expect_equal(dim(temp_array_ram[2:end, , , , header = FALSE]), c(3L, 5L, 3L, 4L))
 expect_equal(temp_array_ram[2:end, , , ]$keyvalues$NAXIS1, 3L)
+
+#ex 61 pixscale / pixarea on a cube pointer. wcslib takes the number of
+#coordinate axes from NAXIS, so the three pixel positions these methods probe
+#could not be passed as one vector against a cube header. Rwcs reported the
+#failure on stderr and returned zeros, which is what both methods gave back.
+#Probing a position at a time is accepted whatever NAXIS says
+skip_if_not_installed("Rwcs")
+file_cube_fits = system.file('extdata', 'cube.fits', package = "Rfits")
+point_cube_fits = Rfits_point(file_cube_fits)
+cube_scale = pixscale(point_cube_fits)
+#the cube is built from CDELT, so that is the answer to check against
+expect_equal(cube_scale, abs(temp_cube$keyvalues$CDELT1) * 3600, tolerance = 1e-6)
+expect_equal(pixarea(point_cube_fits), cube_scale^2, tolerance = 1e-6)
+#loc selects where the scale is measured, and all positions agree on this cube
+expect_equal(pixscale(point_cube_fits, loc = 'bl'), cube_scale, tolerance = 1e-6)
+expect_equal(pixscale(point_cube_fits, loc = c(20, 30)), cube_scale, tolerance = 1e-6)
+#units are still honoured
+expect_equal(pixscale(point_cube_fits, unit = 'deg') * 3600, cube_scale, tolerance = 1e-6)
+
+#ex 62 a 2D image is unaffected by the per position probing, since it always
+#worked. The value must be unchanged from the image held in RAM
+point_image_fits = Rfits_point(file_image)
+expect_equal(pixscale(point_image_fits), pixscale(temp_image))
+expect_equal(pixarea(point_image_fits), pixarea(temp_image))
+#and every documented loc option still returns a sensible scale
+for(loc in c('cen', 'bl', 'tl', 'tr', 'br')){
+  expect_equal(pixscale(point_image_fits, loc = loc), pixscale(temp_image, loc = loc))
+  expect_equal(pixarea(point_image_fits, loc = loc), pixarea(temp_image, loc = loc))
+}
+expect_equal(pixscale(point_image_fits, loc = c(100, 200)), pixscale(temp_image, loc = c(100, 200)))
+expect_equal(pixscale(point_image_fits, useraw = FALSE), pixscale(point_image_fits))
