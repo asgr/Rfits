@@ -1,3 +1,41 @@
+# The WCS methods below are shared by every object that carries keywords, which
+# is what a Zarr pointer does. A pointer has no raw header though, and may point
+# at an array whose metadata says nothing about the WCS, in which case Rwcs has
+# nothing to work from and quietly returns nonsense. So a pointer is handed to
+# the shared implementation as a header shaped delegate, with the fixed width
+# form rebuilt from the keywords, exactly as [.Rfits_pointer_zarr does for
+# type = "coord". Going via Rfits_header also keeps the NAXIS guards, which
+# return NA with a message rather than passing a nonsense image size to Rwcs.
+
+.zarr_wcs_delegate = function(x){
+  keyvalues = x$keyvalues
+  if(is.null(keyvalues)){
+    #Without keywords there is no WCS to ask about, so this is an error rather
+    #than the NA that a short or absent NAXIS gives
+    stop('No FITS style metadata is stored for this Zarr array, so the WCS cannot be used!',
+         call. = FALSE)
+  }
+  
+  #The array shape is what the store says, so use it wherever the keywords are
+  #silent. Written by Rfits they will agree with it anyway. As in
+  #[.Rfits_pointer_zarr, the shape recorded at the time the pointer was made is
+  #used, rather than reopening the store
+  dim_x = x$dim
+  if(is.null(keyvalues$NAXIS)){
+    keyvalues$NAXIS = length(dim_x)
+  }
+  for(i in seq_along(dim_x)){
+    if(is.null(keyvalues[[paste0('NAXIS', i)]])){
+      keyvalues[[paste0('NAXIS', i)]] = dim_x[i]
+    }
+  }
+  
+  delegate = list(keyvalues = keyvalues,
+                  raw = Rfits_keyvalues_to_raw(keyvalues))
+  class(delegate) = c('Rfits_header', 'list')
+  return(delegate)
+}
+
 #centre
 
 centre = function(x, useraw=TRUE, ...){
@@ -43,6 +81,11 @@ centre.Rfits_image = function(x, useraw=TRUE, ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     output = Rwcs::Rwcs_p2s(im_dim[1]/2, im_dim[2]/2, keyvalues = keyvalues, header=header, pixcen='R', ...)
     return(output)
   }else{
@@ -62,6 +105,15 @@ centre.Rfits_header = centre.Rfits_image
 center.Rfits_header = centre.Rfits_image
 centre.Rfits_keylist = centre.Rfits_image
 center.Rfits_keylist = centre.Rfits_image
+
+#A Zarr pointer is a pointer to a whole array rather than a cutout of one, so it
+#can never end up in the too few dimensions case that the Rfits_image and
+#Rfits_pointer methods have to guard against
+centre.Rfits_pointer_zarr = function(x, useraw=TRUE, ...){
+  return(centre(.zarr_wcs_delegate(x), useraw=useraw, ...))
+}
+
+center.Rfits_pointer_zarr = centre.Rfits_pointer_zarr
 
 #corners
 
@@ -108,6 +160,11 @@ corners.Rfits_image = function(x, useraw=TRUE, RAneg=FALSE, ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     BL = Rwcs::Rwcs_p2s(0, 0, keyvalues = keyvalues, header=header, pixcen='R', ...)
     TL = Rwcs::Rwcs_p2s(0, im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
     TR = Rwcs::Rwcs_p2s(im_dim[1], im_dim[2], keyvalues = keyvalues, header=header, pixcen='R', ...)
@@ -128,6 +185,10 @@ corners.Rfits_image = function(x, useraw=TRUE, RAneg=FALSE, ...){
 corners.Rfits_pointer = corners.Rfits_image
 corners.Rfits_header = corners.Rfits_image
 corners.Rfits_keylist = corners.Rfits_image
+
+corners.Rfits_pointer_zarr = function(x, useraw=TRUE, RAneg=FALSE, ...){
+  return(corners(.zarr_wcs_delegate(x), useraw=useraw, RAneg=RAneg, ...))
+}
 
 #extremes
 
@@ -211,12 +272,17 @@ extremes.Rfits_pointer = extremes.Rfits_image
 extremes.Rfits_header = extremes.Rfits_image
 extremes.Rfits_keylist = extremes.Rfits_image
 
+#Defaults match the generic where the existing pointer method does not (see the
+#note on unit there); 'amin' is what extremes.Rfits_image itself defaults to
+extremes.Rfits_pointer_zarr = function(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...){
+  return(extremes(.zarr_wcs_delegate(x), useraw=useraw, unit=unit, RAneg=RAneg, ...))
+}
+
 #pixscale
 
 pixscale = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
   UseMethod("pixscale", x)
 }
-
 pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
   if(!inherits(x, c('Rfits_image', 'Rfits_pointer', 'Rfits_header', 'Rfits_keylist'))){
     stop('Object class is not of type Rfits_image / Rfits_pointer / Rfits_header / Rfits_keylist')
@@ -285,6 +351,11 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
@@ -315,6 +386,10 @@ pixscale.Rfits_image = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
 pixscale.Rfits_pointer = pixscale.Rfits_image
 pixscale.Rfits_header = pixscale.Rfits_image
 pixscale.Rfits_keylist = pixscale.Rfits_image
+
+pixscale.Rfits_pointer_zarr = function(x, useraw=TRUE, unit='asec', loc='cen', ...){
+  return(pixscale(.zarr_wcs_delegate(x), useraw=useraw, unit=unit, loc=loc, ...))
+}
 
 #pixarea
 
@@ -390,6 +465,11 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
     }else{
       header = NULL
     }
+    #Only RA and Dec are being projected, so a header that claims more axes than
+    #that has to be trimmed down first (see .wcs2_axes)
+    wcs2 = .wcs2_axes(keyvalues, header)
+    keyvalues = wcs2$keyvalues
+    header = wcs2$header
     output = Rwcs::Rwcs_p2s(loc_x + c(-0.5,0.5,-0.5), loc_y + c(-0.5,-0.5,0.5), keyvalues = keyvalues, header=header, pixcen='R', ...)
     if(max(abs(diff(output[,1]))) > 359){
       output[output[,1] > 359,1] = output[output[,1] > 359,1] - 360
@@ -420,6 +500,10 @@ pixarea.Rfits_image = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
 pixarea.Rfits_pointer = pixarea.Rfits_image
 pixarea.Rfits_header = pixarea.Rfits_image
 pixarea.Rfits_keylist = pixarea.Rfits_image
+
+pixarea.Rfits_pointer_zarr = function(x, useraw=TRUE, unit='asec2', loc='cen', ...){
+  return(pixarea(.zarr_wcs_delegate(x), useraw=useraw, unit=unit, loc=loc, ...))
+}
 
 #rotation
 
@@ -472,3 +556,7 @@ rotation.Rfits_image = function(x, keypass=TRUE, ...){
 rotation.Rfits_pointer = rotation.Rfits_image
 rotation.Rfits_header = rotation.Rfits_image
 rotation.Rfits_keylist = rotation.Rfits_image
+
+rotation.Rfits_pointer_zarr = function(x, keypass=TRUE, ...){
+  return(rotation(.zarr_wcs_delegate(x), keypass=keypass, ...))
+}

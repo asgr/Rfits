@@ -1,5 +1,14 @@
 `[.Rfits_vector` = function(x, i, header=TRUE){
   
+  #`a:end` means "from a to the end of that dimension", and has to be resolved
+  #from the unevaluated expression before i is touched, since the bare name `end`
+  #is stats::end. Unlike [.Rfits_image there is no length-2-is-a-location rule
+  #here, so a range needs no flag to stop it being misread as a box centre
+  if(!missing(i)){
+    i_res = .resolve_a_to_end(substitute(i), length(x$imDat), parent.frame())
+    if(!is.null(i_res)){i = i_res}
+  }
+  
   if(missing(i)){i = c(1,length(x$imDat))}
   
   safedim_i = .safedim(1, length(x$imDat), min(i), max(i))
@@ -69,35 +78,29 @@
     j = ceiling(ydim/2)
   }
   
+  #`a:end` means "from a to the end of that dimension", resolved from the
+  #unevaluated expression. It used to be deparsed to text and glued straight into
+  #c(start, end), which left start as the *string* "50" and so made every later
+  #min(i), max(i) and i[2] - i[1] fail with 'non-numeric argument'. i_range
+  #records that i came from a range expression, since the length-2 rule below
+  #would otherwise read c(a, xdim) as a centre to put a box around
+  i_range = FALSE
   if(!missing(i)){
-    express = as.character(substitute(i))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(i))[3]){
-        start = express[2]
-        end = xdim
-        #i = eval(parse(text=paste0(start,':',end)))
-        i = c(start, end)
-      }
+    i_res = .resolve_a_to_end(substitute(i), xdim, parent.frame())
+    if(!is.null(i_res)){
+      i = i_res
+      i_range = TRUE
     }
   }
   
   if(!missing(j)){
-    express = as.character(substitute(j))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(j))[3]){
-        start = express[2]
-        end = ydim
-        #j = eval(parse(text=paste0(start,':',end)))
-        j = c(start, end)
-      }
-    }
+    j_res = .resolve_a_to_end(substitute(j), ydim, parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
   
   
   if(!missing(i)){
-    if(length(i)==2 & missing(j)){
+    if(length(i)==2 & missing(j) & !i_range){
       if(i[2]-i[1] !=1){
         j = as.numeric(i[2])
         i = as.numeric(i[1])
@@ -226,40 +229,24 @@
   ydim = dim(x)[2]
   zdim = dim(x)[3]
   
+  #`a:end` means "from a to the end of that dimension", resolved from the
+  #unevaluated expression before anything else touches i, j or k, since the bare
+  #name `end` is stats::end. Only the two bounds are built rather than the whole
+  #index vector, which the old eval(parse(text=...)) materialised and which is
+  #needless for a dimension that is only ever used through min() and max() below
   if(!missing(i)){
-    express = as.character(substitute(i))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(i))[3]){
-        start = express[2]
-        end = xdim
-        i = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    i_res = .resolve_a_to_end(substitute(i), xdim, parent.frame())
+    if(!is.null(i_res)){i = i_res}
   }
   
   if(!missing(j)){
-    express = as.character(substitute(j))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(j))[3]){
-        start = express[2]
-        end = ydim
-        j = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    j_res = .resolve_a_to_end(substitute(j), ydim, parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
   
   if(!missing(k)){
-    express = as.character(substitute(k))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(k))[3]){
-        start = express[2]
-        end = zdim
-        k = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    k_res = .resolve_a_to_end(substitute(k), zdim, parent.frame())
+    if(!is.null(k_res)){k = k_res}
     k_prov = TRUE
   }else{
     k_prov = FALSE
@@ -284,9 +271,17 @@
   # }
   
   #This is Rigo's version of the above (a bit more maintainable):
+  #A singleton third dimension must not short circuit the collapse below (as
+  #[.Rfits_array also allows for its third and fourth dimensions), since zdim==1
+  #always "spans up to" 1 and collapse would then never run. But only when a
+  #collapse was actually asked for, so a full extent read with no k still returns
+  #x untouched rather than rebuilding the header.
   arrays = list(i, j, k)
   upper_limits = list(xdim, ydim, zdim)
-  if(all(mapply(.spans_up_to, arrays, upper_limits))){return(x)}
+  collapse_possible = (zdim == 1L & k_prov & collapse)
+  if(all(mapply(.spans_up_to, arrays, upper_limits)) & !collapse_possible){
+    return(x)
+  }
   
   safedim_i = .safedim(1, xdim, min(i), max(i))
   safedim_j = .safedim(1, ydim, min(j), max(j))
@@ -429,55 +424,32 @@
   zdim = dim(x)[3]
   tdim = dim(x)[4]
   
+  #`a:end` means "from a to the end of that dimension", resolved from the
+  #unevaluated expression before anything else touches i, j, k or m, since the
+  #bare name `end` is stats::end. Only the two bounds are built rather than the
+  #whole index vector, which the old eval(parse(text=...)) materialised and which
+  #is needless for a dimension only ever used through min() and max() below
   if(!missing(i)){
-    express = as.character(substitute(i))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(i))[3]){
-        start = express[2]
-        end = xdim
-        i = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    i_res = .resolve_a_to_end(substitute(i), xdim, parent.frame())
+    if(!is.null(i_res)){i = i_res}
   }
   
   if(!missing(j)){
-    express = as.character(substitute(j))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(j))[3]){
-        start = express[2]
-        end = ydim
-        j = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    j_res = .resolve_a_to_end(substitute(j), ydim, parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
   
   if(!missing(k)){
-    express = as.character(substitute(k))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(k))[3]){
-        start = express[2]
-        end = zdim
-        k = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    k_res = .resolve_a_to_end(substitute(k), zdim, parent.frame())
+    if(!is.null(k_res)){k = k_res}
     k_prov = TRUE
   }else{
     k_prov = FALSE
   }
   
   if(!missing(m)){
-    express = as.character(substitute(m))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(m))[3]){
-        start = express[2]
-        end = tdim
-        m = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    m_res = .resolve_a_to_end(substitute(m), tdim, parent.frame())
+    if(!is.null(m_res)){m = m_res}
     m_prov = TRUE
   }else{
     m_prov = FALSE
@@ -711,65 +683,48 @@
     j = ceiling(ydim/2)
   }
   
+  #`a:end` means "from a to the end of that dimension", and it has to be resolved
+  #before anything else touches i, j, k or m. They are promises here and the bare
+  #name `end` is stats::end, so merely forcing one (the is.matrix(i) check used to
+  #do exactly that) tries to evaluate `50:end` and dies with an NA/NaN argument.
+  #i_range records that i came from a range expression, since the length-2 rule
+  #below would otherwise read c(a, xdim) as a centre to put a box around.
+  i_range = FALSE
   if(!missing(i)){
-    if(!is.matrix(i)){
-      express = as.character(substitute(i))
-      
-      if(express[1] == ':' & length(express) == 3L){
-        if(grepl('end',substitute(i))[3]){
-          start = express[2]
-          end = xdim
-          i = eval(parse(text=paste0(start,':',end)))
-        }
-      }
+    i_res = .resolve_a_to_end(substitute(i), xdim, parent.frame())
+    if(!is.null(i_res)){
+      i = i_res
+      i_range = TRUE
     }
   }
-  
+
   if(!missing(j)){
-    express = as.character(substitute(j))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(j))[3]){
-        start = express[2]
-        end = ydim
-        j = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    j_res = .resolve_a_to_end(substitute(j), ydim, parent.frame())
+    if(!is.null(j_res)){j = j_res}
   }
-  
+
   if(!missing(k)){
-    express = as.character(substitute(k))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(k))[3]){
-        start = express[2]
-        end = zdim
-        k = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    k_res = .resolve_a_to_end(substitute(k), zdim, parent.frame())
+    if(!is.null(k_res)){k = k_res}
     k_prov = TRUE
   }else{
     k_prov = FALSE
   }
-  
+
   if(!missing(m)){
-    express = as.character(substitute(m))
-    
-    if(express[1] == ':' & length(express) == 3L){
-      if(grepl('end',substitute(m))[3]){
-        start = express[2]
-        end = tdim
-        m = eval(parse(text=paste0(start,':',end)))
-      }
-    }
+    m_res = .resolve_a_to_end(substitute(m), tdim, parent.frame())
+    if(!is.null(m_res)){m = m_res}
     m_prov = TRUE
   }else{
     m_prov = FALSE
   }
-  
+
+  #Two values given for i alone are a location, not a range, so that
+  #p[c(50,150)] centres a box there rather than cutting out 50:150. Adjacent
+  #values really are a range, and so is anything that came from `a:end`
   if(!missing(i)){
     if(is.vector(i)){
-      if(length(i)==2 & missing(j)){
+      if(length(i)==2 & missing(j) & !i_range){
         if(i[2] - i[1] != 1){
           j = ceiling(i[2])
           i = ceiling(i[1])

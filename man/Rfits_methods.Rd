@@ -38,6 +38,8 @@
 \alias{center.Rfits_image}
 \alias{centre.Rfits_pointer}
 \alias{center.Rfits_pointer}
+\alias{centre.Rfits_pointer_zarr}
+\alias{center.Rfits_pointer_zarr}
 \alias{centre.Rfits_header}
 \alias{center.Rfits_header}
 \alias{centre.Rfits_keylist}
@@ -45,26 +47,31 @@
 
 \alias{corners.Rfits_image}
 \alias{corners.Rfits_pointer}
+\alias{corners.Rfits_pointer_zarr}
 \alias{corners.Rfits_header}
 \alias{corners.Rfits_keylist}
 
 \alias{extremes.Rfits_image}
 \alias{extremes.Rfits_pointer}
+\alias{extremes.Rfits_pointer_zarr}
 \alias{extremes.Rfits_header}
 \alias{extremes.Rfits_keylist}
 
 \alias{pixscale.Rfits_image}
 \alias{pixscale.Rfits_pointer}
+\alias{pixscale.Rfits_pointer_zarr}
 \alias{pixscale.Rfits_header}
 \alias{pixscale.Rfits_keylist}
 
 \alias{pixarea.Rfits_image}
 \alias{pixarea.Rfits_pointer}
+\alias{pixarea.Rfits_pointer_zarr}
 \alias{pixarea.Rfits_header}
 \alias{pixarea.Rfits_keylist}
 
 \alias{rotation.Rfits_image}
 \alias{rotation.Rfits_pointer}
+\alias{rotation.Rfits_pointer_zarr}
 \alias{rotation.Rfits_header}
 \alias{rotation.Rfits_keylist}
 
@@ -84,6 +91,7 @@
 \alias{[.Rfits_array}
 \alias{[.Rfits_pointer}
 \alias{[.Rfits_pointer_hdf5}
+\alias{[.Rfits_pointer_zarr}
 
 \alias{[<-.Rfits_pointer}
 
@@ -167,6 +175,14 @@
 \method{pixarea}{Rfits_pointer}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
 \method{rotation}{Rfits_pointer}(x, keypass=TRUE, ...)
 
+\method{centre}{Rfits_pointer_zarr}(x, useraw=TRUE, ...)
+\method{center}{Rfits_pointer_zarr}(x, useraw=TRUE, ...)
+\method{corners}{Rfits_pointer_zarr}(x, useraw=TRUE, RAneg=FALSE,  ...)
+\method{extremes}{Rfits_pointer_zarr}(x, useraw=TRUE, unit='amin', RAneg=FALSE, ...)
+\method{pixscale}{Rfits_pointer_zarr}(x, useraw=TRUE, unit='asec', loc='cen',  ...)
+\method{pixarea}{Rfits_pointer_zarr}(x, useraw=TRUE, unit='asec2', loc='cen',  ...)
+\method{rotation}{Rfits_pointer_zarr}(x, keypass=TRUE, ...)
+
 \method{centre}{Rfits_header}(x, useraw=TRUE, ...)
 \method{center}{Rfits_header}(x, useraw=TRUE, ...)
 \method{corners}{Rfits_header}(x, useraw=TRUE, RAneg=FALSE,  ...)
@@ -201,6 +217,8 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
   sparse=x$sparse, scale_sparse=x$scale_sparse, collapse=TRUE)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 \method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
+\method{[}{Rfits_pointer_zarr}(x, i, j, k, m, box=201, type='pix', header=x$header,
+  collapse=TRUE)
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)

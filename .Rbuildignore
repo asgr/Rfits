@@ -8,3 +8,6 @@
 ^src/cfitsio/.libs$
 ^src/cfitsio/.deps$
 vignettes/rsconnect
+^\.positai$
+^\.claude$
+^\.posit/assistant$

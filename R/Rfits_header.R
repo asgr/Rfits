@@ -81,7 +81,7 @@ Rfits_read_key=function(filename='temp.fits', keyname, keytype='auto', ext=1){
     }
     suppressWarnings({temp_key_num = as.numeric(temp_key)})
     if(!is.na(temp_key_num)){
-      suppressWarnings({isint = temp_key_num %% 1 == 0 & abs(temp_key_num) <= .Machine$integer.max})
+      isint = .is_whole_number(temp_key_num) & abs(temp_key_num) <= .Machine$integer.max
       if(isint){
         return(as.integer(temp_key_num))
       }else{
@@ -126,7 +126,10 @@ Rfits_write_key=function(filename='temp.fits', keyname, keyvalue, keycomment="",
   if(is.integer(keyvalue)){typecode = 31}
   if(is.integer64(keyvalue)){typecode = 81}
   if(typecode == 0 & is.numeric(keyvalue)){
-    if(keyvalue %% 1 == 0){
+    if(.is_whole_number(keyvalue)){
+      #Same whole-number test the readers use, so a value written and read back
+      #keeps the same type. The range is settled by the branch below, which
+      #promotes anything too big for an integer to integer64
       if(keyvalue < 2^31){
         keyvalue=as.integer(keyvalue)
         typecode = 31
@@ -535,7 +538,8 @@ Rfits_hdr_to_keyvalues = function(hdr){
   suppressWarnings({keyvalues = as.list(as.numeric(hdr[c(F,T)]))})
   numerickey = !is.na(keyvalues)
   if(any(numerickey)){
-    suppressWarnings({isint = unlist(keyvalues[numerickey]) %% 1 == 0 & abs(unlist(keyvalues[numerickey])) <= .Machine$integer.max})
+    keynums = unlist(keyvalues[numerickey])
+    isint = .is_whole_number(keynums) & abs(keynums) <= .Machine$integer.max
     if(any(isint)){
       keyvalues[numerickey][isint] = as.integer(keyvalues[numerickey][isint])
     }
@@ -582,10 +586,37 @@ Rfits_keyvalues_to_header = function(keyvalues, keycomments=NULL, comment=NULL, 
         temp_keyvalue = paste0('\'',keyvalues[[i]],'\'')
       }else{
         if(is.numeric(keyvalues[[i]])){
-          if(keyvalues[[i]] <= 1e-4 | keyvalues[[i]] >= 1e4){
-            temp_keyvalue = formatC(keyvalues[[i]],format='E', digits=10)
+          #The magnitude test has to be on the absolute value. Comparing the
+          #value itself meant every negative number took the exponential
+          #branch, so the fixed width form came back with NAXIS2 and PCOUNT
+          #written as '1.4000000000E+04'. That is not merely ugly, an integer
+          #keyword is not allowed a decimal point or exponent, and this is the
+          #form the Zarr pointers hand to wcslib.
+          #
+          #Whole numbers are written as integers whether they arrive as 14000L
+          #or 1e4, so the card stays a valid integer card, using the same test
+          #as the readers.
+          temp_keynum = keyvalues[[i]]
+          keyisint = is.integer(temp_keynum) |
+            (.is_whole_number(temp_keynum) & abs(temp_keynum) <= .Machine$integer.max)
+          if(keyisint){
+            temp_keyvalue = as.character(as.integer(temp_keynum))
+          }else if(abs(temp_keynum) <= 1e-4 | abs(temp_keynum) >= 1e4){
+            #Thirteen digits after the point is the most that fits the twenty
+            #character value field, and the ten used before silently shortened
+            #CD1_1 from thirteen to eleven significant figures. That cost the
+            #projected corners 2.3e-12 degrees.
+            temp_keyvalue = formatC(temp_keynum, format='E', digits=13)
+            #Only a negative with a three digit exponent needs twenty one
+            #characters, which would push the comment off its column. Shed
+            #digits until the value fits the field it has to sit in.
+            keydigits = 13
+            while(nchar(temp_keyvalue) > 20){
+              keydigits = keydigits - 1
+              temp_keyvalue = formatC(temp_keynum, format='E', digits=keydigits)
+            }
           }else{
-            temp_keyvalue = as.character(keyvalues[[i]])
+            temp_keyvalue = as.character(temp_keynum)
           }
         }else{
           temp_keyvalue = as.character(keyvalues[[i]])

@@ -17,3 +17,5 @@ libcfitsio.so.*
 Rfits.Rproj
 vignettes/rsconnect/*
 _codeql_detected_source_root
+.positai
+.posit/assistant
