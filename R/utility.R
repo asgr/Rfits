@@ -66,6 +66,26 @@
 
 .spans_up_to = function(x, upper) all(.minmax(x) == c(1, upper))
 
+#Does x hold a whole number, so that a keyword may be stored as an integer
+#rather than a double? Vectorised, and always TRUE or FALSE, never NA.
+#
+#Equality with the number's own rounding is used in preference to the obvious
+#x %% 1 == 0. R works out %% in long double, and for a negative whose size
+#falls under half the spacing of long double just below 1 (2^-65, about
+#2.7e-20) the correction 1 - |x| rounds to the divisor itself, which R then
+#reports as a remainder of 0. The test therefore calls -1e-20 an exact multiple
+#of 1, and as.integer() replaces it with 0. Positive numbers are spared,
+#because their remainder is the number itself and needs no correction, so the
+#flaw only bites on negative values.
+#
+#The is.finite() guard covers the other two ways the old test misbehaved.
+#round(Inf) is Inf, so equality alone would call infinity whole and hand it to
+#as.integer(), and NA_real_ %% 1 is NA, which made if() in Rfits_write_key fail
+#outright with 'missing value where TRUE/FALSE needed'.
+.is_whole_number = function(x){
+  return(is.finite(x) & x == round(x))
+}
+
 #Is this subset expression an `a:end` range? In Rfits `end` means "the end of
 #that dimension", not stats::end, so the expression has to be recognised from
 #its unevaluated form and must never be forced -- merely asking is.null(i) or

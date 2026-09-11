@@ -576,3 +576,184 @@ expect_equal(pixscale(point_image_fits, useraw = FALSE), pixscale(point_image_fi
 #centre and corners on the 2D image, likewise pinned
 expect_equal(corners(point_image_fits)[1, 'RA'], 352.311115817, tolerance = 1e-8)
 expect_equal(corners(point_image_fits)[1, 'Dec'], -31.839058568, tolerance = 1e-8)
+
+#ex 63 the fixed width form has to survive a round trip unchanged. The Zarr
+#pointers hold the keywords but no raw header, so the cards are rebuilt from
+#them before being handed to wcslib, and anything the rebuild loses is lost to
+#the projection as well
+keyvalues_image = Rfits_point(file_image)$keyvalues
+expect_identical(keyvalues_image, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_image)))
+#rebuilding from the keywords just read back has to give the same text, so a
+#pointer and a Zarr array written from one image project identically
+expect_identical(Rfits_keyvalues_to_raw(keyvalues_image),
+                 Rfits_keyvalues_to_raw(Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_image))))
+
+#split the raw form back into cards, and pull the value field out of one of them
+raw_cards = function(keyvalues){
+  raw = Rfits_keyvalues_to_raw(keyvalues)
+  n = nchar(raw)/80
+  substring(raw, 1+(80*((1:n)-1)), 80*(1:n))
+}
+card_value = function(keyvalues, keyname){
+  cards = raw_cards(keyvalues)
+  card = grep(paste0('^', keyname, '\\s*='), cards, value = TRUE)
+  #strip the keyword and equals, then the comment, leaving just the value field
+  trimws(sub('\\s*/.*$', '', sub('^\\S+\\s*=\\s*', '', card)))
+}
+
+#A projection keyword is only worth eleven significant figures if the rebuild is
+#allowed to round it. CD1_1 is negative, small and long, so it exercised every
+#part of the formatting at once
+expect_identical(card_value(keyvalues_image, 'CD1_1'), '-9.4166662957930E-05')
+expect_identical(card_value(keyvalues_image, 'CD2_2'), '9.4166662957930E-05')
+expect_identical(card_value(keyvalues_image, 'CRVAL1'), '352.2914408')
+#the scale has to be readable as the double it came from, not merely close
+expect_identical(as.numeric(card_value(keyvalues_image, 'CD1_1')), keyvalues_image$CD1_1)
+
+#An integer keyword may carry neither a decimal point nor an exponent. The
+#magnitude test was made on the value rather than its absolute value, so every
+#negative one was written exponentially, which no compliant reader accepts
+expect_identical(card_value(keyvalues_image, 'BITPIX'), '-32')
+expect_identical(card_value(keyvalues_image, 'NAXIS1'), '356')
+expect_identical(card_value(keyvalues_image, 'EQUINOX'), '2000')
+expect_identical(card_value(keyvalues_image, 'CD1_2'), '0')
+#and the same holds for the keywords a compressed image carries, which are both
+#negative and large
+expect_identical(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'PCOUNT'),
+                 '122021786')
+expect_identical(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'NEGINT'),
+                 '-42')
+#whole numbers are integers whichever way they arrive, since the keywords read
+#off disk are stored that way
+expect_identical(card_value(list(NAXIS2 = 14000), 'NAXIS2'), '14000')
+expect_identical(card_value(list(NAXIS2 = 14000), 'NAXIS2'),
+                 card_value(list(NAXIS2 = 14000L), 'NAXIS2'))
+#a value that is whole but too large for an integer keeps the exponential form
+expect_identical(card_value(list(ZRANGE = 1e15), 'ZRANGE'), '1.0000000000000E+15')
+#negative numbers in the middle of the range are plain, as the positive ones were
+expect_identical(card_value(list(NEGDEC = -0.5), 'NEGDEC'), '-0.5')
+expect_identical(card_value(keyvalues_image, 'CTYPE1'), "'RA---TAN'")
+
+#Thirteen digits is the most a twenty character value field can hold, so nothing
+#may spill out of it and shove the comment off its column. A negative with a
+#three digit exponent is the worst case
+wide = list(TINY = -1e-300, HUGE = -1.2345678901234e100, MAXD = -.Machine$double.xmax)
+expect_identical(nchar(raw_cards(wide)), rep(80L, 3))
+#the value field runs from column eleven to column thirty, so the comment always
+#opens on the thirty second column
+expect_identical(substring(raw_cards(wide), 32, 32), rep('/', 3))
+for(keyname in names(wide)){
+  expect_lte(nchar(card_value(wide, keyname)), 20)
+}
+#small negatives keep the exponential form, which is what the abs() test selects
+#them for
+expect_identical(card_value(list(TINY = -1e-09), 'TINY'), '-1.0000000000000E-09')
+
+#the keywords as the reader stores them are the input a pointer actually has, so
+#this is the case the corners of a Zarr array were being compared against
+keyvalues_check = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = 14000L, NAXIS2 = 14000L,
+                       EXTEND = TRUE, EQUINOX = 2000L, RADESYS = 'ICRS',
+                       CTYPE1 = 'RA---TAN', CTYPE2 = 'DEC--TAN', CUNIT1 = 'deg', CUNIT2 = 'deg',
+                       CRVAL1 = 212, CRVAL2 = 1.5, CRPIX1 = 7000.5, CRPIX2 = 7000.5,
+                       CD1_1 = -8.333333333333e-05, CD1_2 = 0L, CD2_1 = 0L,
+                       CD2_2 = 8.333333333333e-05, GAIN = 3.955390716043,
+                       SATURATE = 3.368085966101e-08, EXPTIME = 0L, OBJECT = 'KIDS_212.0_0.5')
+keyvalues_check = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check))
+expect_identical(keyvalues_check, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check)))
+expect_identical(card_value(keyvalues_check, 'CD1_1'), '-8.3333333333330E-05')
+expect_identical(card_value(keyvalues_check, 'SATURATE'), '3.3680859661010E-08')
+
+#a header rebuilt from its own keywords has to project the same sky, which is the
+#property the Zarr corners depended on. A bare keylist has no raw form to fall
+#back on, so corners() is forced to rebuild one, exactly as a Zarr pointer does.
+#The error was 2.3e-12 degrees, so expect_equal on the default tolerance would
+#not have noticed it
+check_keylist = keyvalues_check
+class(check_keylist) = 'Rfits_keylist'
+expect_identical(corners(check_keylist),
+                 corners(structure(list(keyvalues = keyvalues_check),
+                                   class = c('Rfits_header', 'list'))))
+#the shipped image too, at the full width the header declares
+image_header = Rfits_read_header(file_image)
+expect_identical(corners(image_header), corners(point_image_fits))
+expect_identical(centre(image_header), centre(point_image_fits))
+expect_identical(extremes(image_header), extremes(point_image_fits))
+expect_identical(pixscale(image_header), pixscale(point_image_fits))
+expect_identical(pixarea(image_header), pixarea(point_image_fits))
+expect_identical(rotation(image_header), rotation(point_image_fits))
+#a keylist is rebuilt rather than read, so it is the one that can drift. It has
+#to agree with the pointer that has the real header behind it
+expect_identical(corners(keyvalues_image), corners(point_image_fits))
+expect_identical(centre(keyvalues_image), centre(point_image_fits))
+expect_identical(pixscale(keyvalues_image), pixscale(point_image_fits))
+
+#ex 64 a keyword that is not a whole number must not be turned into one. The
+#whole number test was made with %% 1 == 0, and R works that out in long double,
+#so for a negative smaller than about 2.7e-20 the correction 1 - |x| rounds to
+#the divisor and the remainder comes back as 0. The test then called the number
+#whole, and as.integer() replaced it with zero. Positive numbers were never
+#affected, because their remainder is the number itself
+#the cards are written out by hand here, so that the reader is being tested on
+#text a file could genuinely hold rather than on what our own writer produces
+hand_cards = function(pairs){
+  cards = vapply(names(pairs), function(keyname){
+    formatC(paste0(formatC(keyname, width=8, flag='-'), '= ',
+                   formatC(pairs[[keyname]], width=20), ' /'), width=80, flag='-')
+  }, character(1))
+  return(paste(cards, collapse=''))
+}
+
+keyvalues_tiny = list(TINY = -1e-300, V20 = -1e-20, V25 = -1e-25, POS = 1e-300, SUB = 4.9e-320)
+keyvalues_back = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_tiny))
+expect_identical(keyvalues_back$TINY, -1e-300)
+expect_identical(keyvalues_back$V20, -1e-20)
+expect_identical(keyvalues_back$V25, -1e-25)
+expect_identical(keyvalues_back$POS, 1e-300)
+expect_identical(keyvalues_back$SUB, 4.9e-320)
+#none of these may be reported as an integer
+expect_identical(unname(vapply(keyvalues_back, storage.mode, character(1))),
+                 rep('double', 5))
+
+#through the reader alone, off cards that are already in fixed width form
+read_back = Rfits_raw_to_keyvalues(hand_cards(list(
+  TINY = '-1.000000000000E-300', V20 = '-1.0000000000000E-20',
+  N = '              14000', H = '            7000.5')))
+expect_identical(read_back$TINY, -1e-300)
+expect_identical(read_back$V20, -1e-20)
+#while a genuine integer keyword still comes back as one
+expect_identical(read_back$N, 14000L)
+expect_identical(read_back$H, 7000.5)
+
+#the same test decides whether Rfits_read_key with keytype = 'auto' returns an
+#integer or a double, so it has to agree with the reader above. A whole number
+#still comes back as an integer, and a tiny negative as the double it is
+expect_identical(read_back$N, 14000L)
+
+#the writer had the same flaw, where a whole number test picked between an
+#integer and a double card. A tiny negative became an integer card holding zero,
+#which loses the value outright
+file_tiny = tempfile(fileext='.fits')
+Rfits_write_image(matrix(as.numeric(1:4), 2, 2), file_tiny)
+write_then_read = function(keyname, keyvalue){
+  Rfits_write_key(file_tiny, keyname, keyvalue, ext = 1)
+  return(Rfits_read_key(file_tiny, keyname, keytype = 'auto', ext = 1))
+}
+expect_identical(write_then_read('NEG20', -1e-20), -1e-20)
+expect_identical(write_then_read('NEG300', -1e-300), -1e-300)
+#42 is whole, so it is still stored as an integer rather than a double
+expect_identical(write_then_read('WHOLE', 42), 42L)
+#a half and a modest double are untouched by any of this
+expect_identical(write_then_read('HALF', -0.5), -0.5)
+expect_identical(write_then_read('REF', 7000.5), 7000.5)
+#and the card that comes off disk is a real one, not an integer holding zero
+expect_identical(write_then_read('V25', -1e-25), -1e-25)
+
+#Inf is its own rounding, so a test built on equality alone would have called it
+#whole and passed it to as.integer(), which is undefined. NA is the other case,
+#where the remainder is NA and if() in the writer failed outright on 'missing
+#value where TRUE/FALSE needed'. Both are checked through the public functions
+expect_identical(card_value(list(INF = Inf), 'INF'), 'Inf')
+expect_identical(card_value(list(NINF = -Inf), 'NINF'), '-Inf')
+expect_identical(Rfits_raw_to_keyvalues(hand_cards(list(INFC = '                 Inf')))$INFC, Inf)
+#the writer used to error here rather than write anything
+expect_identical(write_then_read('NAK', NA_real_), NA)
