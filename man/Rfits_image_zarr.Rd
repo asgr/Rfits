@@ -21,28 +21,28 @@ FITS Style Zarr Vector Image Cube and Array Readers and Writers
 Image readers and writers that use Zarr for the storage back-end, rather than FITS. The read in files will look almost identical to those read in with \code{\link{Rfits_read_image}}, and mirror the behaviour of the HDF5 back-end in \code{\link{Rfits_image_hdf5}}.
 }
 \usage{
-Rfits_read_image_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header =TRUE,
+Rfits_read_image_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
 
-Rfits_read_vector_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header=TRUE,
+Rfits_read_vector_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header=TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
 
-Rfits_read_cube_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header = TRUE,
+Rfits_read_cube_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
 
-Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header =TRUE,
+Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
 
-Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
+Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext  TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
 
-Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
+Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext=TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
@@ -52,7 +52,7 @@ Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ex
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
 
-Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
+Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
