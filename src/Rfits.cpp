@@ -1,5 +1,9 @@
 #include <algorithm>
+#include <atomic>
+#include <exception>
 #include <limits>
+#include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include <Rcpp.h>
@@ -127,25 +131,37 @@ std::vector<char *> to_string_vector(const Rcpp::CharacterVector &strings)
   return c_strings;
 }
 
-static SEXP ensure_lossless_32bit_int(const std::vector<long> &values)
+static SEXP ensure_lossless_32bit_int(const std::vector<long> &values,
+                                      const char *nullmask = nullptr)
 {
     // Optimistically fill an IntegerVector in a single pass.
     // If any value is out of int32 range, immediately fall back to integer64
     // via memcpy — discarding the partial work but avoiding a second scan
     // over the full array in the common case where all values fit.
     const size_t n = values.size();
+    // bit64's NA is the raw pattern 0x8000000000000000 (LLONG_MIN), *not*
+    // the double NA_REAL bit pattern.
+    const int64_t int64_na = std::numeric_limits<int64_t>::min();
     Rcpp::IntegerVector int_out(Rcpp::no_init(n));
     for (size_t i = 0; i < n; i++) {
+        if (nullmask && nullmask[i]) {
+            // R's int32 storage cannot represent null distinctly from the
+            // legitimate value -2147483648, so those two collide here; the
+            // int64 fallback below has no such ambiguity.
+            int_out[i] = NA_INTEGER;
+            continue;
+        }
         long v = values[i];
         if (v > std::numeric_limits<int32_t>::max() ||
             v < std::numeric_limits<int32_t>::min()) {
-            Rcpp::NumericVector output(n);
+            Rcpp::NumericVector output(Rcpp::no_init(n));
             std::vector<int64_t> values64(n);
-            std::transform(values.begin(), values.end(), values64.begin(),
-               [](long v) { return static_cast<int64_t>(v); });
-            if (n > 0) {
-                std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
+            for (size_t j = 0; j < n; j++) {
+                values64[j] = (nullmask && nullmask[j])
+                                  ? int64_na
+                                  : static_cast<int64_t>(values[j]);
             }
+            std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
             output.attr("class") = "integer64";
             return output;
         }
@@ -187,24 +203,37 @@ RVector read_col_with_nulls_template(
     long nrow,
     MapFunc map_value
 ) {
-  std::vector<CType> col(nrow);
-  std::vector<char> nullmask(nrow);
+  std::vector<char> nullmask(nrow, 0);
   int anynull = 0;
-  
-  fits_invoke(read_colnull, fptr, typecode, colref,
-              startrow, 1, nrow,
-              col.data(), nullmask.data(), &anynull);
-  
-  RVector out(nrow);
-  
-  for (long i = 0; i < nrow; ++i) {
-    if (nullmask[i]) {
-      map_value(out, i, col[i], true);
-    } else {
-      map_value(out, i, col[i], false);
+
+  RVector out(Rcpp::no_init(nrow));
+
+  // For types whose C storage is identical to the R storage (int, double),
+  // read straight into the R vector and only patch the null positions,
+  // avoiding the intermediate buffer and a full copy pass. LogicalVector is
+  // deliberately excluded: R stores logicals as int while CFITSIO's TLOGICAL
+  // is one byte per value.
+  if constexpr (std::is_same_v<CType, typename RVector::stored_type>) {
+    // read_colnull takes void*, which would silently accept a proxy iterator;
+    // require an actual contiguous pointer at compile time.
+    static_assert(std::is_pointer_v<decltype(out.begin())>,
+                  "direct read requires a raw contiguous pointer");
+    fits_invoke(read_colnull, fptr, typecode, colref,
+                startrow, 1, nrow,
+                out.begin(), nullmask.data(), &anynull);
+    for (long i = 0; i < nrow; ++i) {
+      if (nullmask[i]) map_value(out, i, CType(), true);
+    }
+  } else {
+    std::vector<CType> col(nrow);
+    fits_invoke(read_colnull, fptr, typecode, colref,
+                startrow, 1, nrow,
+                col.data(), nullmask.data(), &anynull);
+    for (long i = 0; i < nrow; ++i) {
+      map_value(out, i, col[i], nullmask[i] != 0);
     }
   }
-  
+
   return out;
 }
 
@@ -228,16 +257,33 @@ inline void map_double(Rcpp::NumericVector& out, int i, T val, bool isnull) {
 
 inline void map_int64(Rcpp::NumericVector& out, int i, int64_t val, bool isnull) {
   if (isnull) {
-    out[i] = NA_REAL;
+    // The vector is classed integer64: bit64 represents NA as the raw 64-bit
+    // pattern 0x8000000000000000 (LLONG_MIN), NOT the double NA_REAL pattern.
+    // Writing NA_REAL would silently yield a huge integer instead of NA.
+    int64_t na = std::numeric_limits<int64_t>::min();
+    std::memcpy(&(out[i]), &na, sizeof(int64_t));
   } else {
     std::memcpy(&(out[i]), &val, sizeof(int64_t));
   }
 }
 
+// Core column reader. Takes an already-open handle so that a multi-column
+// read (Cfits_read_cols) can reuse it across columns; the handle is closed by
+// the caller's fits_file guard.
+static SEXP read_col_impl(fitsfile* fptr, int colref, int ext,
+                          long startrow, long nrow);
+
 // [[Rcpp::export]]
 SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2, 
                     long startrow=1, long nrow=0){
-  
+
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  return(read_col_impl(fptr, colref, ext, startrow, nrow));
+}
+
+static SEXP read_col_impl(fitsfile* fptr, int colref, int ext,
+                          long startrow, long nrow)
+{
   if (startrow < 1) {
     Rcpp::stop("startrow must be ≥ 1");
   }
@@ -245,7 +291,6 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   int hdutype,anynull,typecode;
   long repeat,width,nrow_total;
 
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(get_coltype, fptr, colref, &typecode, &repeat, &width);
   fits_invoke(get_num_rows, fptr, &nrow_total);
@@ -253,6 +298,9 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   if (nrow == 0) {
     nrow = nrow_total - startrow + 1;
   }
+  // Guard against a negative/zero request (e.g. startrow beyond the table),
+  // which would otherwise size std::vector from a huge unsigned count.
+  if (nrow < 0) nrow = 0;
   
   // NEW: If nrow collapses to 1, try NELEM from the header.
   // This supports files where a single-row table encodes vector-length in NELEM.
@@ -302,8 +350,13 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   // Handle vector columns (repeat > 1) for numeric types.
   // Returns an R list of vectors, one per row.
   if ( repeat > 1 && typecode != TSTRING ) {
+    // nrow * repeat can overflow long, which would under-allocate the read
+    // buffer while the per-row memcpy loops still walk the full span.
+    if (nrow > std::numeric_limits<long>::max() / repeat) {
+      Rcpp::stop("Column element count overflows: nrow (%ld) * repeat (%ld)", nrow, repeat);
+    }
     long total = nrow * repeat;
-    
+
     if ( typecode == TDOUBLE || typecode == TFLOAT ) {
       // Read all elements as double
       double nullval = -999;
@@ -377,10 +430,15 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     fits_invoke(get_col_display_width, fptr, colref, &cwidth);
 
     // Single flat allocation: better cache locality and fewer heap ops than
-    // vector<vector<char>>. RAII ensures cleanup even if fits_invoke throws.
-    std::vector<char> storage((long)nrow * (cwidth + 1), '\0');
+    // vector<vector<char>>. Each row gets cwidth + 1 bytes because CFITSIO
+    // writes a terminating NUL at index up to cwidth. The block is deliberately
+    // left uninitialised (unique_ptr + new[], not std::vector's value-init):
+    // fits_read_col NUL-terminates every string it returns, so vector<char>'s
+    // zero-fill would be a wasted pass over the whole buffer.
+    const long stride = static_cast<long>(cwidth) + 1;
+    std::unique_ptr<char[]> storage(new char[static_cast<size_t>(nrow) * stride]);
     std::vector<char *> col(nrow);
-    for (long i = 0; i < nrow; i++) col[i] = storage.data() + i * (cwidth + 1);
+    for (long i = 0; i < nrow; i++) col[i] = storage.get() + i * stride;
 
     fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, nrow, nullptr, col.data(), &anynull);
     Rcpp::StringVector out(nrow);
@@ -438,21 +496,16 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
   else if (typecode == TINT32BIT || typecode == TLONG) {
   // special case to deal with ensure_lossless_32bit_int correctly
   std::vector<long> col(nrow);
-  std::vector<char> nullmask(nrow);
+  std::vector<char> nullmask(nrow, 0);
   int anynull = 0;
 
   fits_invoke(read_colnull, fptr, typecode, colref,
               startrow, 1, nrow,
               col.data(), nullmask.data(), &anynull);
 
-  // Insert NA sentinel for R before handing off
-  for (long i = 0; i < nrow; ++i) {
-    if (nullmask[i]) {
-      col[i] = NA_INTEGER;  // safe placeholder
-    }
-  }
-
-  return ensure_lossless_32bit_int(col);
+  // The null mask is passed through so NAs survive the int64 fallback
+  // without rewriting the (uninitialised) null slots in `col`.
+  return ensure_lossless_32bit_int(col, nullmask.data());
 }
   else if (typecode == TLONGLONG) {
     Rcpp::NumericVector out =
@@ -465,6 +518,36 @@ SEXP Cfits_read_col(Rcpp::String filename, int colref=1, int ext=2,
     return out;
   }
   throw std::runtime_error("unsupported type");
+}
+
+// Read several columns through a single open file handle.
+//
+// Cfits_read_col opens and closes the file once per column, so reading a wide
+// table pays the open / header-parse / close cycle ncol times. This variant
+// pays it once.
+//
+// A column that fails is returned as NULL rather than aborting the batch. The
+// R caller historically wrapped each per-column call in try() and substituted
+// NA, so swallowing here is what preserves that behaviour; without it, one bad
+// column would now take the whole table down with it.
+// [[Rcpp::export]]
+List Cfits_read_cols(Rcpp::String filename, IntegerVector cols, int ext=2,
+                     long startrow=1, long nrow=0){
+  if (startrow < 1) {
+    Rcpp::stop("startrow must be ≥ 1");
+  }
+
+  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+
+  List out(cols.size());
+  for (R_xlen_t k = 0; k < cols.size(); ++k) {
+    try {
+      out[k] = read_col_impl(fptr, cols[k], ext, startrow, nrow);
+    } catch (const std::exception&) {
+      out[k] = R_NilValue;
+    }
+  }
+  return out;
 }
 
 // [[Rcpp::export]]
@@ -822,6 +905,13 @@ void Cfits_write_pix(Rcpp::String filename, SEXP data, int ext=1, int datatype= 
 {
   int hdutype;
   long nelements = naxis1 * naxis2 * naxis3 * naxis4;
+
+  // The buffers below read nelements entries out of `data`; reject a request
+  // larger than the supplied vector to avoid reading past its storage.
+  if (nelements > Rf_xlength(data)) {
+    Rcpp::stop("Cfits_write_pix: nelements (%ld) exceeds length of data (%ld)",
+               nelements, (long)Rf_xlength(data));
+  }
   
   long fpixel_vector[] = {1};
   long fpixel_image[] = {1, 1};
@@ -877,11 +967,11 @@ typename Rcpp::Vector<RTYPE>::stored_type* start_of(Rcpp::Vector<RTYPE> &output)
     return output.size() == 0 ? nullptr : &(output[0]);
 }
 
-static inline void do_read_img(Rcpp::String filename, int ext, int data_type, long start, long count, void *output)
+static inline void do_read_img(const char *filename, int ext, int data_type, long start, long count, void *output)
 {
   int anynull = 0;
   int hdutype = 0;
-  fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
+  fits_file fptr = fits_safe_open_file(filename, READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   fits_invoke(read_img, fptr, data_type, start, count, nullptr, output, &anynull);
 }
@@ -889,14 +979,35 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, lo
 template <typename OutputT>
 static inline void do_read_img(Rcpp::String filename, int ext, int data_type, OutputT &output, int nthreads)
 {
+  R_xlen_t total_elements = output.size();
+  if (total_elements == 0) return;
+
+  // Resolve the path to a stable C string up front. Inside the parallel
+  // region we must not touch Rcpp::String: its copy constructor can lazily
+  // call Rf_mkCharCE and Rcpp_precious_preserve, neither of which is
+  // thread-safe.
+  const std::string path = filename.get_cstring();
+
 #ifndef _OPENMP
   nthreads = 1;
 #endif
 
-  R_xlen_t total_elements = output.size();
-  if (total_elements == 0) return;
+  // Clamp nthreads: a caller-supplied value of 0 or below would give a
+  // nonsensical chunk partition; a value larger than the element count buys
+  // nothing and can hand a thread a zero-sized chunk. Compare in R_xlen_t to
+  // avoid narrowing a potentially huge element count into int.
+  if (nthreads < 1) nthreads = 1;
+  if (total_elements < static_cast<R_xlen_t>(nthreads)) {
+    nthreads = static_cast<int>(total_elements);
+  }
 
 #ifdef _OPENMP
+  // Exceptions must never escape a parallel region (that would call
+  // std::terminate), so each chunk records its first error and it is
+  // rethrown on the master thread afterwards.
+  std::exception_ptr first_error;
+  std::atomic<bool> failed{false};
+
   R_xlen_t elems_per_thread = total_elements / nthreads;
   R_xlen_t thread_remainder = total_elements % nthreads;
 
@@ -906,10 +1017,23 @@ static inline void do_read_img(Rcpp::String filename, int ext, int data_type, Ou
     R_xlen_t start = elems_per_thread * i + std::min(thread_remainder, i);
     R_xlen_t count = elems_per_thread + extra;
     if (count == 0) continue;
-    do_read_img(filename, ext, data_type, start + 1, count, start_of(output) + start);
+    // Once any chunk has failed the vector is being discarded anyway, so the
+    // remaining reads are pointless.
+    if (failed.load(std::memory_order_relaxed)) continue;
+    try {
+      do_read_img(path.c_str(), ext, data_type,
+                  start + 1, count, start_of(output) + start);
+    } catch (...) {
+      bool expected = false;
+      if (failed.compare_exchange_strong(expected, true)) {
+        first_error = std::current_exception();
+      }
+    }
   }
+
+  if (first_error) std::rethrow_exception(first_error);
 #else
-  do_read_img(filename, ext, data_type, 1, total_elements, start_of(output));
+  do_read_img(path.c_str(), ext, data_type, 1, total_elements, start_of(output));
 #endif
 }
 // [[Rcpp::export]]
@@ -1032,8 +1156,8 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
                            long sparse=1
                            )
 {
-  int anynull, nullvals = 0, hdutype;
-  
+  int anynull, hdutype;
+
   fits_file fptr = fits_safe_open_file(filename.get_cstring(), READONLY);
   fits_invoke(movabs_hdu, fptr, ext, &hdutype);
   
@@ -1058,38 +1182,38 @@ SEXP Cfits_read_img_subset(Rcpp::String filename, int ext=1, int datatype= -32,
   if (datatype==FLOAT_IMG){
     std::vector<float> pixels(nelements);
     fits_invoke(read_subset, fptr, TFLOAT, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+                  nullptr, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(nelements);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==DOUBLE_IMG){
     Rcpp::NumericVector pixel_matrix(Rcpp::no_init(nelements));
     fits_invoke(read_subset, fptr, TDOUBLE, fpixel, lpixel, inc,
-                  &nullvals, pixel_matrix.begin(), &anynull);
+                  nullptr, pixel_matrix.begin(), &anynull);
     return(pixel_matrix);
   }else if (datatype==BYTE_IMG){
     std::vector<char> pixels(nelements);
     fits_invoke(read_subset, fptr, TBYTE, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+                  nullptr, pixels.data(), &anynull);
     Rcpp::IntegerVector pixel_matrix(nelements);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==SHORT_IMG){
     std::vector<short> pixels(nelements);
     fits_invoke(read_subset, fptr, TSHORT, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+                  nullptr, pixels.data(), &anynull);
     Rcpp::IntegerVector pixel_matrix(nelements);
     std::copy(pixels.begin(), pixels.end(), pixel_matrix.begin());
     return(pixel_matrix);
   }else if (datatype==LONG_IMG){
     std::vector<long> pixels(nelements);
     fits_invoke(read_subset, fptr, TLONG, fpixel, lpixel, inc,
-                  &nullvals, pixels.data(), &anynull);
+                  nullptr, pixels.data(), &anynull);
     return ensure_lossless_32bit_int(pixels);
   }else if (datatype==LONGLONG_IMG){
     std::vector<int64_t> pixels(nelements);
     fits_invoke(read_subset, fptr, TLONGLONG, fpixel, lpixel, inc,
-                &nullvals, pixels.data(), &anynull);
+                nullptr, pixels.data(), &anynull);
     Rcpp::NumericVector pixel_matrix(nelements);
     if (nelements > 0) std::memcpy(&(pixel_matrix[0]), &(pixels[0]), nelements * sizeof(int64_t));
     pixel_matrix.attr("class") = "integer64";
@@ -1141,6 +1265,12 @@ void Cfits_write_img_subset(Rcpp::String filename, SEXP data, int ext=1, int dat
   }
   else {
     Rcpp::stop("naxis=" + std::to_string(naxis) + " doesn't meet condition: 1 <= naxis <= 4");
+  }
+
+  // Read-side buffers index `data` for nelements entries; ensure it is big enough.
+  if (nelements > Rf_xlength(data)) {
+    Rcpp::stop("Cfits_write_img_subset: nelements (%ld) exceeds length of data (%ld)",
+               nelements, (long)Rf_xlength(data));
   }
 
   if(datatype == TBYTE){
@@ -1229,7 +1359,9 @@ SEXP Cfits_get_chksum(Rcpp::String filename){
 
 // [[Rcpp::export]]
 SEXP Cfits_encode_chksum(unsigned long sum, int complement=0){
-  char ascii[16];
+  // fits_encode_chksum (ffesum) writes 16 characters *and* a terminating NUL
+  // at ascii[16] (see checksum.c), so the buffer must be 17 bytes.
+  char ascii[17];
   fits_encode_chksum(sum, complement, (char *)ascii);
   Rcpp::StringVector out;
   out = ascii;
