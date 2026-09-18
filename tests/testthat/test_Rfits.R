@@ -703,13 +703,17 @@ hand_cards = function(pairs){
   return(paste(cards, collapse=''))
 }
 
+expect_tiny_roundtrip = function(actual, expected){
+  expect_equal(actual, expected, tolerance = sqrt(.Machine$double.eps))
+}
+
 keyvalues_tiny = list(TINY = -1e-300, V20 = -1e-20, V25 = -1e-25, POS = 1e-300, SUB = 4.9e-320)
 keyvalues_back = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_tiny))
-expect_equal(keyvalues_back$TINY, -1e-300)
-expect_equal(keyvalues_back$V20, -1e-20)
-expect_equal(keyvalues_back$V25, -1e-25)
-expect_equal(keyvalues_back$POS, 1e-300)
-expect_equal(keyvalues_back$SUB, 4.9e-320)
+expect_tiny_roundtrip(keyvalues_back$TINY, -1e-300)
+expect_tiny_roundtrip(keyvalues_back$V20, -1e-20)
+expect_tiny_roundtrip(keyvalues_back$V25, -1e-25)
+expect_tiny_roundtrip(keyvalues_back$POS, 1e-300)
+expect_tiny_roundtrip(keyvalues_back$SUB, 4.9e-320)
 #none of these may be reported as an integer
 expect_equal(unname(vapply(keyvalues_back, storage.mode, character(1))),
                  rep('double', 5))
@@ -718,8 +722,8 @@ expect_equal(unname(vapply(keyvalues_back, storage.mode, character(1))),
 read_back = Rfits_raw_to_keyvalues(hand_cards(list(
   TINY = '-1.000000000000E-300', V20 = '-1.0000000000000E-20',
   N = '              14000', H = '            7000.5')))
-expect_equal(read_back$TINY, -1e-300)
-expect_equal(read_back$V20, -1e-20)
+expect_tiny_roundtrip(read_back$TINY, -1e-300)
+expect_tiny_roundtrip(read_back$V20, -1e-20)
 #while a genuine integer keyword still comes back as one
 expect_equal(read_back$N, 14000L)
 expect_equal(read_back$H, 7000.5)
@@ -738,15 +742,15 @@ write_then_read = function(keyname, keyvalue){
   Rfits_write_key(file_tiny, keyname, keyvalue, ext = 1)
   return(Rfits_read_key(file_tiny, keyname, keytype = 'auto', ext = 1))
 }
-expect_equal(write_then_read('NEG20', -1e-20), -1e-20)
-expect_equal(write_then_read('NEG300', -1e-300), -1e-300)
+expect_tiny_roundtrip(write_then_read('NEG20', -1e-20), -1e-20)
+expect_tiny_roundtrip(write_then_read('NEG300', -1e-300), -1e-300)
 #42 is whole, so it is still stored as an integer rather than a double
 expect_equal(write_then_read('WHOLE', 42), 42L)
 #a half and a modest double are untouched by any of this
 expect_equal(write_then_read('HALF', -0.5), -0.5)
 expect_equal(write_then_read('REF', 7000.5), 7000.5)
 #and the card that comes off disk is a real one, not an integer holding zero
-expect_equal(write_then_read('V25', -1e-25), -1e-25)
+expect_tiny_roundtrip(write_then_read('V25', -1e-25), -1e-25)
 
 #Inf is its own rounding, so a test built on equality alone would have called it
 #whole and passed it to as.integer(), which is undefined. NA is the other case,
