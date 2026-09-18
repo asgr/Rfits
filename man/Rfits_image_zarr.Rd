@@ -37,7 +37,7 @@ Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,head
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
   thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
 
-Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext  TRUE,
+Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
   keyvalues, keycomments, keynames, comment, history)
@@ -189,7 +189,7 @@ The stored data type is never widened or narrowed: an unrequested type differenc
 
 Wherever \option{filename} is expected, a store object created by \code{\link[zarr]{zarr_s3store}} (or \code{zarr_localstore}, \code{zarr_memorystore}, \code{zarr_httpstore}) may be given instead of a path. This is the only way to reach a store that needs credentials, because \code{\link[zarr]{open_zarr}} builds the store itself and cannot be passed one, so it has no way to accept a key or a non-AWS endpoint. The store must already be configured and authenticated; Rfits never sees a secret key. An open \code{zarr} object may also be given, so the result of \code{zarr::zarr$new(store)} can be reused across calls.
 
-For a store object, the \option{filename} component of the output holds the store URI (for example \code{s3://bucket/prefix/}) rather than a local path, and falls back to a description of the store type when there is no URI. A writer will bootstrap a store that has no root group yet, which is the state a newly created local or memory store is in, but a reader will not: reading refuses rather than creating anything, so an empty store is never mistaken for a populated one and nothing can be written over existing data. Note that \code{zarr_s3store} cannot itself be constructed over a prefix that holds no store, so a brand new remote store has to be created by other means first.
+For a store object, the \option{filename} component of the output holds the store URI (for example \code{s3://bucket/prefix/}) rather than a local path, and falls back to a description of the store type when there is no URI. A writer will bootstrap a store that has no root group yet, which is the state a newly created local or memory store is in, but a reader will not: reading refuses rather than creating anything, so an empty store is never mistaken for a populated one and nothing can be written over existing data. A brand new store over S3 has to be made by \code{\link{Rfits_s3_store_new}}, because \code{zarr_s3store} can only open a prefix that already holds one.
 
 Writes require a store created with \option{read_only} = FALSE; that flag cannot be changed afterwards, so the error is reported rather than a silently failing write. Because there is no directory to remove, \option{overwrite_file} = TRUE empties a store object in place using its \code{clear} method. Note that subsetting over a remote store is only as efficient as the store's chunking, and that \code{Rfits_write_image_zarr} on a remote store transfers the whole array.
 }
@@ -226,7 +226,8 @@ These functions are a proof of concept for creating more generic astronomy data 
 }
 
 \seealso{
-\code{\link{Rfits_image}}, \code{\link{Rfits_image_hdf5}}, \code{\link[zarr]{create_zarr}}
+\code{\link{Rfits_image}}, \code{\link{Rfits_image_hdf5}},
+\code{\link{Rfits_dir_to_zarr}}, \code{\link[zarr]{create_zarr}}
 }
 \examples{
 \dontrun{
@@ -283,19 +284,26 @@ library(Rwcs)
 coords = Rwcs_p2s(101, 101, temp_image$keyvalues)
 dim(point[coords[1], coords[2], box = 100, type = 'coord'])
 
-#A remote store, given as a store object rather than a path. The store has to
-#already exist, since zarr_s3store cannot be constructed over an empty prefix.
-#The session_token must be a string, since passing NULL is mishandled by paws at
-#the time of writing. Use an AWS_PROFILE, or keys held outside the code, rather
-#than hard coding one.
-store = zarr::zarr_s3store$new(
+#A remote store, given as a store object rather than a path. If one does not
+#exist yet it has to be created first; see Rfits_s3_store_new. The session_token
+#must be a string, since passing NULL is mishandled by paws at the time of
+#writing. Use an AWS_PROFILE, or keys held outside the code, rather than hard
+#coding one.
+store = Rfits_s3_store_new(
   bucket = 'my-bucket',
-  prefix = 'images/example.zarr/',
+  prefix = 'images/example.zarr',
   region = 'auto',
   endpoint = 'https://account.r2.cloudflarestorage.com',
   access_key = Sys.getenv('R2_KEY'),
   secret_key = Sys.getenv('R2_SECRET'),
   session_token = '')
+
+#A new store is empty, so put something in it before asking for a cutout. Keep
+#the store object rather than the path: a raw store or path is reopened, and every
+#reopen is a round trip to the bucket.
+file_image = system.file('extdata', 'image.fits', package = "Rfits")
+temp_image = Rfits_read_image(file_image)
+Rfits_write_image_zarr(temp_image, store, extname = 'data1')
 
 #Reads only the chunks the cut needs, however far away the store is
 image = Rfits_read_image_zarr(store, extname = 'data1', xlo = 1, xhi = 100, ylo = 1, yhi = 100)

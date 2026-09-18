@@ -59,7 +59,7 @@ Invisibly, a list with components \option{filename}, \option{is_store_object},
 Aaron Robotham
 }
 \seealso{
-\code{\link{Rfits_image_zarr}}
+\code{\link{Rfits_image_zarr}}, \code{\link{Rfits_dir_to_zarr}}
 }
 \examples{
 \dontrun{

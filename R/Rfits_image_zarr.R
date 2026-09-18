@@ -90,6 +90,193 @@
   return(invisible(NULL))
 }
 
+#Normalise a store prefix to the key prefix zarr_s3store uses. The constructor
+#does exactly this, so the root group has to be written under the same name or
+#the store is created in one place and looked for in another.
+.zarr_s3_prefix = function(prefix){
+  if(nzchar(prefix)){
+    return(sub('/*$', '/', prefix))
+  }
+  return('')
+}
+
+#The root group document of a Zarr v3 store. This is what makes a prefix a store
+#at all; zarr_s3store$new() looks for it and refuses to return without one. The
+#bytes are written out rather than serialised, because jsonlite turns the empty
+#attribute list into [] where the v3 spec wants {}.
+.zarr_root_group_bytes = function(){
+  return(charToRaw('{"zarr_format":3,"node_type":"group","attributes":{}}'))
+}
+
+#The same test zarr_s3store uses privately to tell a missing key from a real
+#error. Anything else (notably AccessDenied) is kept apart from absent, since a
+#store may well exist behind credentials that cannot see it. The pattern looks for
+#the service error codes, so it is deliberately narrow; anything it does not
+#recognise is treated as unknown, which fails towards not overwriting.
+.zarr_s3_not_found = function(message){
+  return(grepl('NoSuchKey|NotFound|404|NoSuchBucket', message, ignore.case = TRUE))
+}
+
+.zarr_s3_probe = function(client, bucket, key){
+  found = tryCatch({client$head_object(Bucket = bucket, Key = key); TRUE},
+                   error = function(e) e)
+  if(isTRUE(found)){
+    return(list(exists = TRUE, message = NULL))
+  }
+  if(.zarr_s3_not_found(conditionMessage(found))){
+    return(list(exists = FALSE, message = NULL))
+  }
+  return(list(exists = NA, message = conditionMessage(found)))
+}
+
+#The client config for a new store, built the same way zarr_s3store builds its
+#own so that the client which writes the root group and the client which later
+#opens the store agree. Kept separate so the parts that are easy to get wrong
+#(path style addressing, the absent region, the NULL session token) can be
+#checked without a network
+.zarr_s3_config = function(region=NULL, endpoint=NULL, access_key=NULL, secret_key=NULL,
+                           session_token=NULL){
+  if(is.null(session_token)){
+    #paws mishandles a NULL token at the time of writing, which is what an empty
+    #string means here
+    session_token = ''
+  }
+  cfg = list(credentials = list(creds = list(access_key_id = access_key,
+                                            secret_access_key = secret_key,
+                                            session_token = session_token)))
+  if(!is.null(region)){
+    cfg$region = region
+  }
+  if(!is.null(endpoint)){
+    cfg$endpoint = endpoint
+    #zarr_s3store assumes path style addressing whenever an endpoint is given, so
+    #match it here or the probe and the write would go to different URLs
+    cfg$s3_force_path_style = TRUE
+  }
+  return(cfg)
+}
+
+#Bootstrap a store over S3 by writing its root group. Kept separate from
+#Rfits_s3_store_new() so that the logic which does not need a network (prefix
+#normalising, the overwrite guard, the bytes themselves) can be tested directly.
+.zarr_s3_root_create = function(client, bucket, prefix, force = FALSE){
+  assertFlag(force)
+  root = .zarr_s3_prefix(prefix)
+  key = paste0(root, 'zarr.json')
+  if(!isTRUE(force)){
+    probe = .zarr_s3_probe(client, bucket, key)
+    if(isTRUE(probe$exists)){
+      stop('A Zarr store already exists at s3://', bucket, '/', root,
+           '. Use force = TRUE to overwrite its root group.', call. = FALSE)
+    }
+    if(is.na(probe$exists)){
+      stop('Cannot determine whether a Zarr store already exists at s3://', bucket, '/', root,
+           ': ', probe$message, call. = FALSE)
+    }
+  }
+  written = tryCatch(client$put_object(Bucket = bucket, Key = key,
+                                       Body = .zarr_root_group_bytes()),
+                     error = function(e) e)
+  if(inherits(written, 'error')){
+    stop('Cannot create the Zarr root group at s3://', bucket, '/', root, ': ',
+         conditionMessage(written), call. = FALSE)
+  }
+  return(invisible(root))
+}
+
+#Create a brand new Zarr store over S3 (or any S3 compatible service, which
+#includes Cloudflare R2). The zarr package can only open a store there, never
+#make one: zarr_s3store$new() looks for the root group as its last act and
+#errors if there is none, and create_zarr() is hard wired to local and memory
+#stores. So the root group is written first with the same client that will be
+#used to read it back, and only then is the normal constructor called.
+Rfits_s3_store_new = function(bucket, prefix='', region=NULL, endpoint=NULL,
+                              access_key=NULL, secret_key=NULL, session_token=NULL,
+                              force=FALSE){
+  .zarr_require()
+  assertString(bucket, min.chars=1)
+  assertString(prefix)
+  assertString(region, null.ok=TRUE)
+  assertString(endpoint, null.ok=TRUE)
+  assertString(access_key, null.ok=TRUE)
+  assertString(secret_key, null.ok=TRUE)
+  assertString(session_token, null.ok=TRUE)
+  assertFlag(force)
+
+  if(is.null(access_key) || is.null(secret_key)){
+    #Without keys zarr_s3store falls back to anonymous credentials, which can
+    #read a public bucket but cannot write, so the store would be created in one
+    #request and then be unopenable in the next. Better to say which argument is
+    #missing than to let a 400 on a key name report it
+    stop('access_key and secret_key are required. Without them zarr_s3store ',
+         'silently falls back to anonymous credentials, so the new store could be ',
+         'created but never opened.', call. = FALSE)
+  }
+  if(!requireNamespace('paws.storage', quietly=TRUE)){
+    stop('The paws.storage package is needed to create a Zarr store over S3. ',
+         'Please install it from CRAN.', call. = FALSE)
+  }
+
+  cfg = .zarr_s3_config(region = region, endpoint = endpoint, access_key = access_key,
+                        secret_key = secret_key, session_token = session_token)
+  client = paws.storage::s3(config = cfg)
+
+  root = .zarr_s3_root_create(client, bucket, prefix, force=force)
+  message('Created Zarr store at s3://', bucket, '/', root)
+  #The store must build its own client, since zarr_s3store offers no way to be
+  #handed one, which is why the credentials go twice. The same normalised values
+  #are used for both so neither side can end up anonymous
+  store = zarr::zarr_s3store$new(bucket = bucket, prefix = prefix, region = region,
+                                 endpoint = endpoint,
+                                 access_key = cfg$credentials$creds$access_key_id,
+                                 secret_key = cfg$credentials$creds$secret_access_key,
+                                 session_token = cfg$credentials$creds$session_token)
+  return(invisible(store))
+}
+
+#Open an S3 store for writing, creating it first if the prefix has no root group
+#yet. The probe decides rather than catching an error from zarr_s3store$new, since
+#the constructor reports an absent prefix, a bad key and a wrong region in three
+#different ways, and only the first of those may be created over. An existing
+#prefix is opened rather than created, because Rfits_s3_store_new refuses a prefix
+#that already holds a store; that is the right behaviour on its own but not here,
+#where re-running a batch is expected to update the stores it made the first time.
+.zarr_s3_store_for = function(bucket, prefix='', region=NULL, endpoint=NULL,
+                              access_key=NULL, secret_key=NULL, session_token=NULL,
+                              client=NULL){
+  .zarr_require()
+  if(is.null(session_token)){
+    session_token = ''
+  }
+  if(is.null(client)){
+    if(!requireNamespace('paws.storage', quietly=TRUE)){
+      stop('The paws.storage package is needed to reach a Zarr store over S3. ',
+           'Please install it from CRAN.', call. = FALSE)
+    }
+    client = paws.storage::s3(config = .zarr_s3_config(region = region, endpoint = endpoint,
+                                                       access_key = access_key,
+                                                       secret_key = secret_key,
+                                                       session_token = session_token))
+  }
+  key = paste0(.zarr_s3_prefix(prefix), 'zarr.json')
+  probe = .zarr_s3_probe(client, bucket, key)
+  if(is.na(probe$exists)){
+    stop('Cannot determine whether a Zarr store exists at s3://', bucket, '/',
+         .zarr_s3_prefix(prefix), ': ', probe$message, call. = FALSE)
+  }
+  if(!isTRUE(probe$exists)){
+    #Writes the root group and then opens the store with the same credentials, so
+    #none of that is duplicated here. Returns the open store.
+    return(Rfits_s3_store_new(bucket = bucket, prefix = prefix, region = region,
+                              endpoint = endpoint, access_key = access_key,
+                              secret_key = secret_key, session_token = session_token))
+  }
+  return(zarr::zarr_s3store$new(bucket = bucket, prefix = prefix, region = region,
+                                endpoint = endpoint, access_key = access_key,
+                                secret_key = secret_key, session_token = session_token,
+                                read_only = FALSE))
+}
+
 #Does the store have a root group? Tri state: NA means it could not be
 #established, which for a remote store usually means credentials or a prefix
 #mistake. Deliberately kept apart from FALSE, since only a genuine absence may
@@ -1433,6 +1620,229 @@ Rfits_append_image_zarr = function(data, filename='temp.zarr', extname='data1', 
 Rfits_append_vector_zarr = Rfits_append_image_zarr
 Rfits_append_cube_zarr = Rfits_append_image_zarr
 Rfits_append_array_zarr = Rfits_append_image_zarr
+
+#The store name for a FITS file: the base name with the extension removed and
+#.zarr added, so image_example.fits becomes image_example.zarr. Both .fit and
+#.fits are handled, compressed or not, since those are the names the readers
+#accept. Only the basename is kept, which is what makes a collision between two
+#files of the same name visible to the caller rather than silent.
+.zarr_store_stub = function(filename){
+  base = basename(filename)
+  return(paste0(sub('\\.(fits|fit)(\\.gz)?$', '', base, ignore.case = TRUE), '.zarr'))
+}
+
+#The FITS names the readers take, matched the way Rfits_key_scan matches them
+.zarr_fits_pattern = '\\.(fits|fit)(\\.gz)?$'
+
+Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recursive = TRUE,
+                             target = NULL, bucket = NULL, prefix = '',
+                             region = NULL, endpoint = NULL,
+                             access_key = NULL, secret_key = NULL, session_token = NULL,
+                             ext = 1L, extname = 'data1', verbose = TRUE, ...){
+  .zarr_require()
+
+  assertString(dir, null.ok = TRUE)
+  assertCharacter(filelist, null.ok = TRUE)
+  assertCharacter(pattern, null.ok = TRUE)
+  assertFlag(recursive)
+  assertFlag(verbose)
+  assertString(target, null.ok = TRUE)
+  assertString(prefix)
+  assertString(region, null.ok = TRUE)
+  assertString(endpoint, null.ok = TRUE)
+  assertString(access_key, null.ok = TRUE)
+  assertString(secret_key, null.ok = TRUE)
+  assertString(session_token, null.ok = TRUE)
+  assertIntegerish(ext, len = 1)
+  assertString(extname)
+
+  #Reading the credentials out of the environment is worth doing here, since the
+  #alternative is a key in a script and this function exists to be scripted. bucket
+  #is deliberately NOT taken from the environment: passing it explicitly is what
+  #asks for a remote run, so that ambient credentials cannot silently redirect a
+  #local batch. Anything passed wins over the environment. The names are the ones
+  #the package tests already use.
+  env_default = function(value, name){
+    if(!is.null(value)){
+      return(value)
+    }
+    value = Sys.getenv(name, '')
+    if(nzchar(value)){
+      return(value)
+    }
+    return(NULL)
+  }
+  region = env_default(region, 'RFITS_S3_REGION')
+  endpoint = env_default(endpoint, 'RFITS_S3_ENDPOINT')
+  access_key = env_default(access_key, 'RFITS_S3_ACCESS_KEY')
+  secret_key = env_default(secret_key, 'RFITS_S3_SECRET_KEY')
+  session_token = env_default(session_token, 'RFITS_S3_SESSION_TOKEN')
+
+  #Where the output goes. A bucket means remote, and the stores are named by prefix
+  #plus stub; a target is a directory the stores are created in. Giving both is a
+  #mistake rather than a choice to be resolved, since it is not obvious which one
+  #the caller meant.
+  remote = !is.null(bucket)
+  if(remote && !is.null(target)){
+    stop('Give either target (a local directory) or bucket (a remote store), not both!',
+         call. = FALSE)
+  }
+  if(!remote && is.null(target)){
+    stop('One of target or bucket is required!', call. = FALSE)
+  }
+
+  #Gather the input files before anything is created, so a bad specification costs
+  #nothing over the network
+  if(is.null(filelist)){
+    if(is.null(dir)){
+      stop('One of dir or filelist is required!', call. = FALSE)
+    }
+    dir = path.expand(dir)
+    if(!dir.exists(dir)){
+      stop('Directory does not exist: ', dir, call. = FALSE)
+    }
+    #Kept relative to dir so the collision report says which sub directory each
+    #file came from
+    filelist = list.files(dir, full.names = FALSE, recursive = recursive)
+    filelist = grep(.zarr_fits_pattern, filelist, value = TRUE)
+    if(length(pattern) > 0){
+      for(p in pattern){
+        filelist = grep(p, filelist, value = TRUE)
+      }
+    }
+    filelist = sort(unique(filelist))
+    if(length(filelist) == 0){
+      stop('No FITS files found in ', dir, if(recursive) '' else ' (non recursive)',
+           if(length(pattern) > 0) ' with the given pattern' else '', '!', call. = FALSE)
+    }
+    fullnames = file.path(dir, filelist)
+  }else{
+    fullnames = path.expand(filelist)
+    fullnames = grep(.zarr_fits_pattern, fullnames, value = TRUE)
+    if(length(pattern) > 0){
+      for(p in pattern){
+        fullnames = grep(p, fullnames, value = TRUE)
+      }
+    }
+    filelist = basename(fullnames)
+    if(length(fullnames) == 0){
+      stop('No FITS files in filelist!', call. = FALSE)
+    }
+  }
+
+  #A store name has to identify one file. Two images of the same name in different
+  #sub directories would otherwise silently write over each other, and the second
+  #would look like a success, so this is stopped here rather than half way through
+  stubs = vapply(fullnames, .zarr_store_stub, character(1))
+  dup = duplicated(stubs) | duplicated(stubs, fromLast = TRUE)
+  if(any(dup)){
+    stop('These FITS files would share a Zarr store name: ',
+         paste(paste0(filelist[dup], ' -> ', stubs[dup]), collapse = ', '),
+         '. Rename them, or run one directory at a time.', call. = FALSE)
+  }
+
+  #Bad credentials or an unwritable directory are worth failing on before any
+  #transfer has been paid for
+  args = list(...)
+  if(remote){
+    if(is.null(access_key) | is.null(secret_key)){
+      stop('access_key and secret_key are required for a remote batch, whether given ',
+           'directly or by RFITS_S3_ACCESS_KEY and RFITS_S3_SECRET_KEY.', call. = FALSE)
+    }
+  }else{
+    target = path.expand(target)
+    if(!dir.exists(target)){
+      created = dir.create(target, recursive = TRUE, showWarnings = FALSE)
+      if(!created | !dir.exists(target)){
+        stop('Cannot create the output directory: ', target, call. = FALSE)
+      }
+    }
+    assertAccess(target, access = 'w')
+  }
+
+  Nfile = length(fullnames)
+  output = data.frame(fits = fullnames, store = rep(NA_character_, Nfile),
+                      extname = rep(extname, Nfile), dim = rep(NA_character_, Nfile),
+                      data_type = rep(NA_character_, Nfile), nkey = rep(NA_integer_, Nfile),
+                      status = rep(NA_character_, Nfile), error = rep(NA_character_, Nfile),
+                      stringsAsFactors = FALSE)
+
+  n_ok = 0L
+  n_fail = 0L
+
+  for(i in seq_len(Nfile)){
+    file_in = fullnames[i]
+    name_out = stubs[i]
+
+    #Decided before the read, so a file that fails still records where it was aimed
+    if(remote){
+      store_prefix = paste0(.zarr_s3_prefix(prefix), name_out)
+      dest = paste0('s3://', bucket, '/', store_prefix)
+      shown = paste0(bucket, '/', store_prefix)
+    }else{
+      dest = file.path(target, name_out)
+      shown = dest
+    }
+
+    if(verbose){
+      message('[', i, '/', Nfile, '] ', filelist[i], ' -> ', shown)
+    }
+
+    #Recorded rather than returned, because an assignment inside a handler is local
+    #to that handler and would be lost the moment the loop moved on
+    written = NULL
+    data = NULL
+    fail = NULL
+
+    tryCatch({
+      data = Rfits_read_image(file_in, ext = ext, header = TRUE)
+      if(!inherits(data, c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+        stop('Extension ', ext, ' of ', basename(file_in), ' is not an image!')
+      }
+
+      if(remote){
+        #One store per file, so the store object is built per iteration
+        store = .zarr_s3_store_for(bucket = bucket, prefix = store_prefix, region = region,
+                                   endpoint = endpoint, access_key = access_key,
+                                   secret_key = secret_key, session_token = session_token)
+      }else{
+        store = dest
+      }
+
+      written = do.call(Rfits_write_image_zarr,
+                        c(list(data = data, filename = store, extname = extname), args))
+    }, error = function(e) {
+      fail <<- conditionMessage(e)
+    })
+
+    if(is.null(fail)){
+      #The writer reports the name it used, which for a store object is the URI
+      #including the trailing slash. The pre-computed dest is kept for a failure,
+      #where it records what the run was aimed at
+      output$store[i] = written$filename
+      output$dim[i] = paste(written$dim, collapse = 'x')
+      output$data_type[i] = written$data_type
+      output$nkey[i] = length(data$keyvalues)
+      output$status[i] = 'ok'
+      n_ok = n_ok + 1L
+    }else{
+      output$store[i] = dest
+      output$status[i] = 'error'
+      output$error[i] = fail
+      n_fail = n_fail + 1L
+      if(verbose){
+        warning('Skipping ', basename(file_in), ': ', fail, call. = FALSE)
+      }
+    }
+  }
+
+  if(verbose){
+    message('Wrote ', n_ok, ' of ', Nfile, ' FITS files to Zarr',
+            if(n_fail > 0) paste0(', ', n_fail, ' failed') else '')
+  }
+
+  return(invisible(output))
+}
 
 #Summarise a Zarr store without reading any pixel data. Nothing here is derived
 #from the data itself, since for a remote store that would transfer the whole
