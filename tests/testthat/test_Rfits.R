@@ -184,24 +184,24 @@ expect_equal(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,header=
 
 #ex 29b check cube slices collapse, as documented for the collapse argument. A
 #singleton third dimension used to short circuit the subset and so never collapsed
-expect_equal(class(temp_cube[26:30,26:30,1])[1], 'Rfits_image')
-expect_equal(dim(temp_cube[26:30,26:30,1]), c(5L, 5L))
+expect_identical(class(temp_cube[26:30,26:30,1])[1], 'Rfits_image')
+expect_identical(dim(temp_cube[26:30,26:30,1]), c(5L, 5L))
 expect_equal(temp_cube[26:30,26:30,1]$imDat, temp_cube$imDat[26:30,26:30,1])
 #collapse = FALSE keeps the trailing dimension
-expect_equal(class(temp_cube[26:30,26:30,1,collapse=FALSE])[1], 'Rfits_cube')
-expect_equal(dim(temp_cube[26:30,26:30,1,collapse=FALSE]), c(5L, 5L, 1L))
+expect_identical(class(temp_cube[26:30,26:30,1,collapse=FALSE])[1], 'Rfits_cube')
+expect_identical(dim(temp_cube[26:30,26:30,1,collapse=FALSE]), c(5L, 5L, 1L))
 #the collapsed header no longer describes a third axis
-expect_equal(temp_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
+expect_identical(temp_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
 expect_null(temp_cube[26:30,26:30,1]$keyvalues$NAXIS3)
 #leaving k out is not a request to collapse, so a full extent read is unchanged
-expect_equal(class(temp_cube[])[1], 'Rfits_cube')
-expect_equal(dim(temp_cube[]), c(50L, 50L, 4L))
-expect_equal(class(temp_cube[26:30,26:30,])[1], 'Rfits_cube')
+expect_identical(class(temp_cube[])[1], 'Rfits_cube')
+expect_identical(dim(temp_cube[]), c(50L, 50L, 4L))
+expect_identical(class(temp_cube[26:30,26:30,])[1], 'Rfits_cube')
 #and the pointer collapses the same slice identically
 temp_point_cube = Rfits_point(system.file('extdata', 'cube.fits', package = "Rfits"))
-expect_equal(class(temp_point_cube[26:30,26:30,1])[1], 'Rfits_image')
+expect_identical(class(temp_point_cube[26:30,26:30,1])[1], 'Rfits_image')
 expect_equal(temp_point_cube[26:30,26:30,1]$imDat, temp_cube[26:30,26:30,1]$imDat)
-expect_equal(temp_point_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
+expect_identical(temp_point_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
 expect_equal(temp_point_cube[26:30,26:30,1]$keyvalues$CRPIX1,
                  temp_cube[26:30,26:30,1]$keyvalues$CRPIX1)
 #Note the pointer re-subsets to collapse, so XCUTLO/YCUTLO are relative to the
@@ -257,7 +257,7 @@ attributes(image_int64)$dim=c(100,100)
 file_image_int64 = tempfile()
 Rfits_write_image(image_int64, file=file_image_int64)
 image_int642 = Rfits_read_image(file_image_int64)
-expect_equal(image_int64, image_int64)
+expect_equal(image_int64, image_int642$imDat)
 
 #ex 35 check cube subsets work
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
@@ -305,7 +305,7 @@ file_gz_temp = tempfile(fileext='.fits.gz')
 R.utils::gzip(system.file('extdata', 'image.fits', package = "Rfits"), destname=file_gz_temp, remove=FALSE, overwrite=TRUE)
 temp_image_gz = Rfits_read_image(file_gz_temp)
 expect_equal(temp_image$imDat, temp_image_gz$imDat)
-expect_equal(file_gz_temp, options()$Rfits_gunzip[1,1])
+expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
 
 #ex43/44/45/46 check some methods
 
