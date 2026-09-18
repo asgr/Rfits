@@ -161,7 +161,9 @@ static SEXP ensure_lossless_32bit_int(const std::vector<long> &values,
                                   ? int64_na
                                   : static_cast<int64_t>(values[j]);
             }
-            std::memcpy(&(output[0]), &(values64[0]), n * sizeof(int64_t));
+            if (n > 0) {
+                std::memcpy(output.begin(), values64.data(), n * sizeof(int64_t));
+            }
             output.attr("class") = "integer64";
             return output;
         }
