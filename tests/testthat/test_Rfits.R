@@ -703,37 +703,19 @@ hand_cards = function(pairs){
   return(paste(cards, collapse=''))
 }
 
-#Bit identity was asked for across these round trips, and on this Intel machine
-#it happens to hold for these particular values, but it is not a property of the
-#format. A twenty character card holds thirteen significant digits, and when two
-#thousand random doubles are written at that precision only a hundred and
-#eighteen come back as the same double. These five are the lucky ones, and the
-#luck ran out on the arm64 runner. The two sides also reach a double by different
-#routes: the literal is converted when the test is read in, the card text is
-#converted again after the digits have been shed, and neither conversion is
-#promised to land on the nearest double. The log shows it was the literal that
-#moved, printing as -9.99999999999999e-301, several ulps below the correctly
-#rounded -1e-300 that this machine parses. Rfits was never involved in producing
-#that number. Nor is it uniform, since -1e-20 and 4.9e-320 came back identical on
-#the same run.
-#What is claimed here is the accuracy a card can genuinely carry, plus the type,
-#which is exact. Losing the value outright, the bug these lines exist to catch,
-#is an error of order one. The tolerance is kept loose enough to cover the
-#literal parser drift seen across runners, and the floor
-#is 2048 steps of the subnormal spacing because a relative tolerance means
-#nothing at 4.9e-320, where a single step is already a hundredth of a percent.
-expect_accurate = function(actual, expected, tol = 2e-11){
-  subnormal.floor = 2048 * .Machine$double.xmin * .Machine$double.eps
-  expect_lte(abs(actual - expected), tol * abs(expected) + subnormal.floor)
+
+expect_tiny_roundtrip = function(actual, expected){
+  expect_equal(actual, expected, tolerance = sqrt(.Machine$double.eps))
 }
 
 keyvalues_tiny = list(TINY = -1e-300, V20 = -1e-20, V25 = -1e-25, POS = 1e-300, SUB = 4.9e-320)
 keyvalues_back = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_tiny))
-expect_accurate(keyvalues_back$TINY, -1e-300)
-expect_accurate(keyvalues_back$V20, -1e-20)
-expect_accurate(keyvalues_back$V25, -1e-25)
-expect_accurate(keyvalues_back$POS, 1e-300)
-expect_accurate(keyvalues_back$SUB, 4.9e-320)
+expect_tiny_roundtrip(keyvalues_back$TINY, -1e-300)
+expect_tiny_roundtrip(keyvalues_back$V20, -1e-20)
+expect_tiny_roundtrip(keyvalues_back$V25, -1e-25)
+expect_tiny_roundtrip(keyvalues_back$POS, 1e-300)
+expect_tiny_roundtrip(keyvalues_back$SUB, 4.9e-320)
+
 #none of these may be reported as an integer
 expect_identical(unname(vapply(keyvalues_back, storage.mode, character(1))),
                  rep('double', 5))
@@ -742,8 +724,11 @@ expect_identical(unname(vapply(keyvalues_back, storage.mode, character(1))),
 read_back = Rfits_raw_to_keyvalues(hand_cards(list(
   TINY = '-1.000000000000E-300', V20 = '-1.0000000000000E-20',
   N = '              14000', H = '            7000.5')))
-expect_accurate(read_back$TINY, -1e-300)
-expect_accurate(read_back$V20, -1e-20)
+
+expect_tiny_roundtrip(read_back$TINY, -1e-300)
+expect_tiny_roundtrip(read_back$V20, -1e-20)
+
+
 #while a genuine integer keyword still comes back as one
 expect_identical(read_back$N, 14000L)
 expect_identical(read_back$H, 7000.5)
@@ -762,15 +747,18 @@ write_then_read = function(keyname, keyvalue){
   Rfits_write_key(file_tiny, keyname, keyvalue, ext = 1)
   return(Rfits_read_key(file_tiny, keyname, keytype = 'auto', ext = 1))
 }
-expect_accurate(write_then_read('NEG20', -1e-20), -1e-20)
-expect_accurate(write_then_read('NEG300', -1e-300), -1e-300)
+expect_tiny_roundtrip(write_then_read('NEG20', -1e-20), -1e-20)
+expect_tiny_roundtrip(write_then_read('NEG300', -1e-300), -1e-300)
+=======
+
 #42 is whole, so it is still stored as an integer rather than a double
 expect_identical(write_then_read('WHOLE', 42), 42L)
 #a half and a modest double are untouched by any of this
 expect_identical(write_then_read('HALF', -0.5), -0.5)
 expect_identical(write_then_read('REF', 7000.5), 7000.5)
 #and the card that comes off disk is a real one, not an integer holding zero
-expect_accurate(write_then_read('V25', -1e-25), -1e-25)
+expect_tiny_roundtrip(write_then_read('V25', -1e-25), -1e-25)
+=======
 
 #Inf is its own rounding, so a test built on equality alone would have called it
 #whole and passed it to as.integer(), which is undefined. NA is the other case,
