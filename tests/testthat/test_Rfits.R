@@ -15,16 +15,16 @@ temp_image_FITSio = readFITS(file_image)
 file_image_temp = tempfile()
 Rfits_write_image(temp_image, file_image_temp)
 temp_image2 = Rfits_read_image(file_image_temp)
-expect_equal(temp_image$imDat, temp_image_FITSio$imDat) 
+expect_identical(temp_image$imDat, temp_image_FITSio$imDat) 
 
 #ex 2 check read and write works correctly
-expect_equal(temp_image$imDat, temp_image2$imDat)
+expect_identical(temp_image$imDat, temp_image2$imDat)
 
 #ex 3 check HDU extensions work
 Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F,
                   create_ext=T)
 temp_image3 = Rfits_read_image(file_image_temp, ext=2)
-expect_equal(temp_image2$imDat, temp_image3$imDat) 
+expect_identical(temp_image2$imDat, temp_image3$imDat) 
 
 #ex 4 write another extension to file
 Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create_file=F, create_ext=T)
@@ -67,12 +67,12 @@ temp_table = Rfits_read_table(file_table)
 file_table_temp = tempfile()
 Rfits_write_table(temp_table, file_table_temp)
 temp_table2 = Rfits_read_table(file_table_temp)
-expect_equal(temp_table, temp_table2)
+expect_identical(temp_table, temp_table2)
 
 #ex 12 check table writing to HDU extension
 Rfits_write_table(temp_table, file_table_temp, overwrite_file=F, create_file=F, create_ext=T)
 temp_table3 = Rfits_read_table(file_table_temp, ext=3)
-expect_equal(temp_table, temp_table3)
+expect_identical(temp_table, temp_table3)
 
 #ex 13 check we can have a file with a mix of images and tables
 file_mix_temp = tempfile()
@@ -83,7 +83,7 @@ expect_equal(temp_image$imDat, temp_image3$imDat)
 
 #ex 14 check we can have a file with a mix of images and tables
 temp_table4 = Rfits_read_table(file_mix_temp, ext=2)
-expect_equal(temp_table, temp_table4)
+expect_identical(temp_table, temp_table4)
 
 #ex 15 check we have two headers
 file_mix_summary = Rfits_info(file_mix_temp)$summary
@@ -159,7 +159,7 @@ temp_image$keycomments$`HIEARCH  TEST` = ''
 file_image_temp = tempfile()
 Rfits_write_image(temp_image, file_image_temp)
 temp_image_hier = Rfits_read_image(file_image_temp, remove_HIERARCH = FALSE)
-expect_equal(temp_image$keyvalues, temp_image_hier$keyvalues)
+expect_identical(temp_image$keyvalues, temp_image_hier$keyvalues)
 
 #ex 26 check DATASUM
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -229,7 +229,7 @@ temp_table = Rfits_read_table(file_table)
 file_table_temp = tempfile()
 Rfits_write_table(temp_table, file_table_temp, tadd=list(TSCAL6=2, TZERO6=10, TSCAL13=10))
 temp_table2 = Rfits_read_table(file_table_temp)
-expect_equal(temp_table, temp_table2)
+expect_identical(temp_table, temp_table2)
 
 #ex 32 tdigest checks - ignoring now tdigest is not on CRAN :-(
 #file_image=system.file('extdata', 'image.fits', package = "Rfits")
@@ -249,7 +249,7 @@ class(temp_head) = 'Rfits_keylist'
 file_head_temp = tempfile()
 Rfits_write_header(file_head_temp, keyvalues=temp_head, create_file=T, create_ext=T)
 temp_head2 = Rfits_read_header(file_head_temp)
-expect_equal(temp_head, temp_head2$keyvalues)
+expect_identical(temp_head, temp_head2$keyvalues)
 
 #ex 34 int64 image
 image_int64 = as.integer64(1:1e4)
@@ -304,7 +304,7 @@ temp_image = Rfits_read_image(file_image)
 file_gz_temp = tempfile(fileext='.fits.gz')
 R.utils::gzip(system.file('extdata', 'image.fits', package = "Rfits"), destname=file_gz_temp, remove=FALSE, overwrite=TRUE)
 temp_image_gz = Rfits_read_image(file_gz_temp)
-expect_equal(temp_image$imDat, temp_image_gz$imDat)
+expect_identical(temp_image$imDat, temp_image_gz$imDat)
 expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
 
 #ex43/44/45/46 check some methods
@@ -347,10 +347,10 @@ tb_types = data.frame(
 )
 Rfits_write_table(tb_types, file_table_types)
 tb_types_read = Rfits_read_table(file_table_types)
-expect_equal(tb_types$vals_dbl, tb_types_read$vals_dbl)
-expect_equal(tb_types$vals_int, tb_types_read$vals_int)
-expect_equal(tb_types$vals_lgc, tb_types_read$vals_lgc)
-expect_equal(tb_types$vals_i64, tb_types_read$vals_i64)
+expect_identical(tb_types$vals_dbl, tb_types_read$vals_dbl)
+expect_identical(tb_types$vals_int, tb_types_read$vals_int)
+expect_identical(tb_types$vals_lgc, tb_types_read$vals_lgc)
+expect_identical(tb_types$vals_i64, tb_types_read$vals_i64)
 
 #ex 50 write and read vector (list) columns
 file_vec_table = tempfile()
@@ -365,11 +365,11 @@ tb_vec = data.frame(
 )
 Rfits_write_table(tb_vec, file_vec_table)
 tb_vec_read = Rfits_read_table(file_vec_table)
-expect_equal(tb_vec$id, tb_vec_read$id)
-expect_equal(tb_vec$vals_dbl, tb_vec_read$vals_dbl)
-expect_equal(tb_vec$vals_int, tb_vec_read$vals_int)
-expect_equal(tb_vec$vals_lgc, tb_vec_read$vals_lgc)
-expect_equal(tb_vec$vals_i64, tb_vec_read$vals_i64)
+expect_identical(tb_vec$id, tb_vec_read$id)
+expect_identical(tb_vec$vals_dbl, tb_vec_read$vals_dbl)
+expect_identical(tb_vec$vals_int, tb_vec_read$vals_int)
+expect_identical(tb_vec$vals_lgc, tb_vec_read$vals_lgc)
+expect_identical(tb_vec$vals_i64, tb_vec_read$vals_i64)
 
 #ex 51 inconsistent vector lengths should error
 tb_bad = data.frame(
@@ -675,17 +675,17 @@ expect_equal(corners(check_keylist),
                                    class = c('Rfits_header', 'list'))))
 #the shipped image too, at the full width the header declares
 image_header = Rfits_read_header(file_image)
-expect_equal(corners(image_header), corners(point_image_fits))
-expect_equal(centre(image_header), centre(point_image_fits))
-expect_equal(extremes(image_header), extremes(point_image_fits))
-expect_equal(pixscale(image_header), pixscale(point_image_fits))
-expect_equal(pixarea(image_header), pixarea(point_image_fits))
-expect_equal(rotation(image_header), rotation(point_image_fits))
+expect_identical(corners(image_header), corners(point_image_fits))
+expect_identical(centre(image_header), centre(point_image_fits))
+expect_identical(extremes(image_header), extremes(point_image_fits))
+expect_identical(pixscale(image_header), pixscale(point_image_fits))
+expect_identical(pixarea(image_header), pixarea(point_image_fits))
+expect_identical(rotation(image_header), rotation(point_image_fits))
 #a keylist is rebuilt rather than read, so it is the one that can drift. It has
 #to agree with the pointer that has the real header behind it
-expect_equal(corners(keyvalues_image), corners(point_image_fits))
-expect_equal(centre(keyvalues_image), centre(point_image_fits))
-expect_equal(pixscale(keyvalues_image), pixscale(point_image_fits))
+expect_identical(corners(keyvalues_image), corners(point_image_fits))
+expect_identical(centre(keyvalues_image), centre(point_image_fits))
+expect_identical(pixscale(keyvalues_image), pixscale(point_image_fits))
 
 #ex 64 a keyword that is not a whole number must not be turned into one. The
 #whole number test was made with %% 1 == 0, and R works that out in long double,
