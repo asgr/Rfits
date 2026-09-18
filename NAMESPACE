@@ -107,6 +107,8 @@ export(Rfits_append_image_zarr)
 export(Rfits_append_cube_zarr)
 export(Rfits_append_array_zarr)
 export(Rfits_inspect_zarr)
+export(Rfits_s3_store_new)
+export(Rfits_dir_to_zarr)
 
 export(Rfits_length)
 export(Rfits_dim)
