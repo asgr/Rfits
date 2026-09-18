@@ -295,8 +295,8 @@ temp_image = Rfits_read_image(file_image)
 file_list_temp = tempfile()
 Rfits_write(list(temp_image, temp_image), filename=file_list_temp)
 temp_list = Rfits_read(file_list_temp)
-expect_equal(unlist(temp_list[[1]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
-expect_equal(unlist(temp_list[[2]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
+expect_identical(unlist(temp_list[[1]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
+expect_identical(unlist(temp_list[[2]]$keyvalues[temp_image$keynames]), unlist(temp_image$keyvalues))
 
 #ex41/42 check gz
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -582,10 +582,10 @@ expect_equal(corners(point_image_fits)[1, 'Dec'], -31.839058568, tolerance = 1e-
 #them before being handed to wcslib, and anything the rebuild loses is lost to
 #the projection as well
 keyvalues_image = Rfits_point(file_image)$keyvalues
-expect_equal(keyvalues_image, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_image)))
+expect_identical(keyvalues_image, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_image)))
 #rebuilding from the keywords just read back has to give the same text, so a
 #pointer and a Zarr array written from one image project identically
-expect_equal(Rfits_keyvalues_to_raw(keyvalues_image),
+expect_identical(Rfits_keyvalues_to_raw(keyvalues_image),
                  Rfits_keyvalues_to_raw(Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_image))))
 
 #split the raw form back into cards, and pull the value field out of one of them
@@ -604,11 +604,11 @@ card_value = function(keyvalues, keyname){
 #A projection keyword is only worth eleven significant figures if the rebuild is
 #allowed to round it. CD1_1 is negative, small and long, so it exercised every
 #part of the formatting at once
-expect_equal(card_value(keyvalues_image, 'CD1_1'), '-9.4166662957930E-05')
-expect_equal(card_value(keyvalues_image, 'CD2_2'), '9.4166662957930E-05')
-expect_equal(card_value(keyvalues_image, 'CRVAL1'), '352.2914408')
+expect_identical(card_value(keyvalues_image, 'CD1_1'), '-9.4166662957930E-05')
+expect_identical(card_value(keyvalues_image, 'CD2_2'), '9.4166662957930E-05')
+expect_identical(card_value(keyvalues_image, 'CRVAL1'), '352.2914408')
 #the scale has to be readable as the double it came from, not merely close
-expect_equal(as.numeric(card_value(keyvalues_image, 'CD1_1')), keyvalues_image$CD1_1)
+expect_identical(as.numeric(card_value(keyvalues_image, 'CD1_1')), keyvalues_image$CD1_1)
 
 #An integer keyword may carry neither a decimal point nor an exponent. The
 #magnitude test was made on the value rather than its absolute value, so every
@@ -659,7 +659,7 @@ keyvalues_check = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = 14000L
                        CD2_2 = 8.333333333333e-05, GAIN = 3.955390716043,
                        SATURATE = 3.368085966101e-08, EXPTIME = 0L, OBJECT = 'KIDS_212.0_0.5')
 keyvalues_check = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check))
-expect_equal(keyvalues_check, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check)))
+expect_identical(keyvalues_check, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check)))
 expect_identical(card_value(keyvalues_check, 'CD1_1'), '-8.3333333333330E-05')
 expect_identical(card_value(keyvalues_check, 'SATURATE'), '3.3680859661010E-08')
 
