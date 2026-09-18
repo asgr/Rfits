@@ -35,31 +35,31 @@ temp=try(Rfits_write_image(temp_image, file_image_temp, overwrite_file=F, create
 expect(temp$ext==4, "Did not write to extension 2!")
 
 #ex 5 check keyvalues are identical
-expect_equal(temp_image$keyvalues, temp_image2$keyvalues) 
+expect_identical(temp_image$keyvalues, temp_image2$keyvalues) 
 
 #ex 6 check comments are identical
-expect_equal(temp_image$comments, temp_image2$comments) 
+expect_identical(temp_image$comments, temp_image2$comments) 
 
 #ex 7 check that 32 and 64 bit versions are the same
 Rfits_write_image(temp_image, file_image_temp, numeric=64)
 temp_image2 = Rfits_read_image(file_image_temp)
-expect_equal(temp_image$imDat, temp_image2$imDat) 
+expect_identical(temp_image$imDat, temp_image2$imDat) 
 
 #ex 8 check integer read write
 temp_image_int = matrix(as.integer(temp_image$imDat), 356, 356)
 Rfits_write_image(temp_image_int, file_image_temp)
 temp_image_int2 = Rfits_read_image(file_image_temp)
-expect_equal(temp_image_int, temp_image_int2$imDat)
+expect_identical(temp_image_int, temp_image_int2$imDat)
 
 #ex 9 check 16 bit integer read the same as readFITS
 temp_image_int[temp_image_int> 2^15] = 0L
 Rfits_write_image(temp_image_int, file_image_temp, integer=16)
 temp_image_int2 = Rfits_read_image(file_image_temp)
 temp_image_int_FITSio = readFITS(file_image_temp)
-expect_equal(temp_image_int, temp_image_int_FITSio$imDat)
+expect_identical(temp_image_int, temp_image_int_FITSio$imDat)
 
 #ex 10 check 16 bit read write
-expect_equal(temp_image_int, temp_image_int2$imDat)
+expect_identical(temp_image_int, temp_image_int2$imDat)
 
 #ex 11 check table read write
 file_table = system.file('extdata', 'table.fits', package = "Rfits")
@@ -79,7 +79,7 @@ file_mix_temp = tempfile()
 Rfits_write_image(temp_image, file_mix_temp)
 Rfits_write_table(temp_table, file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
 temp_image3 = Rfits_read_image(file_mix_temp)
-expect_equal(temp_image$imDat, temp_image3$imDat) 
+expect_identical(temp_image$imDat, temp_image3$imDat) 
 
 #ex 14 check we can have a file with a mix of images and tables
 temp_table4 = Rfits_read_table(file_mix_temp, ext=2)
@@ -93,16 +93,16 @@ expect_length(file_mix_summary, 2)
 Rfits_write_image(temp_image$imDat[1:100,1:100], file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
 Rfits_write_table(temp_table[1:50,], file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
 temp_image4 = Rfits_read_image(file_mix_temp, ext=3)
-expect_equal(temp_image4$imDat, temp_image$imDat[1:100,1:100])
+expect_identical(temp_image4$imDat, temp_image$imDat[1:100,1:100])
 
 #ex 17 check we can read and write table subsets to a mixed file
 temp_table5 = Rfits_read_table(file_mix_temp, ext=4)
-expect_equal(temp_table5, temp_table[1:50,])
+expect_identical(temp_table5, temp_table[1:50,])
 
 #ex 18 overwrite and extension 3 with a table subset
 Rfits_write_table(temp_table[1:60,], file_mix_temp, overwrite_file=F, create_file=F, create_ext=F, ext=3) #delete ext 3 and append to end
 temp_table6 = Rfits_read_table(file_mix_temp, ext=4)
-expect_equal(temp_table6, temp_table[1:60,])
+expect_identical(temp_table6, temp_table[1:60,])
 
 #ex 19 read, write and read all and check the same:
 Rfits_write_image(temp_image$imDat, file_mix_temp, overwrite_file=F, create_file=F, create_ext=T)
@@ -116,7 +116,7 @@ attributes(temp_mix2[[2]])$filename = attributes(temp_mix[[2]])$filename #should
 attributes(temp_mix2[[3]])$filename = attributes(temp_mix[[3]])$filename #should be only changes
 attributes(temp_mix2[[4]])$filename = attributes(temp_mix[[4]])$filename #should be only changes
 temp_mix2[[5]]$filename = temp_mix[[5]]$filename #should be only changes
-expect_equal(temp_mix, temp_mix2)
+expect_identical(temp_mix, temp_mix2)
 
 #ex 20 check we can read and write ascii tables
 Rfits_write_table(temp_table, file_table_temp, table_type = 'ascii')
@@ -148,7 +148,7 @@ temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits
 file_cube_temp = tempfile()
 Rfits_write_cube(temp_cube, file_cube_temp)
 temp_cube2 = Rfits_read_cube(file_cube_temp)
-expect_equal(temp_cube$imDat, temp_cube2$imDat)
+expect_identical(temp_cube$imDat, temp_cube2$imDat)
 
 #ex 25 check we treat HIERARCH keywords correctly
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -176,17 +176,17 @@ expect_identical(as.character(temp_check['CHECKSUM']), "correct")
 #ex 28 check [] methods work for images
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
-expect_equal(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,header=FALSE])
+expect_identical(temp_image$imDat[1:5,1:5], temp_image[1:5,1:5,header=FALSE])
 
 #ex 29 check [] methods work for cubes
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
-expect_equal(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,header=FALSE])
+expect_identical(temp_cube$imDat[26:30,26:30,1:2], temp_cube[26:30,26:30,1:2,header=FALSE])
 
 #ex 29b check cube slices collapse, as documented for the collapse argument. A
 #singleton third dimension used to short circuit the subset and so never collapsed
 expect_identical(class(temp_cube[26:30,26:30,1])[1], 'Rfits_image')
 expect_identical(dim(temp_cube[26:30,26:30,1]), c(5L, 5L))
-expect_equal(temp_cube[26:30,26:30,1]$imDat, temp_cube$imDat[26:30,26:30,1])
+expect_identical(temp_cube[26:30,26:30,1]$imDat, temp_cube$imDat[26:30,26:30,1])
 #collapse = FALSE keeps the trailing dimension
 expect_identical(class(temp_cube[26:30,26:30,1,collapse=FALSE])[1], 'Rfits_cube')
 expect_identical(dim(temp_cube[26:30,26:30,1,collapse=FALSE]), c(5L, 5L, 1L))
@@ -200,9 +200,9 @@ expect_identical(class(temp_cube[26:30,26:30,])[1], 'Rfits_cube')
 #and the pointer collapses the same slice identically
 temp_point_cube = Rfits_point(system.file('extdata', 'cube.fits', package = "Rfits"))
 expect_identical(class(temp_point_cube[26:30,26:30,1])[1], 'Rfits_image')
-expect_equal(temp_point_cube[26:30,26:30,1]$imDat, temp_cube[26:30,26:30,1]$imDat)
+expect_identical(temp_point_cube[26:30,26:30,1]$imDat, temp_cube[26:30,26:30,1]$imDat)
 expect_identical(temp_point_cube[26:30,26:30,1]$keyvalues$NAXIS, 2L)
-expect_equal(temp_point_cube[26:30,26:30,1]$keyvalues$CRPIX1,
+expect_identical(temp_point_cube[26:30,26:30,1]$keyvalues$CRPIX1,
                  temp_cube[26:30,26:30,1]$keyvalues$CRPIX1)
 #Note the pointer re-subsets to collapse, so XCUTLO/YCUTLO are relative to the
 #already cut out array rather than to the original file, as for every
@@ -257,13 +257,13 @@ attributes(image_int64)$dim=c(100,100)
 file_image_int64 = tempfile()
 Rfits_write_image(image_int64, file=file_image_int64)
 image_int642 = Rfits_read_image(file_image_int64)
-expect_equal(image_int64, image_int642$imDat)
+expect_identical(image_int64, image_int642$imDat)
 
 #ex 35 check cube subsets work
 temp_cube = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"))
 temp_cube_subset = Rfits_read_cube(system.file('extdata', 'cube.fits', package = "Rfits"), 
                     xlo=26, xhi=30, ylo=26, yhi=30, zlo=2, zhi=3)
-expect_equal(temp_cube$imDat[26:30,26:30,2:3], temp_cube_subset$imDat)
+expect_identical(temp_cube$imDat[26:30,26:30,2:3], temp_cube_subset$imDat)
 
 #ex 36 4D array
 temp_array = array(runif(1e4), dim=c(10,10,10,10))
@@ -277,7 +277,7 @@ temp_vector = Rfits_read_vector(system.file('extdata', 'vector.fits', package = 
 file_vector = tempfile()
 Rfits_write_vector(temp_vector, file_vector)
 temp_vector2 = Rfits_read_vector(file_vector)
-expect_equal(temp_vector$imDat, temp_vector2$imDat)
+expect_identical(temp_vector$imDat, temp_vector2$imDat)
 
 #ex 38 multi-ext with compressed images
 file_mix_temp3 = tempfile()
@@ -309,10 +309,10 @@ expect_identical(file_gz_temp, options()$Rfits_gunzip[1,1])
 
 #ex43/44/45/46 check some methods
 
-expect_equal(dim(temp_vector), 3722L)
-expect_equal(dim(temp_image), c(356L, 356L))
-expect_equal(dim(temp_cube), c(50L, 50L, 4L))
-expect_equal(dim(temp_array2), c(10L, 10L, 10L, 10L))
+expect_identical(dim(temp_vector), 3722L)
+expect_identical(dim(temp_image), c(356L, 356L))
+expect_identical(dim(temp_cube), c(50L, 50L, 4L))
+expect_identical(dim(temp_array2), c(10L, 10L, 10L, 10L))
 
 #ex47 write a subset to a current FITS file
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -670,7 +670,7 @@ expect_identical(card_value(keyvalues_check, 'SATURATE'), '3.3680859661010E-08')
 #not have noticed it
 check_keylist = keyvalues_check
 class(check_keylist) = 'Rfits_keylist'
-expect_equal(corners(check_keylist),
+expect_identical(corners(check_keylist),
                  corners(structure(list(keyvalues = keyvalues_check),
                                    class = c('Rfits_header', 'list'))))
 #the shipped image too, at the full width the header declares
