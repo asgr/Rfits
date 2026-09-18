@@ -1724,7 +1724,7 @@ Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recurs
         fullnames = grep(p, fullnames, value = TRUE)
       }
     }
-    filelist = basename(fullnames)
+    filelist = fullnames
     if(length(fullnames) == 0){
       stop('No FITS files in filelist!', call. = FALSE)
     }
