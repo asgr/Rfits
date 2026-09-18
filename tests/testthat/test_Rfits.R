@@ -168,10 +168,10 @@ file_image_temp = tempfile()
 Rfits_write_image(temp_image, file_image_temp)
 Rfits_write_chksum(file_image_temp)
 temp_check = Rfits_verify_chksum(file_image_temp)
-expect_equal(as.character(temp_check['DATASUM']), "correct")
+expect_identical(as.character(temp_check['DATASUM']), "correct")
 
 #ex 27 check CHECKSUM
-expect_equal(as.character(temp_check['CHECKSUM']), "correct")
+expect_identical(as.character(temp_check['CHECKSUM']), "correct")
 
 #ex 28 check [] methods work for images
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
@@ -408,7 +408,7 @@ temp_point_cube = Rfits_point(system.file('extdata', 'cube.fits', package = "Rfi
 expect_equal(temp_point_cube[45:end, , ]$imDat, temp_cube$imDat[45:50, , ])
 expect_equal(temp_point_cube[26:30, 26:30, 2:end]$imDat, temp_cube$imDat[26:30, 26:30, 2:4])
 #4:end is a single slice, so it collapses to an image as for an explicit k
-expect_equal(class(temp_point_cube[26:30, 26:30, 4:end])[1], 'Rfits_image')
+expect_identical(class(temp_point_cube[26:30, 26:30, 4:end])[1], 'Rfits_image')
 expect_equal(temp_point_cube[26:30, 26:30, 4:end]$imDat, temp_cube[26:30, 26:30, 4]$imDat)
 #and a 4D array, for all four dimensions
 data_4d = array(as.numeric(1:240), c(4, 5, 3, 4))
@@ -422,7 +422,7 @@ data_1d = as.numeric(1:10)
 file_1d = tempfile()
 Rfits_write_image(data_1d, file_1d)
 temp_point_vec = Rfits_point(file_1d)
-expect_equal(temp_point_vec$type, 'vector')
+expect_identical(temp_point_vec$type, 'vector')
 expect_equal(temp_point_vec[3:end]$imDat, data_1d[3:10])
 expect_equal(temp_point_vec[3:end]$imDat, temp_point_vec[3:10]$imDat)
 
@@ -459,7 +459,7 @@ data_1d = as.numeric(1:10)
 file_1d_vec = tempfile()
 Rfits_write_vector(data_1d, file_1d_vec)
 temp_vec = Rfits_read_vector(file_1d_vec)
-expect_equal(class(temp_vec)[1], 'Rfits_vector')
+expect_identical(class(temp_vec)[1], 'Rfits_vector')
 #as for every [.Rfits_vector subset the result is a 1D array rather than a bare
 #numeric, so compare the values
 expect_equal(as.vector(temp_vec[3:end]$imDat), data_1d[3:10])
@@ -493,12 +493,12 @@ expect_equal(dim(temp_cube_ram[ceiling(50/2):end, , ]$imDat), c(26L, 50L, 4L))
 #a start above the end still runs backwards to 1, as min/max is all it is used for
 expect_equal(dim(temp_cube_ram[40:10, , ]$imDat), c(31L, 50L, 4L))
 #a slice of 1:end covers the whole dimension, so the object is returned untouched
-expect_equal(temp_cube_ram[1:end, 1:end, 1:end], temp_cube_ram)
+expect_identical(temp_cube_ram[1:end, 1:end, 1:end], temp_cube_ram)
 #keywords fixed up, and a singleton k:end still collapses to an image
 expect_equal(temp_cube_ram[46:end, , ]$keyvalues$NAXIS1, 5L)
 expect_equal(temp_cube_ram[46:end, , ]$keyvalues$CRPIX1,
              temp_cube_ram$keyvalues$CRPIX1 - 46 + 1L)
-expect_equal(class(temp_cube_ram[26:30, 26:30, 4:end])[1], 'Rfits_image')
+expect_identical(class(temp_cube_ram[26:30, 26:30, 4:end])[1], 'Rfits_image')
 expect_equal(dim(temp_cube_ram[26:30, 26:30, 4:end, collapse = FALSE]$imDat),
              c(5L, 5L, 1L))
 expect_equal(dim(temp_cube_ram[46:end, , , header = FALSE]), c(5L, 50L, 4L))
@@ -508,7 +508,7 @@ data_4d_ram = array(as.numeric(1:240), c(4, 5, 3, 4))
 file_4d_ram = tempfile()
 Rfits_write_image(data_4d_ram, file_4d_ram)
 temp_array_ram = Rfits_read_image(file_4d_ram)
-expect_equal(class(temp_array_ram)[1], 'Rfits_array')
+expect_identical(class(temp_array_ram)[1], 'Rfits_array')
 expect_equal(temp_array_ram[2:end, 3:end, 2:end, 2:end]$imDat,
              data_4d_ram[2:4, 3:5, 2:3, 2:4])
 expect_equal(dim(temp_array_ram[2:end, , , ]$imDat), c(3L, 5L, 3L, 4L))
@@ -517,8 +517,8 @@ expect_equal(dim(temp_array_ram[2:3, 1:end, , 3:end]$imDat), c(2L, 5L, 3L, 2L))
 n2 = 2
 expect_equal(dim(temp_array_ram[n2:end, , , ]$imDat), c(3L, 5L, 3L, 4L))
 #collapsing still keys off the slice being a singleton, however it was written
-expect_equal(class(temp_array_ram[1:2, 1:2, 1:2, 4:end])[1], 'Rfits_cube')
-expect_equal(class(temp_array_ram[1:2, 1:2, 3:end, 4:end])[1], 'Rfits_image')
+expect_identical(class(temp_array_ram[1:2, 1:2, 1:2, 4:end])[1], 'Rfits_cube')
+expect_identical(class(temp_array_ram[1:2, 1:2, 3:end, 4:end])[1], 'Rfits_image')
 expect_equal(dim(temp_array_ram[2:end, , , , header = FALSE]), c(3L, 5L, 3L, 4L))
 expect_equal(temp_array_ram[2:end, , , ]$keyvalues$NAXIS1, 3L)
 
@@ -613,41 +613,41 @@ expect_equal(as.numeric(card_value(keyvalues_image, 'CD1_1')), keyvalues_image$C
 #An integer keyword may carry neither a decimal point nor an exponent. The
 #magnitude test was made on the value rather than its absolute value, so every
 #negative one was written exponentially, which no compliant reader accepts
-expect_equal(card_value(keyvalues_image, 'BITPIX'), '-32')
-expect_equal(card_value(keyvalues_image, 'NAXIS1'), '356')
-expect_equal(card_value(keyvalues_image, 'EQUINOX'), '2000')
-expect_equal(card_value(keyvalues_image, 'CD1_2'), '0')
+expect_identical(card_value(keyvalues_image, 'BITPIX'), '-32')
+expect_identical(card_value(keyvalues_image, 'NAXIS1'), '356')
+expect_identical(card_value(keyvalues_image, 'EQUINOX'), '2000')
+expect_identical(card_value(keyvalues_image, 'CD1_2'), '0')
 #and the same holds for the keywords a compressed image carries, which are both
 #negative and large
-expect_equal(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'PCOUNT'),
+expect_identical(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'PCOUNT'),
                  '122021786')
-expect_equal(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'NEGINT'),
+expect_identical(card_value(list(PCOUNT = 122021786L, NEGINT = -42L, ZBITPIX = -64L), 'NEGINT'),
                  '-42')
 #whole numbers are integers whichever way they arrive, since the keywords read
 #off disk are stored that way
-expect_equal(card_value(list(NAXIS2 = 14000), 'NAXIS2'), '14000')
-expect_equal(card_value(list(NAXIS2 = 14000), 'NAXIS2'),
+expect_identical(card_value(list(NAXIS2 = 14000), 'NAXIS2'), '14000')
+expect_identical(card_value(list(NAXIS2 = 14000), 'NAXIS2'),
                  card_value(list(NAXIS2 = 14000L), 'NAXIS2'))
 #a value that is whole but too large for an integer keeps the exponential form
-expect_equal(card_value(list(ZRANGE = 1e15), 'ZRANGE'), '1.0000000000000E+15')
+expect_identical(card_value(list(ZRANGE = 1e15), 'ZRANGE'), '1.0000000000000E+15')
 #negative numbers in the middle of the range are plain, as the positive ones were
-expect_equal(card_value(list(NEGDEC = -0.5), 'NEGDEC'), '-0.5')
-expect_equal(card_value(keyvalues_image, 'CTYPE1'), "'RA---TAN'")
+expect_identical(card_value(list(NEGDEC = -0.5), 'NEGDEC'), '-0.5')
+expect_identical(card_value(keyvalues_image, 'CTYPE1'), "'RA---TAN'")
 
 #Thirteen digits is the most a twenty character value field can hold, so nothing
 #may spill out of it and shove the comment off its column. A negative with a
 #three digit exponent is the worst case
 wide = list(TINY = -1e-300, HUGE = -1.2345678901234e100, MAXD = -.Machine$double.xmax)
-expect_equal(nchar(raw_cards(wide)), rep(80L, 3))
+expect_identical(nchar(raw_cards(wide)), rep(80L, 3))
 #the value field runs from column eleven to column thirty, so the comment always
 #opens on the thirty second column
-expect_equal(substring(raw_cards(wide), 32, 32), rep('/', 3))
+expect_identical(substring(raw_cards(wide), 32, 32), rep('/', 3))
 for(keyname in names(wide)){
   expect_lte(nchar(card_value(wide, keyname)), 20)
 }
 #small negatives keep the exponential form, which is what the abs() test selects
 #them for
-expect_equal(card_value(list(TINY = -1e-09), 'TINY'), '-1.0000000000000E-09')
+expect_identical(card_value(list(TINY = -1e-09), 'TINY'), '-1.0000000000000E-09')
 
 #the keywords as the reader stores them are the input a pointer actually has, so
 #this is the case the corners of a Zarr array were being compared against
@@ -660,8 +660,8 @@ keyvalues_check = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = 14000L
                        SATURATE = 3.368085966101e-08, EXPTIME = 0L, OBJECT = 'KIDS_212.0_0.5')
 keyvalues_check = Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check))
 expect_equal(keyvalues_check, Rfits_raw_to_keyvalues(Rfits_keyvalues_to_raw(keyvalues_check)))
-expect_equal(card_value(keyvalues_check, 'CD1_1'), '-8.3333333333330E-05')
-expect_equal(card_value(keyvalues_check, 'SATURATE'), '3.3680859661010E-08')
+expect_identical(card_value(keyvalues_check, 'CD1_1'), '-8.3333333333330E-05')
+expect_identical(card_value(keyvalues_check, 'SATURATE'), '3.3680859661010E-08')
 
 #a header rebuilt from its own keywords has to project the same sky, which is the
 #property the Zarr corners depended on. A bare keylist has no raw form to fall
@@ -735,7 +735,7 @@ expect_accurate(keyvalues_back$V25, -1e-25)
 expect_accurate(keyvalues_back$POS, 1e-300)
 expect_accurate(keyvalues_back$SUB, 4.9e-320)
 #none of these may be reported as an integer
-expect_equal(unname(vapply(keyvalues_back, storage.mode, character(1))),
+expect_identical(unname(vapply(keyvalues_back, storage.mode, character(1))),
                  rep('double', 5))
 
 #through the reader alone, off cards that are already in fixed width form
@@ -745,13 +745,13 @@ read_back = Rfits_raw_to_keyvalues(hand_cards(list(
 expect_accurate(read_back$TINY, -1e-300)
 expect_accurate(read_back$V20, -1e-20)
 #while a genuine integer keyword still comes back as one
-expect_equal(read_back$N, 14000L)
-expect_equal(read_back$H, 7000.5)
+expect_identical(read_back$N, 14000L)
+expect_identical(read_back$H, 7000.5)
 
 #the same test decides whether Rfits_read_key with keytype = 'auto' returns an
 #integer or a double, so it has to agree with the reader above. A whole number
 #still comes back as an integer, and a tiny negative as the double it is
-expect_equal(read_back$N, 14000L)
+expect_identical(read_back$N, 14000L)
 
 #the writer had the same flaw, where a whole number test picked between an
 #integer and a double card. A tiny negative became an integer card holding zero,
@@ -765,10 +765,10 @@ write_then_read = function(keyname, keyvalue){
 expect_accurate(write_then_read('NEG20', -1e-20), -1e-20)
 expect_accurate(write_then_read('NEG300', -1e-300), -1e-300)
 #42 is whole, so it is still stored as an integer rather than a double
-expect_equal(write_then_read('WHOLE', 42), 42L)
+expect_identical(write_then_read('WHOLE', 42), 42L)
 #a half and a modest double are untouched by any of this
-expect_equal(write_then_read('HALF', -0.5), -0.5)
-expect_equal(write_then_read('REF', 7000.5), 7000.5)
+expect_identical(write_then_read('HALF', -0.5), -0.5)
+expect_identical(write_then_read('REF', 7000.5), 7000.5)
 #and the card that comes off disk is a real one, not an integer holding zero
 expect_accurate(write_then_read('V25', -1e-25), -1e-25)
 
@@ -776,8 +776,8 @@ expect_accurate(write_then_read('V25', -1e-25), -1e-25)
 #whole and passed it to as.integer(), which is undefined. NA is the other case,
 #where the remainder is NA and if() in the writer failed outright on 'missing
 #value where TRUE/FALSE needed'. Both are checked through the public functions
-expect_equal(card_value(list(INF = Inf), 'INF'), 'Inf')
-expect_equal(card_value(list(NINF = -Inf), 'NINF'), '-Inf')
-expect_equal(Rfits_raw_to_keyvalues(hand_cards(list(INFC = '                 Inf')))$INFC, Inf)
+expect_identical(card_value(list(INF = Inf), 'INF'), 'Inf')
+expect_identical(card_value(list(NINF = -Inf), 'NINF'), '-Inf')
+expect_identical(Rfits_raw_to_keyvalues(hand_cards(list(INFC = '                 Inf')))$INFC, Inf)
 #the writer used to error here rather than write anything
-expect_equal(write_then_read('NAK', NA_real_), NA)
+expect_identical(write_then_read('NAK', NA_real_), NA_real_)
