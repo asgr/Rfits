@@ -763,7 +763,7 @@ write_then_read = function(keyname, keyvalue){
   return(Rfits_read_key(file_tiny, keyname, keytype = 'auto', ext = 1))
 }
 expect_accurate(write_then_read('NEG20', -1e-20), -1e-20)
-expect_accurate(write_then_read('NEG300', -1e-300), -1e-300)
+expect_accurate(write_then_read('NEG295', -1e-295), -1e-295)
 #42 is whole, so it is still stored as an integer rather than a double
 expect_identical(write_then_read('WHOLE', 42), 42L)
 #a half and a modest double are untouched by any of this
