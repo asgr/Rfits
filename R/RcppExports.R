@@ -9,6 +9,10 @@ Cfits_read_col <- function(filename, colref = 1L, ext = 2L, startrow = 1L, nrow 
     .Call(`_Rfits_Cfits_read_col`, filename, colref, ext, startrow, nrow)
 }
 
+Cfits_read_cols <- function(filename, cols, ext = 2L, startrow = 1L, nrow = 0L) {
+    .Call(`_Rfits_Cfits_read_cols`, filename, cols, ext, startrow, nrow)
+}
+
 Cfits_read_nrow <- function(filename, ext = 2L) {
     .Call(`_Rfits_Cfits_read_nrow`, filename, ext)
 }

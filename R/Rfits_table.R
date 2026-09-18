@@ -50,6 +50,31 @@
 #   The following data type code is only for use with fits\_get\_coltype
 #   #define TINT32BIT    41  /* signed 32-bit int,         'J' */
 
+# Field widths for the character columns of a table, in column order.
+# max(nchar(x)) returns NA as soon as any element is NA, which used to yield
+# the literal TFORM "NAA" and an opaque cfitsio error.
+#
+# Two details beyond the NA guard:
+#   * type='bytes' because CFITSIO 'A' columns are byte-oriented, so a
+#     multi-byte string would otherwise be silently truncated.
+#   * the column's NAs are replaced with NA_replace on write (see the write
+#     loop, which coerces it to a string), so that text must fit too, else the
+#     replacement value itself gets truncated.
+# The +1L pad and the floor of 1 are kept from the original behaviour, which
+# lets an all-NA column produce a valid (empty) field.
+.char_col_widths=function(table, is_char, NA_replace){
+  na_text = nchar(as.character(NA_replace), type='bytes')
+  vapply(which(is_char), function(i){
+    x = table[[i]]
+    has_NA = anyNA(x)
+    x = x[!is.na(x)]
+    width = 1L
+    if(length(x)) width = max(nchar(x, type='bytes')) + 1L
+    if(has_NA) width = max(width, na_text)
+    as.integer(width)
+  }, integer(1), USE.NAMES=FALSE)
+}
+
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
                           header=FALSE, remove_HIERARCH=FALSE, startrow=1L, nrow=0L, zap=NULL, zaptype='full'){
   assertCharacter(filename, max.len=1)
@@ -81,17 +106,19 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
   
   assertInt(startrow, lower = 1L)
 
-  output = list()
-  count = 1
-  
-  for(i in cols){
-    if(verbose){
-      message("Reading column: ",colnames[count],", which is ",count," of ", length(cols))
-    }
-    try({
-      output[[count]] = Cfits_read_col(filename=filename, colref=i, ext=ext, startrow=startrow, nrow=nrow)
-    })
-    if(is.null(output[count][[1]])){
+  if(verbose){
+    message("Reading ", length(cols), " column(s) through one file handle: ",
+            paste(colnames, collapse=", "))
+  }
+
+  # One file handle for every column; see Cfits_read_cols. The result is left
+  # unnamed deliberately: names are applied to the data frame below, and naming
+  # a list first would make data.table reject a table with duplicate columns.
+  output = Cfits_read_cols(filename=filename, cols=cols, ext=ext,
+                           startrow=startrow, nrow=nrow)
+
+  for(count in seq_along(output)){
+    if(is.null(output[[count]])){
       output[[count]] = NA
     }
     if(is.character(output[[count]])){
@@ -102,7 +129,6 @@ Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NUL
         output[[count]][is_NA] = NA
       }
     }
-    count = count + 1
   }
   
     # Wrap list-columns with I() for proper data.table handling
@@ -240,7 +266,8 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       tforms[check.int] = "I9"
       tforms[check.integer64] = 'I20'
       tforms[check.double] = "D18.10"
-      tforms[check.char] = paste('A', sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), sep='')
+      # NB: ASCII tables use the 'A<n>' ordering; binary tables use '<n>A'.
+      tforms[check.char] = paste0('A', .char_col_widths(table, check.char, NA_replace))
     }
     if(length(grep('I|D|A',tforms)) != ncol){
       stop(cat('Unrecognised column data type in column', paste(which(!1:ncol %in% grep('I|D|A',tforms))),sep='\n'))
@@ -254,7 +281,7 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
       tforms[check.int] = "1J" # will become typecode = TINT = 31
       tforms[check.integer64] = '1K' # will become typecode = TLONGLONG = 81
       tforms[check.double] = "1D" # will become typecode = TDOUBLE = 82
-      tforms[check.char] = paste(sapply(table[,check.char,drop=FALSE],function(x) max(nchar(x))+1), 'A', sep='') # will become typecode = TSTRING = 16
+      tforms[check.char] = paste0(.char_col_widths(table, check.char, NA_replace), 'A') # will become typecode = TSTRING = 16
       # Vector (list) columns: determine repeat count and element type
       if(any(check.list)){
         for(i in which(check.list)){

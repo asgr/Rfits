@@ -783,3 +783,440 @@ expect_equal(mem_info$total_elements, 36L)
 expect_length(mem_info$append_history, 1)
 #no local directory, so no size to report
 expect_true(is.na(mem_info$store_bytes))
+
+# --- Batch conversion of a directory of FITS files (Rfits_dir_to_zarr) -----------
+
+#ex 43 the store name follows the file name, with every accepted extension removed
+stub = Rfits:::.zarr_store_stub
+expect_identical(stub('image_example.fits'), 'image_example.zarr')
+expect_identical(stub('/some/where/cube.FITS'), 'cube.zarr')
+expect_identical(stub('x.fit'), 'x.zarr')
+expect_identical(stub('y.fits.gz'), 'y.zarr')
+expect_identical(stub('z.FITS.GZ'), 'z.zarr')
+#no extension at all still produces a usable name rather than '.zarr'
+expect_identical(stub('no_ext'), 'no_ext.zarr')
+#only the final extension is removed
+expect_identical(stub('a.b.fits'), 'a.b.zarr')
+
+#ex 44 a directory batch, one store per file, all using the same extension name
+batch_dir = file.path(subdir, 'batch_in')
+dir.create(file.path(batch_dir, 'nested'), recursive = TRUE)
+batch_out = file.path(subdir, 'batch_out')
+ex_image = system.file('extdata', 'image.fits', package = "Rfits")
+ex_cube = system.file('extdata', 'cube.fits', package = "Rfits")
+file.copy(ex_image, file.path(batch_dir, 'image_one.fits'))
+file.copy(ex_cube, file.path(batch_dir, 'cube_one.fits'))
+#not FITS, so it must be filtered out rather than attempted
+writeLines('nothing here', file.path(batch_dir, 'notes.txt'))
+#the same name in a sub directory, which would collide with image_one
+file.copy(ex_image, file.path(batch_dir, 'nested', 'image_one.fits'))
+
+#recursive is the default, so this is the collision case
+expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = batch_out), 'share a Zarr store name')
+
+batch = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
+                          verbose = FALSE)
+expect_identical(nrow(batch), 2L)
+expect_true(all(batch$status == 'ok'))
+#the names are inherited from the files, not from each other
+expect_identical(basename(batch$store), c('cube_one.zarr', 'image_one.zarr'))
+#every store holds exactly one array, under the same name
+expect_identical(Rfits_inspect_zarr(batch_out |> file.path('image_one.zarr'),
+                                   print = FALSE)$array_names, 'data1')
+expect_identical(Rfits_inspect_zarr(batch_out |> file.path('cube_one.zarr'),
+                                   print = FALSE)$array_names, 'data1')
+#the pixels survive the round trip
+src_image = Rfits_read_image(ex_image)
+back_image = Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'), extname = 'data1')
+expect_equal(back_image$imDat, src_image$imDat)
+expect_equal(back_image$header, src_image$header)
+src_cube = Rfits_read_image(ex_cube)
+back_cube = Rfits_read_image_zarr(file.path(batch_out, 'cube_one.zarr'), extname = 'data1')
+expect_equal(back_cube$imDat, src_cube$imDat)
+#re-running replaces rather than failing, which is what makes a batch restartable
+again = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
+                          verbose = FALSE)
+expect_true(all(again$status == 'ok'))
+expect_equal(Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'),
+                                  extname = 'data1')$imDat, src_image$imDat)
+
+#ex 45 an explicit file list, and pattern filtering over a directory
+list_res = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
+                                          file.path(batch_dir, 'cube_one.fits'),
+                                          file.path(batch_dir, 'notes.txt')),
+                             target = batch_out, verbose = FALSE)
+expect_identical(nrow(list_res), 2L)
+pat_res = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
+                            pattern = 'image', verbose = FALSE)
+expect_identical(basename(pat_res$store), 'image_one.zarr')
+
+#ex 46 a file that cannot be read is recorded and skipped, not fatal
+mixed = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
+                                       file.path(batch_dir, 'missing.fits')),
+                          target = batch_out, verbose = FALSE)
+expect_identical(nrow(mixed), 2L)
+expect_identical(mixed$status, c('ok', 'error'))
+expect_true(grepl('readable', mixed$error[2]))
+#the good file in the same run still made it through
+expect_equal(Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'),
+                                  extname = 'data1')$imDat, src_image$imDat)
+
+#ex 47 the destination must be given, and only one way
+expect_error(Rfits_dir_to_zarr(dir = batch_dir), 'target or bucket')
+expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, bucket = 'any'),
+             'not both')
+#bucket without credentials fails before any transfer. The credentials are cleared
+#for the duration, since the end to end S3 test below relies on them being in the
+#environment, and a test that silently picked them up would go to the network
+s3_env_all = c('RFITS_S3_BUCKET', 'RFITS_S3_ENDPOINT', 'RFITS_S3_REGION',
+               'RFITS_S3_ACCESS_KEY', 'RFITS_S3_SECRET_KEY', 'RFITS_S3_SESSION_TOKEN')
+#local(), so the restore happens even if the check inside fails
+no_creds = local({
+  saved = as.list(Sys.getenv(s3_env_all, names = s3_env_all))
+  on.exit(do.call(Sys.setenv, saved))
+  Sys.unsetenv(s3_env_all)
+  tryCatch(Rfits_dir_to_zarr(dir = batch_dir, bucket = 'any', prefix = 'x/',
+                             recursive = FALSE),
+           error = function(e) conditionMessage(e))
+})
+expect_match(no_creds, 'access_key and secret_key')
+#an empty directory is reported as such
+empty_dir = file.path(subdir, 'empty_in')
+dir.create(empty_dir)
+expect_error(Rfits_dir_to_zarr(dir = empty_dir, target = batch_out), 'No FITS files')
+expect_error(Rfits_dir_to_zarr(dir = file.path(subdir, 'no_such_dir'), target = batch_out),
+             'Directory does not exist')
+
+# --- Creating a store over S3 (Rfits_s3_store_new) --------------------------------
+
+#ex 48 the prefix is normalised exactly as zarr_s3store does it, since a store
+#written under one name and looked for under another is no store at all. Tested
+#against the constructor's own expression so the two cannot drift apart
+prefix_of = Rfits:::.zarr_s3_prefix
+expect_identical(prefix_of(''), '')
+expect_identical(prefix_of('cutout_test.zarr'), 'cutout_test.zarr/')
+expect_identical(prefix_of('cutout_test.zarr/'), 'cutout_test.zarr/')
+expect_identical(prefix_of('images/a/b'), 'images/a/b/')
+expect_identical(prefix_of('images/a/b//'), 'images/a/b/')
+#the same normalising the zarr constructor applies, evaluated out of its own
+#body rather than from its text, so the two cannot drift apart
+zinit = body(base::get('zarr_s3store', envir = asNamespace('zarr'))$public_methods$initialize)
+key_lines = Filter(function(e) is.call(e) &&
+                     any(grepl('key_prefix', paste(deparse(e), collapse = ' '))), as.list(zinit))
+expect_length(key_lines, 1)
+zexpr = key_lines[[1]]
+apply_prefix = function(prefix){
+  env = new.env(parent = baseenv())
+  env$prefix = prefix
+  env$private = list()
+  eval(zexpr, envir = env)
+  env$private$.key_prefix
+}
+expect_identical(prefix_of('cutout_test.zarr'), apply_prefix('cutout_test.zarr'))
+expect_identical(prefix_of(''), apply_prefix(''))
+
+#ex 49 the root group bytes. These are the whole of what makes a prefix a store,
+#so they must stay valid v3 and must keep attributes as an empty object rather
+#than the [] that jsonlite produces for an empty list
+root_bytes = Rfits:::.zarr_root_group_bytes()
+expect_identical(root_bytes,
+                 charToRaw('{"zarr_format":3,"node_type":"group","attributes":{}}'))
+skip_if_not_installed("jsonlite")
+meta = jsonlite::fromJSON(rawToChar(root_bytes))
+expect_identical(meta$zarr_format, 3L)
+expect_identical(meta$node_type, 'group')
+expect_identical(meta$attributes, structure(list(), names = character(0)))
+#jsonlite's own serialisation is the thing being avoided
+expect_false(identical(charToRaw(as.character(jsonlite::toJSON(
+  list(zarr_format = 3L, node_type = 'group', attributes = list()),
+  auto_unbox = TRUE))), root_bytes))
+
+#ex 50 missing and unreadable must not be confused. A store can exist behind
+#credentials that are not allowed to see it, and that must not be taken for a
+#free prefix that is safe to write over. The pattern is zarr's own, copied rather
+#than called, so it is checked against that as well
+not_found = Rfits:::.zarr_s3_not_found
+zinit2 = deparse(base::get('zarr_s3store', envir = asNamespace('zarr'))$private_methods$is_not_found)
+expect_match(paste(zinit2, collapse = ' '), 'NoSuchKey\\|NotFound\\|404\\|NoSuchBucket')
+expect_true(not_found('The specified key does not exist. (Service: NoSuchKey; Status Code: 404)'))
+expect_true(not_found('Not Found (HTTP 404)'))
+expect_true(not_found('NoSuchBucket'))
+expect_false(not_found('Access Denied (HTTP 403)'))
+expect_false(not_found('SignatureDoesNotMatch'))
+#the pattern looks for the service error codes, so prose that merely means absent
+#is not matched. Unreachable here (head_object returns a status code), and worth
+#recording because it fails towards caution rather than towards an overwrite
+expect_false(not_found('no such bucket'))
+
+#ex 51 the probe, against a stand in client so none of this needs a network
+make_fake_s3 = function(objects = list(), put_error = NULL){
+  state = new.env(parent = emptyenv())
+  state$objects = objects
+  state$puts = list()
+  client = list(
+    head_object = function(Bucket, Key, ...){
+      hit = state$objects[[Key]]
+      if(isTRUE(hit)){
+        return(list(ContentLength = 53))
+      }
+      if(is.character(hit)){
+        stop(hit, call. = FALSE)
+      }
+      stop('The specified key does not exist. (Service: NoSuchKey; Status Code: 404)',
+           call. = FALSE)
+    },
+    put_object = function(Bucket, Key, Body, ...){
+      if(!is.null(put_error)){
+        stop(put_error, call. = FALSE)
+      }
+      state$puts[[length(state$puts) + 1]] = list(Bucket = Bucket, Key = Key,
+                                                  body = rawToChar(Body))
+      invisible(list(ETag = '"fake"'))
+    })
+  attr(client, 'state') = state
+  return(client)
+}
+probe = Rfits:::.zarr_s3_probe
+absent = make_fake_s3()
+expect_identical(probe(absent, 'b', 'x.zarr/zarr.json'), list(exists = FALSE, message = NULL))
+present = make_fake_s3(objects = list('x.zarr/zarr.json' = TRUE))
+expect_identical(probe(present, 'b', 'x.zarr/zarr.json'), list(exists = TRUE, message = NULL))
+denied = make_fake_s3(objects = list('x.zarr/zarr.json' = 'Access Denied (HTTP 403)'))
+expect_identical(probe(denied, 'b', 'x.zarr/zarr.json'),
+                 list(exists = NA, message = 'Access Denied (HTTP 403)'))
+
+#The open or create helper used by a batch must not guess when the probe cannot
+#tell. A prefix it cannot see is not a free prefix, and writing a root group there
+#would destroy a store, so this refuses rather than proceeding. Only the absent
+#case is exercised, since the other two branches reach the network.
+store_for = Rfits:::.zarr_s3_store_for
+expect_error(store_for('b', 'x.zarr', access_key = 'a', secret_key = 'b',
+                       client = denied), 'Cannot determine')
+
+#ex 52 creating the root group. An empty prefix is asked for first and refused
+#there, and the key written must be the normalised one
+create_root = Rfits:::.zarr_s3_root_create
+client = make_fake_s3()
+expect_invisible(expect_identical(create_root(client, 'image-tests', 'cutout_test.zarr'),
+                                 'cutout_test.zarr/'))
+put = attr(client, 'state')$puts
+expect_length(put, 1)
+expect_identical(put[[1]]$Bucket, 'image-tests')
+expect_identical(put[[1]]$Key, 'cutout_test.zarr/zarr.json')
+expect_identical(put[[1]]$body, rawToChar(Rfits:::.zarr_root_group_bytes()))
+#an empty prefix puts the root at the head of the bucket, not under a slash
+headless = make_fake_s3()
+expect_identical(create_root(headless, 'image-tests', ''), '')
+expect_identical(attr(headless, 'state')$puts[[1]]$Key, 'zarr.json')
+#already a store: refuse rather than rebuild it
+exists_client = make_fake_s3(objects = list('x.zarr/zarr.json' = TRUE))
+expect_error(create_root(exists_client, 'b', 'x.zarr'), 'already exists')
+expect_error(create_root(exists_client, 'b', 'x.zarr'), 'force = TRUE')
+expect_length(attr(exists_client, 'state')$puts, 0)
+#force says so out loud and writes anyway
+expect_identical(create_root(exists_client, 'b', 'x.zarr', force = TRUE), 'x.zarr/')
+expect_length(attr(exists_client, 'state')$puts, 1)
+#cannot tell whether it exists, so nothing is written. An existing store must not
+#be clobbered just because the probe could not read it
+unknown_client = make_fake_s3(objects = list('x.zarr/zarr.json' = 'Access Denied (HTTP 403)'))
+expect_error(create_root(unknown_client, 'b', 'x.zarr'), 'Cannot determine whether')
+expect_length(attr(unknown_client, 'state')$puts, 0)
+#force skips the probe entirely, so a forbidden prefix still gets a write attempt
+expect_identical(create_root(unknown_client, 'b', 'x.zarr', force = TRUE), 'x.zarr/')
+expect_length(attr(unknown_client, 'state')$puts, 1)
+#a real write failure is reported as such, with the key that failed
+broken = make_fake_s3(put_error = 'Access Denied (HTTP 403)')
+expect_error(create_root(broken, 'b', 'x.zarr'), 'Cannot create the Zarr root group')
+expect_error(create_root(broken, 'b', 'x.zarr'), 's3://b/x.zarr/')
+expect_error(create_root(broken, 'b', 'x.zarr'), 'Access Denied')
+
+#ex 53 the client config. The token is normalised once and reused for both the
+#write and the open, so a NULL can never leave one side anonymous, and path style
+#addressing has to track the endpoint exactly as the constructor does
+config = Rfits:::.zarr_s3_config
+expect_identical(config(endpoint = 'https://x.r2.cloudflarestorage.com',
+                        access_key = 'a', secret_key = 'b', session_token = NULL)
+                 $credentials$creds$session_token, '')
+expect_identical(config(access_key = 'a', secret_key = 'b', session_token = 'tok')
+                 $credentials$creds$session_token, 'tok')
+expect_identical(config(access_key = 'a', secret_key = 'b')$credentials$creds$access_key_id, 'a')
+expect_identical(config(access_key = 'a', secret_key = 'b')$credentials$creds$secret_access_key, 'b')
+expect_null(config(access_key = 'a', secret_key = 'b')$endpoint)
+expect_false('s3_force_path_style' %in% names(config(access_key = 'a', secret_key = 'b')))
+expect_true(isTRUE(config(endpoint = 'https://x', access_key = 'a', secret_key = 'b')
+                   $s3_force_path_style))
+expect_identical(config(region = 'auto', access_key = 'a', secret_key = 'b')$region, 'auto')
+expect_null(config(access_key = 'a', secret_key = 'b')$region)
+
+#ex 54 the public function must reject a call that cannot possibly work before it
+#touches the network. Without keys zarr_s3store silently goes anonymous, so the
+#store would be created and then be unopenable
+nokeys = 'access_key and secret_key are required'
+expect_error(Rfits_s3_store_new('image-tests', 'x.zarr'), nokeys)
+expect_error(Rfits_s3_store_new('image-tests', 'x.zarr', access_key = 'a'), nokeys)
+expect_error(Rfits_s3_store_new('image-tests', 'x.zarr', secret_key = 'b'), nokeys)
+#a NULL token is normalised rather than refused, but every other argument is
+#checked, and in the order a caller is most likely to get them wrong
+expect_error(Rfits_s3_store_new(bucket = 42, access_key = 'a', secret_key = 'b',
+                                session_token = NULL), 'bucket')
+expect_error(Rfits_s3_store_new(bucket = list('image-tests'), access_key = 'a',
+                                secret_key = 'b'), 'bucket')
+expect_error(Rfits_s3_store_new('image-tests', prefix = 1.5, access_key = 'a',
+                                secret_key = 'b'), 'prefix')
+expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
+                                force = 'yes'), 'force')
+expect_error(Rfits_s3_store_new('', access_key = 'a', secret_key = 'b'), 'bucket')
+expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
+                                region = 5), 'region')
+expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
+                                endpoint = TRUE), 'endpoint')
+expect_error(Rfits_s3_store_new('image-tests', access_key = 1, secret_key = 'b'),
+             'access_key')
+#ex 55 an end to end check against a real bucket, skipped unless it is asked for
+#by setting all of these. It creates its own prefix so it cannot disturb anything,
+#and clears it again at the end
+s3_env = c('RFITS_S3_BUCKET', 'RFITS_S3_ENDPOINT', 'RFITS_S3_ACCESS_KEY',
+           'RFITS_S3_SECRET_KEY')
+have_s3 = all(nzchar(Sys.getenv(s3_env)))
+if(!have_s3){
+  skip('S3 store creation test skipped; set RFITS_S3_* environment variables to run')
+}
+region = Sys.getenv('RFITS_S3_REGION', 'auto')
+bucket = Sys.getenv('RFITS_S3_BUCKET')
+endpoint = Sys.getenv('RFITS_S3_ENDPOINT')
+keys = list(access_key = Sys.getenv('RFITS_S3_ACCESS_KEY'),
+            secret_key = Sys.getenv('RFITS_S3_SECRET_KEY'),
+            session_token = Sys.getenv('RFITS_S3_SESSION_TOKEN', ''))
+new_prefix = paste0('rfits_test_', sample(1e8, 1), '.zarr')
+#the batch test writes one store per file under this directory style prefix
+batch_prefix = paste0('rfits_batch_', sample(1e8, 1), '/')
+test_prefixes = c(new_prefix, batch_prefix)
+
+#A test that leaves objects in a bucket is a tax on whoever pays for it. A failure
+#half way through this block aborts the file, so the prefixes are removed on the way
+#out whether the checks passed or not: an object left behind for inspection is
+#only useful while somebody remembers which run made it
+cleanup_s3 = function(){
+  probe = tryCatch(paws.storage::s3(config = Rfits:::.zarr_s3_config(
+                     region = region, endpoint = endpoint, access_key = keys$access_key,
+                     secret_key = keys$secret_key, session_token = keys$session_token)),
+                   error = function(e) NULL)
+  if(is.null(probe)){
+    return(invisible(NULL))
+  }
+  for(prefix in test_prefixes){
+    gone = tryCatch({
+      found = probe$list_objects_v2(Bucket = bucket, Prefix = prefix, MaxKeys = 1000)
+      if(length(found$Contents) > 0){
+        #Quiet is not an argument of this request; the paws signature is
+        #delete_objects(Bucket, Delete, ...), and passing it was an error
+        probe$delete_objects(Bucket = bucket,
+                             Delete = list(Objects = lapply(found$Contents, function(k)
+                                                          list(Key = k$Key))))
+      }
+      length(probe$list_objects_v2(Bucket = bucket, Prefix = prefix,
+                                   MaxKeys = 10)$Contents)
+    }, error = function(e) NA)
+    if(isTRUE(gone > 0)){
+      warning('Could not clear the test prefix s3://', bucket, '/', prefix)
+    }
+  }
+  return(invisible(NULL))
+}
+
+open_fresh = function(prefix){
+  zarr::zarr_s3store$new(bucket = bucket, prefix = prefix, region = region,
+                         endpoint = endpoint, access_key = keys$access_key,
+                         secret_key = keys$secret_key,
+                         session_token = keys$session_token)
+}
+
+#tryCatch with a finally and no handler still lets a failure propagate to
+#testthat, while guaranteeing the prefix is removed either way
+tryCatch({
+store_new = NULL
+expect_message(store_new <- do.call(Rfits_s3_store_new,
+                                    c(list(bucket = bucket, prefix = new_prefix,
+                                           region = region, endpoint = endpoint), keys)),
+               'Created Zarr store')
+expect_true(inherits(store_new, 'zarr_store'))
+#the root group is there, which is the whole of what this function adds. An empty
+#store is a store, and is reported as one holding no arrays rather than as a
+#prefix with no store in it. The pointer is used for that check because the reader
+#catches this case with a bare try() and returns NULL, which prints (see ex 21)
+expect_true(store_new$exists('zarr.json'))
+expect_identical(Rfits:::.zarr_store_has_root(store_new), TRUE)
+expect_error(Rfits_point_zarr(store_new, extname = 'data1'),
+             'does not exist in the Zarr store')
+#an empty store is still a store, so a second create is refused even with nothing
+#in it yet
+expect_error(do.call(Rfits_s3_store_new,
+                     c(list(bucket = bucket, prefix = new_prefix, region = region,
+                            endpoint = endpoint), keys)), 'already exists')
+
+Rfits_write_image_zarr(data_2d, store_new, extname = 'data1', keyvalues = keyvalues_2d)
+expect_equal(Rfits_read_image_zarr(store_new, extname = 'data1', header = FALSE), data_2d)
+#the store reopens cleanly with zarr alone, so the hand written root group is
+#genuine v3 rather than something only this package tolerates
+again = open_fresh(new_prefix)
+expect_equal(Rfits_read_image_zarr(again, extname = 'data1', header = FALSE), data_2d)
+#A store object caches the root group it read when it was constructed, so the self
+#description is checked through a fresh object rather than this one. That is worth
+#knowing in its own right: reusing the object returned here is still much cheaper
+#than reopening, but it will not see metadata this package has since rewritten
+expect_identical(Rfits_inspect_zarr(again, print = FALSE)$convention, 'Rfits.zarr')
+
+#forcing replaces the root group, which discards the self description, but leaves
+#the array alone
+expect_message(forced <- do.call(Rfits_s3_store_new,
+                                 c(list(bucket = bucket, prefix = new_prefix,
+                                        region = region, endpoint = endpoint,
+                                        force = TRUE), keys)),
+               'Created Zarr store')
+expect_equal(Rfits_read_image_zarr(forced, extname = 'data1', header = FALSE), data_2d)
+bare = open_fresh(new_prefix)
+expect_false(Rfits_inspect_zarr(bare, print = FALSE)$self_describing)
+expect_identical(Rfits_inspect_zarr(bare, print = FALSE)$convention, NA_character_)
+#the next write rebuilds it
+Rfits_write_image_zarr(data_2d, forced, extname = 'data1', keyvalues = keyvalues_2d)
+expect_identical(Rfits_inspect_zarr(open_fresh(new_prefix), print = FALSE)$convention,
+                 'Rfits.zarr')
+#a cutout over the remote store reads back the same pixels as the local slice
+point_s3 = Rfits_point_zarr(forced, extname = 'data1')
+expect_equal(point_s3[1:2, 1:3]$imDat, data_2d[1:2, 1:3])
+#deleting a remote store works, since there is no directory to unlink
+expect_true(bare$clear())
+
+#ex 56 the batch over a real bucket. The directory built for the local batch test
+#is reused, so the same files go to both. recursive = FALSE is needed there for a
+#different reason (the nested copy collides); here it also keeps the transfer small
+batch_res = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch_prefix,
+                              region = region, endpoint = endpoint,
+                              access_key = keys$access_key, secret_key = keys$secret_key,
+                              session_token = keys$session_token,
+                              recursive = FALSE, verbose = FALSE)
+expect_identical(nrow(batch_res), 2L)
+expect_true(all(batch_res$status == 'ok'))
+#each file became its own store, under the requested prefix, named after the file.
+#The trailing slash is part of the URI the store reports, so the whole string is
+#checked rather than the basename, which would hide it
+expect_identical(batch_res$store,
+                 paste0('s3://', bucket, '/', batch_prefix,
+                        c('cube_one.zarr', 'image_one.zarr'), '/'))
+#and the arrays inside are all the shared extension name
+first_store = open_fresh(paste0(batch_prefix, 'image_one.zarr'))
+expect_identical(Rfits_inspect_zarr(first_store, print = FALSE)$array_names, 'data1')
+expect_equal(Rfits_read_image_zarr(first_store, extname = 'data1', header = FALSE),
+             src_image$imDat)
+#a cutout over the remote store, which is the point of doing this at all
+point_batch = Rfits_point_zarr(first_store, extname = 'data1')
+expect_equal(point_batch[1:20, 1:20]$imDat, src_image$imDat[1:20, 1:20])
+#re-running opens the stores it made the first time rather than failing on a prefix
+#that already holds a store, which is what Rfits_s3_store_new would do
+again_batch = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch_prefix,
+                                region = region, endpoint = endpoint,
+                                access_key = keys$access_key, secret_key = keys$secret_key,
+                                session_token = keys$session_token,
+                                recursive = FALSE, verbose = FALSE)
+expect_true(all(again_batch$status == 'ok'))
+}, finally = cleanup_s3())
