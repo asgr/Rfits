@@ -921,6 +921,7 @@ expect_identical(prefix_of(''), apply_prefix(''))
 root_bytes = Rfits:::.zarr_root_group_bytes()
 expect_identical(root_bytes,
                  charToRaw('{"zarr_format":3,"node_type":"group","attributes":{}}'))
+skip_if_not_installed("jsonlite")
 meta = jsonlite::fromJSON(rawToChar(root_bytes))
 expect_identical(meta$zarr_format, 3L)
 expect_identical(meta$node_type, 'group')
