@@ -227,7 +227,8 @@ These functions are a proof of concept for creating more generic astronomy data 
 
 \seealso{
 \code{\link{Rfits_image}}, \code{\link{Rfits_image_hdf5}},
-\code{\link{Rfits_dir_to_zarr}}, \code{\link[zarr]{create_zarr}}
+\code{\link{Rfits_dir_to_zarr}}, \code{\link{Rfits_cutout_zarr_dir}},
+\code{\link[zarr]{create_zarr}}
 }
 \examples{
 \dontrun{

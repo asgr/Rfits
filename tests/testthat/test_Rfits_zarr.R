@@ -887,9 +887,435 @@ expect_error(Rfits_dir_to_zarr(dir = empty_dir, target = batch_out), 'No FITS fi
 expect_error(Rfits_dir_to_zarr(dir = file.path(subdir, 'no_such_dir'), target = batch_out),
              'Directory does not exist')
 
+# --- Searching a directory of stores by position (Rfits_cutout_zarr_dir) -----------
+
+#ex 48 a 3x3 grid of 200x200 tiles at 1 arcsec/pixel, built straight into Zarr with a
+#known WCS so the expected cutout can be computed rather than eyeballed. The tiles
+#touch exactly, which puts centres, edge midpoints and corners all in reach
+skip_if_not_installed("Rwcs")
+cut_dir = file.path(subdir, 'cutout_grid')
+dir.create(cut_dir, recursive = TRUE)
+
+cut_N = 200
+cut_scale = 1/3600
+cut_ra0 = 53.1
+cut_dec0 = -27.8
+
+cut_tile = function(it, jt, N = cut_N, scale = cut_scale){
+  kv = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = N, NAXIS2 = N,
+            CTYPE1 = 'RA---TAN', CTYPE2 = 'DEC--TAN',
+            CRVAL1 = cut_ra0 + (it - 1) * N * scale / cos(cut_dec0 * pi/180),
+            CRVAL2 = cut_dec0 + (jt - 1) * N * scale,
+            CRPIX1 = (N + 1)/2, CRPIX2 = (N + 1)/2,
+            CD1_1 = -scale, CD1_2 = 0, CD2_1 = 0, CD2_2 = scale,
+            RADESYS = 'ICRS', EQUINOX = 2000)
+  #Values encode the tile index, so a wrong store cannot pass for a right one
+  dat = matrix(it * 1000 + jt, N, N)
+  list(kv = kv, dat = dat)
+}
+
+for(it in 1:3){
+  for(jt in 1:3){
+    tt = cut_tile(it, jt)
+    Rfits_write_image_zarr(tt$dat, file.path(cut_dir, sprintf('tile_%i_%i.zarr', it, jt)),
+                           extname = 'data1', keyvalues = tt$kv)
+  }
+}
+cut_silent = function(...){
+  Rfits_cutout_zarr_dir(..., verbose = FALSE)
+}
+
+#the centre of one tile matches that tile alone
+cen_22 = c(cut_ra0 + cut_N * cut_scale / cos(cut_dec0 * pi/180),
+           cut_dec0 + cut_N * cut_scale)
+one = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 101)
+expect_identical(names(one), 'tile_2_2')
+expect_identical(class(one), 'Rfits_list')
+expect_identical(class(one[[1]])[1], 'Rfits_image')
+expect_identical(dim(one[[1]]), c(101L, 101L))
+
+#the output is the same object the pointer cutout method gives for the same request,
+#so nothing about the search perturbs the header or the pixels
+ptr_22 = Rfits_point_zarr(file.path(cut_dir, 'tile_2_2.zarr'), extname = 'data1')
+direct_22 = ptr_22[cen_22[1], cen_22[2], box = 101, type = 'coord']
+expect_equal(one[[1]]$imDat, direct_22$imDat)
+expect_equal(one[[1]]$header, direct_22$header)
+
+#the pixels really are the tile's own, sliced around the requested position
+cen_pix = ceiling(suppressMessages(Rwcs::Rwcs_s2p(cen_22[1], cen_22[2],
+                                                  keyvalues = cut_tile(2, 2)$kv,
+                                                  pixcen = 'R'))[1, ])
+lo_pix = cen_pix + (1 - 101)/2
+hi_pix = cen_pix + (101 - 1)/2
+expect_equal(one[[1]]$imDat, cut_tile(2, 2)$dat[lo_pix[1]:hi_pix[1], lo_pix[2]:hi_pix[2]])
+
+#a position on the corner shared by four tiles returns all four, one per extension
+corner = c(cut_ra0 + 0.5 * cut_N * cut_scale / cos(cut_dec0 * pi/180),
+           cut_dec0 + 0.5 * cut_N * cut_scale)
+four = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101)
+expect_identical(sort(names(four)), sort(c('tile_1_1', 'tile_1_2', 'tile_2_1', 'tile_2_2')))
+expect_length(four, 4)
+#every extension keeps the requested size, padded rather than shrunk at the edge
+expect_true(all(vapply(four, function(x) identical(dim(x), c(101L, 101L)), logical(1))))
+#and each carries its own store's pixels, which the encoded values make checkable. The
+#tiles that the box runs off the edge of also carry NA padding, so the non NA values
+#are what identifies the store
+tile_id = function(x) unique(as.vector(x$imDat[!is.na(as.vector(x$imDat))]))
+expect_equal(sort(unname(vapply(four, tile_id, numeric(1)))),
+             sort(c(1001, 1002, 2001, 2002)))
+
+#the scan table records every store it looked at, and the matches table only those it
+#took, so a null result can be diagnosed without rerunning anything
+scan = attributes(four)$scan
+expect_identical(nrow(scan), 9L)
+expect_true(all(scan$status == 'ok'))
+expect_equal(scan$pixscale_x, rep(1, 9), tolerance = 1e-6)
+#both axes of the tile shape have to survive into the table. Reading them out of a
+#scalar rather than out of the shape vector used to leave naxis2 NA for every store,
+#which made the table look like a directory of one row tiles
+expect_identical(scan$naxis1, rep(as.numeric(cut_N), 9))
+expect_identical(scan$naxis2, rep(as.numeric(cut_N), 9))
+matches = attributes(four)$matches
+expect_identical(nrow(matches), 4L)
+expect_true(all(matches$dim == '101x101'))
+expect_identical(attributes(four)$filename, matches$store)
+
+#a position with nothing near it matches nothing, and says so without erroring
+none = expect_message(cut_silent(dir = cut_dir, RA = 10, Dec = 10, box = 101),
+                      'No Zarr store overlaps')
+expect_length(none, 0)
+expect_identical(names(none), character(0))
+
+#ex 49 a box large enough to sit over the whole grid matches every tile, which is the
+#case where the box boundary falls outside every tile and the overlap test has to work
+#in the other direction
+expect_length(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 701), 9)
+
+#the cheap cone filter must never reject a tile the precise test would have kept, so
+#the fast answer has to equal the answer with no filter at all
+brute_box = function(RA, Dec, box){
+  hits = character(0)
+  for(it in 1:3){
+    for(jt in 1:3){
+      kv = cut_tile(it, jt)$kv
+      bkv = Rfits:::.zarr_cutout_box_keyvalues(kv, RA, Dec, c(box, box))
+      ok = suppressMessages(tryCatch(Rwcs::Rwcs_overlap(bkv, kv), error = function(e) NA))
+      if(isTRUE(ok)){
+        hits = c(hits, sprintf('tile_%i_%i', it, jt))
+      }
+    }
+  }
+  return(sort(hits))
+}
+for(box in c(11, 101, 201)){
+  for(loc in list(cen_22, corner,
+                  c(cut_ra0, cut_dec0),
+                  c(cut_ra0 + 2 * cut_N * cut_scale / cos(cut_dec0 * pi/180),
+                    cut_dec0 + 2 * cut_N * cut_scale))){
+    expect_identical(sort(names(cut_silent(dir = cut_dir, RA = loc[1], Dec = loc[2],
+                                           box = box, extract = FALSE))),
+                     brute_box(loc[1], loc[2], box))
+  }
+}
+
+#ex 50 buffer widens the search. The position is 300 arcsec from tile 1,1's reference
+#point and 200 clear of its edge, so only a generous buffer can reach it
+just_out = c(cut_ra0 - 300/3600/cos(cut_dec0 * pi/180), cut_dec0)
+expect_length(cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101), 0)
+expect_length(cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101,
+                         buffer = 100), 0)
+buf = cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101,
+                 buffer = 250)
+expect_true('tile_1_1' %in% names(buf))
+#the search widens but the cutout does not
+expect_true(all(vapply(buf, function(x) identical(dim(x), c(101L, 101L)), logical(1))))
+#and the buffered result is a superset of the unbuffered one
+expect_true(all(names(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2],
+                                 box = 101)) %in%
+                  names(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2],
+                                   box = 101, buffer = 100))))
+
+#ex 51 box in arcsec. The tiles are 1 arcsec/pixel, so arcsec and pixels agree here,
+#but the conversion is per tile rather than assumed
+r_as = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
+                  box.unit = 'arcsec')
+expect_identical(dim(r_as[[1]]), c(51L, 51L))
+expect_equal(r_as[[1]]$imDat, one[[1]]$imDat[26:76, 26:76])
+#two sizes, and a per axis pair
+expect_identical(dim(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2],
+                                box = c(31, 41))[[1]]), c(31L, 41L))
+#too small to cut out at all, which is a mistake in the request rather than an absence
+#of data, so it is reported as such and differently in each unit
+expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0.001,
+                        box.unit = 'arcsec'), 'smaller than one')
+expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0),
+             'positive')
+expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0.5),
+             'at least 1 pixel')
+
+#ex 52 several positions at once, and the loc matrix form of the same request
+multi = cut_silent(dir = cut_dir, RA = c(cen_22[1], corner[1]),
+                   Dec = c(cen_22[2], corner[2]), box = 101)
+expect_identical(multi, cut_silent(dir = cut_dir, loc = rbind(cen_22, corner), box = 101))
+expect_length(multi, 5)
+expect_identical(names(multi), c('tile_2_2_1', 'tile_1_1_2', 'tile_1_2_2',
+                                 'tile_2_1_2', 'tile_2_2_2'))
+#the position column says which request each cutout answers
+expect_identical(attributes(multi)$matches$position, c(1L, 2L, 2L, 2L, 2L))
+expect_error(cut_silent(dir = cut_dir, RA = c(1, 2, 3), Dec = c(1, 2)), 'same length')
+expect_error(cut_silent(dir = cut_dir, loc = matrix(1, 2, 3)), 'two columns')
+
+#ex 53 extract = FALSE reports the matches as pointers, without reading pixels. The
+#search is the same, only the data is not fetched
+pts = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                 extract = FALSE)
+expect_length(pts, 4)
+expect_true(all(vapply(pts, function(x) inherits(x, 'Rfits_pointer_zarr'), logical(1))))
+#the matches table still knows the shape, taken from the pointer rather than a read
+expect_true(all(attributes(pts)$matches$dim == '200x200'))
+
+#ex 54 cubes and 4D arrays. A box is a two dimensional feature, so the planes are kept
+#whole rather than sliced to one
+cube_dir = file.path(subdir, 'cutout_nd')
+dir.create(cube_dir)
+tt = cut_tile(1, 1)
+cube_dat = array(0, c(cut_N, cut_N, 4))
+arr_dat = array(0, c(cut_N, cut_N, 3, 2))
+for(k in 1:4){
+  cube_dat[,,k] = tt$dat + k
+}
+for(k in 1:3){
+  for(m in 1:2){
+    arr_dat[,,k,m] = tt$dat + k * 10 + m
+  }
+}
+Rfits_write_image_zarr(cube_dat, file.path(cube_dir, 'cube_a.zarr'), extname = 'data1',
+                       keyvalues = tt$kv)
+Rfits_write_image_zarr(arr_dat, file.path(cube_dir, 'array_a.zarr'), extname = 'data1',
+                       keyvalues = tt$kv)
+nd = cut_silent(dir = cube_dir, RA = tt$kv$CRVAL1, Dec = tt$kv$CRVAL2, box = 51)
+expect_identical(sort(names(nd)), c('array_a', 'cube_a'))
+expect_identical(class(nd[['cube_a']])[1], 'Rfits_cube')
+expect_identical(dim(nd[['cube_a']]), c(51L, 51L, 4L))
+expect_identical(class(nd[['array_a']])[1], 'Rfits_array')
+expect_identical(dim(nd[['array_a']]), c(51L, 51L, 3L, 2L))
+#every plane is the matching slice of the source
+for(k in 1:4){
+  expect_equal(nd[['cube_a']]$imDat[,,k], cube_dat[75:125, 75:125, k])
+}
+for(k in 1:3){
+  for(m in 1:2){
+    expect_equal(nd[['array_a']]$imDat[,,k,m], arr_dat[75:125, 75:125, k, m])
+  }
+}
+#and the scan rows of a higher dimensional store describe the two axes the WCS is
+#defined over, not the whole array shape, so they are readable the same way a tile's
+#are
+ndscan = attributes(nd)$scan
+expect_identical(ndscan$naxis1, rep(as.numeric(cut_N), 2))
+expect_identical(ndscan$naxis2, rep(as.numeric(cut_N), 2))
+
+#ex 55 stores that cannot be searched are reported in the scan table rather than
+#breaking the run: no metadata, metadata without a WCS, and a directory that only has
+#the name of a store
+bad_dir = file.path(subdir, 'cutout_bad')
+dir.create(bad_dir)
+Rfits_write_image_zarr(tt$dat, file.path(bad_dir, 'bare_a.zarr'), extname = 'data1')
+kv_nowcs = tt$kv
+kv_nowcs[c('CRVAL1', 'CRVAL2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2')] = NULL
+Rfits_write_image_zarr(tt$dat, file.path(bad_dir, 'nowcs_a.zarr'), extname = 'data1',
+                       keyvalues = kv_nowcs)
+dir.create(file.path(bad_dir, 'not_a_store.zarr'))
+#the good one still matches alongside a directory that is not a store at all
+mres = expect_warning(cut_silent(filelist = c(file.path(bad_dir, 'not_a_store.zarr'),
+                                              file.path(cut_dir, 'tile_2_2.zarr')),
+                                 RA = cen_22[1], Dec = cen_22[2], box = 51),
+                      'root location')
+expect_identical(names(mres), 'tile_2_2')
+mscan = attributes(mres)$scan
+expect_identical(mscan$status, c('error', 'ok'))
+expect_true(grepl('root location', mscan$error[1]))
+#the store that was never read has no tile to take numbers from, so every shape column
+#is NA for it and only it. The good row checks the same code path against real values
+expect_identical(unlist(mscan[1, c('naxis1', 'naxis2', 'pixscale_x', 'pixscale_y',
+                                   'centre_RA', 'centre_Dec')], use.names = FALSE),
+                 rep(NA_real_, 6))
+expect_identical(mscan$naxis2[2], as.numeric(cut_N))
+#stores with nothing searchable in them are reported, and a directory of only those is
+#an error rather than an empty answer. The directory that is not a store warns either
+#way, since a name that looks like a store and is not one should not pass unnoticed
+expect_warning(expect_error(cut_silent(dir = bad_dir, RA = cen_22[1], Dec = cen_22[2],
+                                       box = 51),
+                            'usable WCS'),
+               'not_a_store')
+#nested stores are found, and keep their directories in the reported name
+dir.create(file.path(bad_dir, 'deep'), showWarnings = FALSE)
+Rfits_write_image_zarr(cut_tile(2, 2)$dat, file.path(bad_dir, 'deep/inner.zarr'),
+                       extname = 'data1', keyvalues = cut_tile(2, 2)$kv)
+deep = expect_warning(cut_silent(dir = bad_dir, RA = cen_22[1], Dec = cen_22[2], box = 51),
+                      'not_a_store')
+expect_identical(names(deep), 'inner')
+expect_true(grepl('deep/inner\\.zarr$', attributes(deep)$filename))
+#and a store with the right shape but no extension asked for is skipped the same way
+expect_warning(expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2],
+                                       box = 51, extname = 'nosuch_at_all'),
+                            'usable WCS|No Zarr'),
+               'no extension named|Skipping')
+#but a repeated reason is reported once, not once per store, because a typo in extname
+#across a whole directory is one mistake and should read like one
+grouped = character(0)
+invisible(withCallingHandlers(
+  tryCatch(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
+                      extname = 'nosuch_at_all'),
+           error = function(e) e),
+  warning = function(w){
+    grouped <<- c(grouped, conditionMessage(w))
+    invokeRestart('muffleWarning')
+  }))
+expect_length(grouped, 1)
+expect_match(grouped, '9 store\\(s\\) skipped')
+
+#ex 56 argument checking happens before anything is read from disk
+expect_error(Rfits_cutout_zarr_dir(RA = 1, Dec = 1), 'One of dir, filelist, or bucket')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, bucket = 'any', RA = 1, Dec = 1),
+             'not both')
+expect_error(Rfits_cutout_zarr_dir(dir = file.path(subdir, 'no_such_dir'),
+                                   RA = 1, Dec = 1), 'Directory does not exist')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, box.unit = 'degrees'),
+             'arg')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = NaN, Dec = 1), 'finite')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, buffer = -1), 'buffer')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, pattern = 5),
+             'pattern')
+expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, extname = character(0)),
+             'extname')
+#no store matches the pattern
+expect_error(cut_silent(dir = cut_dir, pattern = 'nothing_here', RA = 1, Dec = 1),
+             'No Zarr stores found')
+
+#ex 57 the metadata cache. Reading it must give exactly the same answer as not having
+#it, and must survive a filtered run without losing the stores that run skipped
+cache_file = file.path(subdir, 'cutout_cache.rds')
+cold = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                  cache = cache_file)
+warm = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                  cache = cache_file)
+expect_true(file.exists(cache_file))
+expect_identical(names(cold), names(warm))
+expect_identical(sort(names(warm)), sort(names(four)))
+filtered = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                      cache = cache_file, pattern = 'tile_[12]_1')
+expect_true(all(c('tile_1_1', 'tile_2_1') %in% names(filtered)))
+#the filtered run keeps the entries it did not visit
+expect_length(readRDS(cache_file), 9)
+#a header that has genuinely changed is noticed, since local entries are checked
+#against the metadata file rather than trusted
+changed = cut_tile(2, 3)
+changed$kv$CRVAL1 = changed$kv$CRVAL1 + 0.01
+Rfits_write_image_zarr(changed$dat, file.path(cut_dir, 'tile_2_3.zarr'), extname = 'data1',
+                       keyvalues = changed$kv)
+sc2 = attributes(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                            cache = cache_file, extract = FALSE))$scan
+expect_equal(sc2$centre_RA[grepl('tile_2_3', sc2$store)], changed$kv$CRVAL1,
+             tolerance = 1e-9)
+
+#ex 58 header = FALSE gives the bare array, and extname may offer several candidates
+nohead = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
+                    header = FALSE)
+expect_false(inherits(nohead[[1]], 'Rfits_image'))
+expect_identical(dim(nohead[[1]]), c(51L, 51L))
+multi_ext = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
+                       extname = c('nosuch', 'data1'))
+expect_identical(names(multi_ext), 'tile_2_2')
+
+#ex 59 the remote half of the search, offline. A store is found by listing prefixes
+#with a delimiter, so a directory of them costs one request per directory rather than
+#one per object, and the arrays inside are never enumerated. A fake client backed by
+#the bytes of the local grid lets all of that be checked without a network
+make_dir_client = function(root){
+  files = list.files(root, recursive = TRUE, include.dirs = FALSE, all.files = TRUE)
+  keys = setNames(as.list(file.path(root, files)), files)
+  state = new.env(parent = emptyenv())
+  state$get = 0
+  state$list = 0
+  client = list(
+    head_object = function(Bucket, Key, ...){
+      if(Key %in% names(keys)){
+        return(list(ContentLength = file.info(keys[[Key]])$size))
+      }
+      stop('The specified key does not exist. (Service: NoSuchKey; Status Code: 404)',
+           call. = FALSE)
+    },
+    get_object = function(Bucket, Key, ...){
+      state$get = state$get + 1
+      if(Key %in% names(keys)){
+        size = file.info(keys[[Key]])$size
+        return(list(Body = readBin(keys[[Key]], what = 'raw', n = as.integer(size))))
+      }
+      stop('The specified key does not exist. (Service: NoSuchKey; Status Code: 404)',
+           call. = FALSE)
+    },
+    list_objects_v2 = function(Bucket, Prefix, Delimiter = NULL, MaxKeys = 1000, ...){
+      state$list = state$list + 1
+      found = names(keys)[startsWith(names(keys), Prefix)]
+      out = list(Contents = lapply(found, function(k) list(Key = k)),
+                 IsTruncated = FALSE)
+      if(!is.null(Delimiter)){
+        rest = sub(paste0('^', Prefix), '', found)
+        sub_dir = sub('/.*', '', rest)
+        sub_dir = unique(sub_dir[nzchar(sub_dir) & sub_dir != rest])
+        out$CommonPrefixes = lapply(sub_dir, function(p) {
+          list(Prefix = paste0(Prefix, p, '/'))
+        })
+      }
+      return(out)
+    },
+    counts = function() list(get = state$get, list = state$list))
+  return(client)
+}
+
+#the nine stores are found in one delimited listing, with no GET at all
+disc = make_dir_client(cut_dir)
+stores = Rfits:::.zarr_s3_find_stores(disc, 'bucket', '')
+expect_identical(stores, sort(sprintf('tile_%i_%i.zarr', rep(1:3, each = 3), rep(1:3, 3))))
+expect_identical(disc$counts(), list(get = 0, list = 1))
+#a prefix that is itself a store is reported as that one store
+expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cut_dir), 'bucket',
+                                              'tile_2_2.zarr'), 'tile_2_2.zarr')
+#nested stores are found too, keeping their directories, so the remote search sees the
+#same set the local one does
+expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', ''),
+                 sort(c('array_a.zarr', 'cube_a.zarr')))
+dir.create(file.path(cube_dir, 'nest'), showWarnings = FALSE)
+Rfits_write_image_zarr(tt$dat, file.path(cube_dir, 'nest/deep_a.zarr'), extname = 'data1',
+                       keyvalues = tt$kv)
+expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', ''),
+                 sort(c('array_a.zarr', 'cube_a.zarr', 'nest/deep_a.zarr')))
+#stopping at the first level would have missed the nested one; recursive = FALSE does
+expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', '',
+                                              recursive = FALSE),
+                 sort(c('array_a.zarr', 'cube_a.zarr')))
+
+#the header of one array is one small GET, and is what the search actually runs on
+meta = Rfits:::.zarr_meta_from_s3(make_dir_client(cut_dir), 'bucket', 'tile_2_2.zarr',
+                                  'data1')
+expect_equal(meta$shape, c(200L, 200L))
+expect_equal(meta$keyvalues$CRVAL1, cut_tile(2, 2)$kv$CRVAL1, tolerance = 1e-6)
+expect_equal(meta$keyvalues$NAXIS1, 200L)
+#an absent extension is NULL rather than an error, since a prefix may hold anything
+expect_null(Rfits:::.zarr_meta_from_s3(make_dir_client(cut_dir), 'bucket',
+                                       'tile_2_2.zarr', 'nosuch'))
+#but a store that cannot be read is not the same as one that is not there
+denied = make_dir_client(cut_dir)
+denied$get_object = function(Bucket, Key, ...) stop('Access Denied (HTTP 403)',
+                                                    call. = FALSE)
+bad_meta = Rfits:::.zarr_meta_from_s3(denied, 'bucket', 'tile_2_2.zarr', 'data1')
+expect_null(bad_meta$shape)
+expect_true(grepl('403', attr(bad_meta, 'error')))
+
 # --- Creating a store over S3 (Rfits_s3_store_new) --------------------------------
 
-#ex 48 the prefix is normalised exactly as zarr_s3store does it, since a store
+#ex 60 the prefix is normalised exactly as zarr_s3store does it, since a store
 #written under one name and looked for under another is no store at all. Tested
 #against the constructor's own expression so the two cannot drift apart
 prefix_of = Rfits:::.zarr_s3_prefix
@@ -915,7 +1341,7 @@ apply_prefix = function(prefix){
 expect_identical(prefix_of('cutout_test.zarr'), apply_prefix('cutout_test.zarr'))
 expect_identical(prefix_of(''), apply_prefix(''))
 
-#ex 49 the root group bytes. These are the whole of what makes a prefix a store,
+#ex 61 the root group bytes. These are the whole of what makes a prefix a store,
 #so they must stay valid v3 and must keep attributes as an empty object rather
 #than the [] that jsonlite produces for an empty list
 root_bytes = Rfits:::.zarr_root_group_bytes()
@@ -931,7 +1357,7 @@ expect_false(identical(charToRaw(as.character(jsonlite::toJSON(
   list(zarr_format = 3L, node_type = 'group', attributes = list()),
   auto_unbox = TRUE))), root_bytes))
 
-#ex 50 missing and unreadable must not be confused. A store can exist behind
+#ex 62 missing and unreadable must not be confused. A store can exist behind
 #credentials that are not allowed to see it, and that must not be taken for a
 #free prefix that is safe to write over. The pattern is zarr's own, copied rather
 #than called, so it is checked against that as well
@@ -948,7 +1374,7 @@ expect_false(not_found('SignatureDoesNotMatch'))
 #recording because it fails towards caution rather than towards an overwrite
 expect_false(not_found('no such bucket'))
 
-#ex 51 the probe, against a stand in client so none of this needs a network
+#ex 63 the probe, against a stand in client so none of this needs a network
 make_fake_s3 = function(objects = list(), put_error = NULL){
   state = new.env(parent = emptyenv())
   state$objects = objects
@@ -993,7 +1419,7 @@ store_for = Rfits:::.zarr_s3_store_for
 expect_error(store_for('b', 'x.zarr', access_key = 'a', secret_key = 'b',
                        client = denied), 'Cannot determine')
 
-#ex 52 creating the root group. An empty prefix is asked for first and refused
+#ex 64 creating the root group. An empty prefix is asked for first and refused
 #there, and the key written must be the normalised one
 create_root = Rfits:::.zarr_s3_root_create
 client = make_fake_s3()
@@ -1030,7 +1456,7 @@ expect_error(create_root(broken, 'b', 'x.zarr'), 'Cannot create the Zarr root gr
 expect_error(create_root(broken, 'b', 'x.zarr'), 's3://b/x.zarr/')
 expect_error(create_root(broken, 'b', 'x.zarr'), 'Access Denied')
 
-#ex 53 the client config. The token is normalised once and reused for both the
+#ex 65 the client config. The token is normalised once and reused for both the
 #write and the open, so a NULL can never leave one side anonymous, and path style
 #addressing has to track the endpoint exactly as the constructor does
 config = Rfits:::.zarr_s3_config
@@ -1048,7 +1474,7 @@ expect_true(isTRUE(config(endpoint = 'https://x', access_key = 'a', secret_key =
 expect_identical(config(region = 'auto', access_key = 'a', secret_key = 'b')$region, 'auto')
 expect_null(config(access_key = 'a', secret_key = 'b')$region)
 
-#ex 54 the public function must reject a call that cannot possibly work before it
+#ex 66 the public function must reject a call that cannot possibly work before it
 #touches the network. Without keys zarr_s3store silently goes anonymous, so the
 #store would be created and then be unopenable
 nokeys = 'access_key and secret_key are required'
@@ -1072,7 +1498,7 @@ expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b
                                 endpoint = TRUE), 'endpoint')
 expect_error(Rfits_s3_store_new('image-tests', access_key = 1, secret_key = 'b'),
              'access_key')
-#ex 55 an end to end check against a real bucket, skipped unless it is asked for
+#ex 67 an end to end check against a real bucket, skipped unless it is asked for
 #by setting all of these. It creates its own prefix so it cannot disturb anything,
 #and clears it again at the end
 s3_env = c('RFITS_S3_BUCKET', 'RFITS_S3_ENDPOINT', 'RFITS_S3_ACCESS_KEY',
@@ -1187,7 +1613,7 @@ expect_equal(point_s3[1:2, 1:3]$imDat, data_2d[1:2, 1:3])
 #deleting a remote store works, since there is no directory to unlink
 expect_true(bare$clear())
 
-#ex 56 the batch over a real bucket. The directory built for the local batch test
+#ex 68 the batch over a real bucket. The directory built for the local batch test
 #is reused, so the same files go to both. recursive = FALSE is needed there for a
 #different reason (the nested copy collides); here it also keeps the transfer small
 batch_res = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch_prefix,
@@ -1219,4 +1645,56 @@ again_batch = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch
                                 session_token = keys$session_token,
                                 recursive = FALSE, verbose = FALSE)
 expect_true(all(again_batch$status == 'ok'))
+
+#ex 69 searching the remote directory by position. This is the whole point of the
+#two stage search: the headers of both stores are read over the network, but the pixels
+#of a store that does not overlap the request are never asked for
+img_kv = src_image$keyvalues
+found = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
+                              endpoint = endpoint, access_key = keys$access_key,
+                              secret_key = keys$secret_key,
+                              session_token = keys$session_token,
+                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
+                              verbose = FALSE)
+#the image store is found, and named after its store rather than its extension
+expect_true('image_one' %in% names(found))
+#nothing outside the two stores written by the batch can appear
+expect_true(all(names(found) %in% c('image_one', 'cube_one')))
+#the scan saw every store under the prefix, whatever matched
+expect_identical(nrow(attributes(found)$scan), 2L)
+expect_true(all(attributes(found)$scan$status == 'ok'))
+#and the cutout that came back is exactly what the same box gives from the local file,
+#so the remote search and the local one agree to the pixel
+remote_cut = found[['image_one']]
+expect_identical(dim(remote_cut), c(51L, 51L))
+local_ptr = Rfits_point(ex_image, ext = 1)
+local_cut = local_ptr[img_kv$CRVAL1, img_kv$CRVAL2, box = 51, type = 'coord']
+expect_equal(remote_cut$imDat, local_cut$imDat)
+expect_equal(remote_cut$keyvalues$NAXIS1, local_cut$keyvalues$NAXIS1)
+#a position nowhere near either store matches nothing, and reads no pixels doing it
+far = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
+                            endpoint = endpoint, access_key = keys$access_key,
+                            secret_key = keys$secret_key,
+                            session_token = keys$session_token,
+                            RA = img_kv$CRVAL1 + 40, Dec = img_kv$CRVAL2 + 40,
+                            box = 51, verbose = FALSE)
+expect_length(far, 0)
+expect_identical(nrow(attributes(far)$matches), 0L)
+#the remote cache round trip, since a cached remote entry cannot be validated the way
+#a local one can and so must still give the same answer as no cache at all
+s3_cache = file.path(subdir, 's3_cache.rds')
+first = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
+                              endpoint = endpoint, access_key = keys$access_key,
+                              secret_key = keys$secret_key,
+                              session_token = keys$session_token,
+                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
+                              cache = s3_cache, extract = FALSE, verbose = FALSE)
+again = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
+                              endpoint = endpoint, access_key = keys$access_key,
+                              secret_key = keys$secret_key,
+                              session_token = keys$session_token,
+                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
+                              cache = s3_cache, extract = FALSE, verbose = FALSE)
+expect_identical(names(first), names(again))
+expect_true(file.exists(s3_cache))
 }, finally = cleanup_s3())

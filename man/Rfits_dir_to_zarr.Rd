@@ -124,7 +124,7 @@ needed.
 }
 \seealso{
 \code{\link{Rfits_image_zarr}}, \code{\link{Rfits_s3_store_new}},
-\code{\link{Rfits_inspect_zarr}}
+\code{\link{Rfits_inspect_zarr}}, \code{\link{Rfits_cutout_zarr_dir}}
 }
 \examples{
 \dontrun{

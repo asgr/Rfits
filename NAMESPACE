@@ -109,6 +109,7 @@ export(Rfits_append_array_zarr)
 export(Rfits_inspect_zarr)
 export(Rfits_s3_store_new)
 export(Rfits_dir_to_zarr)
+export(Rfits_cutout_zarr_dir)
 
 export(Rfits_length)
 export(Rfits_dim)
