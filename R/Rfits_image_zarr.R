@@ -2073,11 +2073,67 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
 
 #What to hand to .zarr_store_open to re-read a pointer. A pointer made from a
 #store object cannot be rebuilt from its filename, which is only a label.
+#
+#A lazy pointer (one made by .zarr_lazy_pointer) carries no store, only the spec
+#needed to build one, held in the environment at x$store. It is opened here, on
+#first use, and the handle memoised in that same environment. Pointers are plain
+#lists, so x$store = <handle> inside a method would not persist to the caller's
+#copy; writing into a shared environment does, so a store is opened at most once
+#however many times the pointer is sliced. This is what lets a search that only
+#lists its matches cost no store opens at all.
 .zarr_pointer_source = function(x){
-  if(!is.null(x$store)){
-    return(x$store)
+  store = x$store
+  if(inherits(store, 'Rfits_lazy_store')){
+    handle = get0('store', envir = store, inherits = FALSE)
+    if(is.null(handle)){
+      handle = .zarr_lazy_open(store)
+      assign('store', handle, envir = store)
+    }
+    return(handle)
+  }
+  if(!is.null(store)){
+    return(store)
   }
   return(path.expand(x$filename))
+}
+
+#Open the store a lazy pointer was built for. Kept apart from the resolver above so
+#that a pointer with nothing to open says so, rather than failing inside the reader.
+.zarr_lazy_open = function(env){
+  spec = get0('openspec', envir = env, inherits = FALSE)
+  if(is.null(spec)){
+    stop('This Rfits_pointer_zarr has no store to open!', call. = FALSE)
+  }
+  if(isTRUE(spec$remote)){
+    return(.zarr_s3_store_for(bucket = spec$bucket, prefix = spec$prefix,
+                              region = spec$region, endpoint = spec$endpoint,
+                              access_key = spec$access_key,
+                              secret_key = spec$secret_key,
+                              session_token = spec$session_token))
+  }
+  return(spec$dir)
+}
+
+#Build a pointer from metadata already in hand, without opening the store. The
+#fields mirror what Rfits_point_zarr puts in a live pointer, so the two are
+#indistinguishable until the lazy one is sliced.
+#
+#ext is left NULL and resolved by the reader on open, because knowing the index
+#means listing the store, which is the read being avoided; extname is enough to
+#slice by, and resolves to the same extension in any store that has it. The
+#keyvalues must be the full header rather than the two axis trimmed form the search
+#uses, or a cube silently loses its third axis.
+.zarr_lazy_pointer = function(filename, extname, keyvalues, dim, type, header = TRUE,
+                              openspec){
+  output = list(filename = filename, extname = extname, ext = NULL, header = header,
+                keyvalues = keyvalues, dim = as.integer(dim), type = type,
+                store = new.env(parent = emptyenv()))
+  #The class tells a lazy handle slot from a real store object, since both are
+  #environments
+  class(output$store) = 'Rfits_lazy_store'
+  assign('openspec', openspec, envir = output$store)
+  class(output) = 'Rfits_pointer_zarr'
+  return(output)
 }
 
 #Drop trailing dimensions. An Rfits object goes through its own [ method so the
@@ -2266,7 +2322,9 @@ dim.Rfits_pointer_zarr = function(x){
 
 print.Rfits_pointer_zarr = function(x, ...){
   cat('File path:', x$filename, '\n')
-  cat('Ext num:', x$ext, '\n')
+  #A lazy pointer has no extension index until it is first sliced, and printing a
+  #bare NULL there reads like a missing value rather than a deferred one
+  cat('Ext num:', if(is.null(x$ext)) 'not read yet' else x$ext, '\n')
   cat('Ext name:', x$extname, '\n')
   cat('Class: Rfits_pointer_zarr\n')
   cat('Type:', x$type, '\n')

@@ -159,6 +159,20 @@
   return(unique(out))
 }
 
+#Can a cached tile record build a lazy pointer? Only 'ok' stores are ever pointed at,
+#and those must carry the untrimmed keywords and the array type; an entry written
+#before the cache held either is treated as a miss and re-read, rather than handed
+#back as a pointer whose header is quietly missing an axis.
+.zarr_cache_entry_usable = function(info){
+  if(is.null(info)){
+    return(FALSE)
+  }
+  if(!identical(info$status, 'ok')){
+    return(TRUE)
+  }
+  return(!is.null(info$full_keyvalues) && !is.null(info$type) && !is.null(info$dim))
+}
+
 #Is the prefix itself a store? The root group document is the only thing that makes a
 #prefix a store, and it is one small key, so this is worth asking before listing. The
 #tri state probe is deliberately not used as a veto: a prefix that cannot be probed is
@@ -314,8 +328,20 @@
     return(list(status = 'nopixscale'))
   }
   crpix = c(if(good(kv$CRPIX1)) kv$CRPIX1 else 1, if(good(kv$CRPIX2)) kv$CRPIX2 else 1)
-  return(list(status = 'ok', keyvalues = kv, naxis = naxis, scale = scale,
-              ra = ra, dec = dec, crpix = crpix, store_shape = shape))
+  #The dim a pointer should carry. The array shape from the store is authoritative,
+  #but a header-only cache miss has no shape and the WCS shape stands in for it.
+  dim = if(is.null(shape) || anyNA(shape)) naxis else shape
+  #full_keyvalues is the header as the store holds it, kept beside the trimmed copy
+  #because a pointer handed back to the caller must carry every keyword, including the
+  #third and fourth axes the search itself never looks at. Only the trimmed kv may be
+  #given to Rwcs, so the search uses keyvalues and the pointer uses full_keyvalues.
+  type = c('vector', 'image', 'cube', 'array')[length(dim)]
+  if(is.na(type)){
+    type = 'array'
+  }
+  return(list(status = 'ok', keyvalues = kv, full_keyvalues = keyvalues,
+              naxis = naxis, scale = scale, ra = ra, dec = dec, crpix = crpix,
+              store_shape = shape, dim = dim, type = type))
 }
 
 #The furthest a point may be from the reference position of a tile and still possibly
@@ -542,6 +568,34 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
   remote = !is.null(bucket)
   client = NULL
 
+  #The cache is loaded before the store list is built, because the listing of a
+  #remote prefix is itself one of the things worth caching: finding the stores costs
+  #a request per directory, and a bucket laid out as one directory of tiles pays
+  #that on every search. Metadata entries are keyed by store and extension; this one
+  #entry is keyed by the whole spec of the walk, so a narrower prefix or a different
+  #pattern cannot be served from a listing that did not make them.
+  cache_path = NULL
+  cached = list()
+  list_key = NULL
+  walked = NULL
+  if(!is.null(cache)){
+    cache_path = path.expand(cache)
+    if(!isTRUE(refresh) && file.exists(cache_path)){
+      loaded = tryCatch(readRDS(cache_path), error = function(e) NULL)
+      if(is.list(loaded)){
+        cached = loaded
+      }
+    }
+    if(remote){
+      #max_dirs is part of the spec because a walk that stopped early holds a partial
+      #list, and reusing that as though it were complete would be worse than the cost
+      #of walking again
+      list_key = paste0('LIST|', bucket, '|', prefix, '|', isTRUE(recursive), '|',
+                        paste0(pattern, collapse = ','), '|', max_dirs)
+    }
+  }
+  cached_list = if(is.null(list_key)) NULL else cached[[list_key]]
+
   if(remote){
     if(!requireNamespace('paws.storage', quietly = TRUE)){
       stop('The paws.storage package is needed to search a Zarr directory over S3. ',
@@ -560,8 +614,37 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
                                                        access_key = creds$access_key,
                                                        secret_key = creds$secret_key,
                                                        session_token = creds$session_token))
-    filelist = .zarr_s3_find_stores(client, bucket, prefix, recursive = recursive,
-                                    pattern = pattern, max_dirs = max_dirs)
+    if(is.null(cached_list)){
+      #A walk that gave up at max_dirs holds a partial list, and caching that would
+      #hide stores from every later search without saying so. Catching the warning
+      #here rather than in the helper keeps the batch paths untouched.
+      truncated = FALSE
+      filelist = withCallingHandlers(
+        .zarr_s3_find_stores(client, bucket, prefix, recursive = recursive,
+                             pattern = pattern, max_dirs = max_dirs),
+        warning = function(w){
+          #No muffleRestart here, so the warning still reaches the caller: it is
+          #their only notice that the search saw part of the directory
+          if(grepl('directories; use a narrower prefix', conditionMessage(w))){
+            truncated <<- TRUE
+          }
+        })
+      #Remember that this run paid for the walk, so the list is worth caching
+      if(!truncated){
+        walked = filelist
+      }
+    }else{
+      #Served straight from the cache. A listing whose directories were walked
+      #cannot be checked against the bucket without walking it again, which is the
+      #request refresh exists to skip, so this is trusted exactly as a cached header
+      #is and is reported as such when verbose.
+      filelist = as.character(cached_list)
+      if(verbose){
+        message('Using cached store list for s3://', bucket, '/',
+                .zarr_s3_prefix(prefix), ' (', length(filelist),
+                ' stores); refresh = TRUE to re-list')
+      }
+    }
     if(length(filelist) == 0){
       stop('No Zarr stores found under s3://', bucket, '/', .zarr_s3_prefix(prefix),
            if(length(pattern) > 0) ' with the given pattern' else '', '!', call. = FALSE)
@@ -603,26 +686,23 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
   Nstore = length(filelist)
   labels = if(remote) paste0('s3://', bucket, '/', filelist) else filelist
 
-  #A cached copy of the search metadata, keyed by store and extension. Local entries
-  #are validated against the size and mtime of the metadata file, which costs a stat
-  #and so cannot go stale unnoticed. Over S3 the only check available would be the
-  #request the cache exists to avoid, so a cached remote entry is trusted and
-  #refresh = TRUE is the documented way to ignore it.
-  cache_path = NULL
-  cached = list()
+  #A cached copy of the search metadata, keyed by store and extension (the listing is
+  #keyed separately, above). Local entries are validated against the size and mtime
+  #of the metadata file, which costs a stat and so cannot go stale unnoticed. Over
+  #S3 the only check available would be the request the cache exists to avoid, so a
+  #cached remote entry is trusted and refresh = TRUE is the documented way to ignore it.
   fresh = list()
-  if(!is.null(cache)){
-    cache_path = path.expand(cache)
-    if(!isTRUE(refresh) && file.exists(cache_path)){
-      loaded = tryCatch(readRDS(cache_path), error = function(e) NULL)
-      if(is.list(loaded)){
-        cached = loaded
-      }
-    }
+  if(!is.null(cache_path)){
     #Untouched entries carry over. A run filtered by pattern searches a subset of the
     #stores, and rebuilding the cache from only that subset would quietly discard the
     #work every other run had put into it.
     fresh = cached
+    if(!is.null(list_key)){
+      #Either the listing this run just walked and may keep, or the one it was served
+      #and must not drop. Only the exact spec that was searched is recorded, so a run
+      #narrowed by pattern cannot make a broad listing out of a partial one.
+      fresh[[list_key]] = if(is.null(cached_list)) walked else cached_list
+    }
   }
 
   tiles = vector(mode = 'list', length = Nstore)
@@ -639,6 +719,12 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
       stamp = NA_character_
       if(!is.null(cache_path)){
         hit = cached[[paste0(labels[i], '|', name)]]
+        #An entry written before the format carried the full keywords and the array
+        #type cannot build a correct lazy pointer (a cube would lose its third axis),
+        #so it counts as a miss and is rewritten by the read below
+        if(!is.null(hit) && !.zarr_cache_entry_usable(hit$info)){
+          hit = NULL
+        }
         if(!is.null(hit)){
           if(remote){
             entry = hit$info
@@ -847,16 +933,33 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
       }
 
       if(is.null(open_ptrs[[i]])){
+        #A lazy pointer, built from the metadata the search has already paid for
+        #rather than by opening the store. Over S3 an open costs a probe plus a
+        #hierarchy walk (a few tenths of a second per store), and extract = FALSE
+        #never touches pixels at all, so nothing else has to pay for it. Opening is
+        #deferred to [.Rfits_pointer_zarr via x$openspec, which means the pointer a
+        #caller slices behaves exactly as one made by Rfits_point_zarr.
         source = if(remote){
-          .zarr_s3_store_for(bucket = bucket, prefix = filelist[i],
-                             region = creds$region, endpoint = creds$endpoint,
-                             access_key = creds$access_key,
-                             secret_key = creds$secret_key,
-                             session_token = creds$session_token)
+          list(remote = TRUE, bucket = bucket, prefix = filelist[i],
+               region = creds$region, endpoint = creds$endpoint,
+               access_key = creds$access_key, secret_key = creds$secret_key,
+               session_token = creds$session_token)
         }else{
-          filelist[i]
+          list(remote = FALSE, dir = filelist[i])
         }
-        open_ptrs[[i]] = Rfits_point_zarr(source, extname = used_ext[i], header = TRUE)
+        tile = tiles[[i]]
+        #The untrimmed keywords when the search held them; a pointer made straight
+        #from an opened store (which is how a non cached store arrives) is already
+        #complete, and its $dim is the shape.
+        full = tile$full_keyvalues
+        if(is.null(full)){
+          full = tile$keyvalues
+        }
+        open_ptrs[[i]] = .zarr_lazy_pointer(filename = labels[i],
+                                            extname = used_ext[i],
+                                            keyvalues = full, dim = tile$dim,
+                                            type = tile$type, header = header,
+                                            openspec = source)
       }
       ptr = open_ptrs[[i]]
       this_box = box_pix[[i]]

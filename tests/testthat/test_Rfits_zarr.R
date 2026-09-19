@@ -1219,6 +1219,84 @@ sc2 = attributes(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box 
 expect_equal(sc2$centre_RA[grepl('tile_2_3', sc2$store)], changed$kv$CRVAL1,
              tolerance = 1e-9)
 
+#The cache must hold the whole header, not the two-axis form the search uses. The
+#search trims a cube down to its celestial axes before handing it to Rwcs, and a
+#pointer built from that trimmed copy would silently lose the third axis, so the
+#stored keywords and the keywords a pointer reports have to be checked apart
+ptr_dir = file.path(subdir, 'cutout_ptr')
+dir.create(ptr_dir)
+kv_cube = cut_tile(1, 1)$kv
+kv_cube$NAXIS = 3L
+kv_cube$NAXIS3 = 4L
+kv_cube$CRPIX3 = 1
+kv_cube$CRVAL3 = 1000
+kv_cube$CDELT3 = 10
+kv_cube$CTYPE3 = 'WAVE'
+cube4 = array(0, c(cut_N, cut_N, 4))
+for(k in 1:4){
+  cube4[,,k] = cut_N * 100 + k
+}
+Rfits_write_image_zarr(cube4, file.path(ptr_dir, 'cube_p.zarr'), extname = 'data1',
+                       keyvalues = kv_cube)
+ptr_cache = file.path(subdir, 'cutout_ptr.rds')
+pcold = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
+                   cache = ptr_cache, extract = FALSE)
+pwarm = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
+                   cache = ptr_cache, extract = FALSE)
+#what comes back is a pointer of the usual class, with the array shape and type
+expect_identical(names(pwarm), 'cube_p')
+expect_identical(class(pwarm[[1]])[1], 'Rfits_pointer_zarr')
+expect_identical(pwarm[[1]]$dim, as.integer(c(cut_N, cut_N, 4)))
+expect_identical(pwarm[[1]]$type, 'cube')
+#and it keeps the axes the search trimmed away, which is the point of storing the
+#full keywords
+expect_true(all(c('NAXIS3', 'CRPIX3', 'CRVAL3', 'CTYPE3') %in%
+                  names(pwarm[[1]]$keyvalues)))
+expect_identical(pwarm[[1]]$keyvalues$NAXIS3, 4L)
+#the cache holds strictly more keywords than the record the search filters with
+pent = readRDS(ptr_cache)[[1]]
+expect_true(length(pent$info$full_keyvalues) > length(pent$info$keyvalues))
+#cached and uncached runs must agree field by field, so the cache cannot change
+#what a search reports
+for(f in c('filename', 'extname', 'type', 'dim', 'keyvalues')){
+  expect_identical(unname(pcold[[1]][[f]]), unname(pwarm[[1]][[f]]))
+}
+#an entry written before the cache held the full keywords is re-read rather than
+#used, since it cannot build a correct pointer
+broken = readRDS(ptr_cache)
+for(e in seq_along(broken)){
+  broken[[e]]$info$full_keyvalues = NULL
+}
+saveRDS(broken, ptr_cache)
+preflow = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
+                     cache = ptr_cache, extract = FALSE)
+expect_true(all(c('NAXIS3', 'CRVAL3') %in% names(preflow[[1]]$keyvalues)))
+expect_true(!is.null(readRDS(ptr_cache)[[1]]$info$full_keyvalues))
+
+#A lazy pointer is not opened by the search: the slot is there but holds no handle,
+#which is the whole saving. The first slice opens it and keeps it, so a second slice
+#does not go looking again.
+expect_true(inherits(pwarm[[1]]$store, 'Rfits_lazy_store'))
+expect_false(exists('store', envir = pwarm[[1]]$store, inherits = FALSE))
+#A box is a two dimensional feature, so the cube is sliced by explicit ranges and
+#keeps its planes, exactly as the search itself does it
+sliced = pwarm[[1]][75:125, 75:125]
+expect_true(exists('store', envir = pwarm[[1]]$store, inherits = FALSE))
+expect_identical(class(sliced)[1], 'Rfits_cube')
+expect_identical(dim(sliced), c(51L, 51L, 4L))
+expect_identical(unname(sliced$imDat[,,1]), cube4[75:125, 75:125, 1])
+#slicing again works, and reports the same answer, from the now open handle
+again = pwarm[[1]][75:125, 75:125]
+expect_equal(again$imDat, sliced$imDat)
+#the print method survives a pointer whose extension index is not yet known
+expect_output(print(pwarm[[1]]), 'cube_p')
+#and a lazy pointer agrees with one built directly, which is the whole contract
+direct_p = Rfits_point_zarr(file.path(ptr_dir, 'cube_p.zarr'), extname = 'data1')
+expect_identical(pwarm[[1]]$dim, direct_p$dim)
+expect_identical(pwarm[[1]]$type, direct_p$type)
+expect_equal(pwarm[[1]]$keyvalues, direct_p$keyvalues)
+expect_equal(pwarm[[1]][box = 51]$imDat, direct_p[box = 51]$imDat)
+
 #ex 58 header = FALSE gives the bare array, and extname may offer several candidates
 nohead = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
                     header = FALSE)
@@ -1697,4 +1775,36 @@ again = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = r
                               cache = s3_cache, extract = FALSE, verbose = FALSE)
 expect_identical(names(first), names(again))
 expect_true(file.exists(s3_cache))
+#the listing of the prefix is cached beside the headers, since a walk costs a
+#request per directory and is repeated on every search without it
+scache = readRDS(s3_cache)
+expect_true(any(grepl('^LIST\\|', names(scache))))
+#refresh drops the cached listing and walks again, and must still agree
+third = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
+                              endpoint = endpoint, access_key = keys$access_key,
+                              secret_key = keys$secret_key,
+                              session_token = keys$session_token,
+                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
+                              cache = s3_cache, refresh = TRUE, extract = FALSE,
+                              verbose = FALSE)
+expect_identical(names(third), names(again))
+#a narrower prefix is a different spec, so it cannot be served by the broad listing
+narrow = file.path(subdir, 's3_narrow.rds')
+file.copy(s3_cache, narrow, overwrite = TRUE)
+sub_store = Rfits_cutout_zarr_dir(bucket = bucket, prefix = paste0(batch_prefix, '/'),
+                                  region = region, endpoint = endpoint,
+                                  access_key = keys$access_key,
+                                  secret_key = keys$secret_key,
+                                  session_token = keys$session_token,
+                                  RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
+                                  cache = narrow, extract = FALSE, verbose = FALSE)
+expect_identical(sort(names(sub_store)), sort(names(again)))
+#what a remote search hands back is a lazy pointer, so extract = FALSE transfers
+#only metadata. Slicing it fetches the pixels, which is checked against the same
+#box read through a directly opened store
+lazy_remote = again[[1]]
+expect_true(inherits(lazy_remote$store, 'Rfits_lazy_store'))
+got_lazy = suppressWarnings(lazy_remote[box = 51])
+expect_false(is.null(got_lazy$imDat))
+expect_identical(dim(got_lazy), as.integer(c(51, 51)))
 }, finally = cleanup_s3())

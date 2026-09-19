@@ -118,14 +118,15 @@ makes that stage less strict at the cost of more work in the second.
 }
   \item{cache}{
 Character scalar; a path to an \code{.rds} file holding the header information of the
-stores, so that a directory searched repeatedly is not read over the network each
-time. Local stores are checked against their metadata files and so cannot go stale
-quietly; remote ones are trusted, which is what \option{refresh} is for.
+stores, and (for a remote search) the list of stores found under the prefix, so that a
+directory searched repeatedly is not read over the network each time. Local stores are
+checked against their metadata files and so cannot go stale quietly; remote ones are
+trusted, which is what \option{refresh} is for.
 }
   \item{refresh}{
 Logical scalar; whether to ignore the cache at \option{cache} and read everything
-again. The entries it does not touch are kept, so a run narrowed by \option{pattern}
-does not discard the rest.
+again, including the list of stores under a remote prefix. The entries it does not
+touch are kept, so a run narrowed by \option{pattern} does not discard the rest.
 }
   \item{header}{
 Logical scalar; whether each cutout is returned as a full object with its header
@@ -165,6 +166,36 @@ The cutout itself is made by subsetting a \code{\link{Rfits_point_zarr}} pointer
 it is the same box, with the same rewritten header, that \code{point[RA, Dec, box = b,
 type = 'coord']} would give. Only the requested region is read from disk, which for a
 remote store is the difference between transferring a box and transferring a tile.
+
+The pointers are built from the metadata the search has already read, rather than by
+opening each matched store, and a store is opened only when one of its pointers is
+actually sliced. That matters because an open costs a request for the store's layout
+even when no pixels are wanted, so with \option{extract} = FALSE a search over S3
+transfers nothing but metadata and the header documents. The handle a slice opens is
+kept in the pointer it came from, so slicing the same store again does not go looking
+for it a second time.
+
+\subsection{Caching}{
+
+A \option{cache} file makes a repeated search over the network cost about the same as
+reading a local directory. It holds two kinds of entry: the search metadata of every
+store, which is what removes a small read per store, and the list of stores found
+under a remote prefix, which is what removes the walk that finds them. Both are
+written in one \code{.rds} file.
+
+Remote entries cannot be checked for staleness without making the request they exist
+to avoid, so they are trusted, and \option{refresh} = \code{TRUE} is how a bucket
+whose tiles have been rewritten is picked up. Local entries are validated against the
+size and modification time of each store's metadata document, which costs a
+\code{stat()}, so a changed header is noticed on its own. A listing is cached only
+when the walk that produced it reached the end of the directory; one that stopped at
+\option{max_dirs} holds a partial answer and is not kept.
+
+An entry written by an earlier version of the package, which recorded only the two
+celestial axes, is re-read rather than used, since a pointer needs the whole header: a
+cube or 4D array would otherwise come back having lost the keywords for its third and
+fourth axes.
+}
 
 Where the box runs past the edge of a store, the store is matched all the same and the
 missing pixels come back as \code{NA}, so every extension in the result is the size
