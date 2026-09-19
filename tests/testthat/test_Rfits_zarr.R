@@ -1297,6 +1297,28 @@ expect_identical(pwarm[[1]]$type, direct_p$type)
 expect_equal(pwarm[[1]]$keyvalues, direct_p$keyvalues)
 expect_equal(pwarm[[1]][box = 51]$imDat, direct_p[box = 51]$imDat)
 
+#What the first slice memoises has to be the opened store, not just a store or a path.
+#The reader only passes an already open object straight through, so a bare handle is
+#opened again on every slice: over S3 that costs a hierarchy walk per slice and
+#discards the chunk cache with it, which made repeated cutouts of one tile as slow as
+#the first. The handle's identity is what is asserted rather than timing, since a
+#duration depends on the machine and the network, while an object that had to be
+#rebuilt is never the same object.
+pslice = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
+                    cache = ptr_cache, extract = FALSE)[[1]]
+expect_false(exists('store', envir = pslice$store, inherits = FALSE))
+first_slice = pslice[75:125, 75:125]
+#the unsliced pointer held nothing to open, and the first slice put something there
+expect_true(exists('store', envir = pslice$store, inherits = FALSE))
+handle = get0('store', envir = pslice$store, inherits = FALSE)
+#what it holds is the opened object itself, which is the whole of the fix
+expect_true(inherits(handle, 'zarr'))
+expect_true(identical(Rfits:::.zarr_store_open(handle), handle))
+#a second slice reuses that exact handle, so it costs no open
+second_slice = pslice[75:125, 75:125]
+expect_true(identical(get0('store', envir = pslice$store, inherits = FALSE), handle))
+expect_equal(second_slice$imDat, first_slice$imDat)
+
 #ex 58 header = FALSE gives the bare array, and extname may offer several candidates
 nohead = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
                     header = FALSE)

@@ -2097,21 +2097,30 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
   return(path.expand(x$filename))
 }
 
-#Open the store a lazy pointer was built for. Kept apart from the resolver above so
-#that a pointer with nothing to open says so, rather than failing inside the reader.
+#Open the store a lazy pointer was built for, and return it already opened as a zarr
+#object rather than as a bare store. Kept apart from the resolver above so that a
+#pointer with nothing to open says so, rather than failing inside the reader.
+#
+#The opened object is what must be memoised, because it holds the chunk cache and is
+#the form .zarr_store_open() passes straight through. Handing back a store (or a
+#directory path) instead would leave the reader to open it on every slice, which over
+#S3 costs a hierarchy walk per slice and throws away the chunks just fetched, so
+#overlapping cutouts never got cheaper. This is also what an eager Rfits_point_zarr
+#pointer holds, so the two paths now keep the same thing.
 .zarr_lazy_open = function(env){
   spec = get0('openspec', envir = env, inherits = FALSE)
   if(is.null(spec)){
     stop('This Rfits_pointer_zarr has no store to open!', call. = FALSE)
   }
   if(isTRUE(spec$remote)){
-    return(.zarr_s3_store_for(bucket = spec$bucket, prefix = spec$prefix,
-                              region = spec$region, endpoint = spec$endpoint,
-                              access_key = spec$access_key,
-                              secret_key = spec$secret_key,
-                              session_token = spec$session_token))
+    return(.zarr_store_open(.zarr_s3_store_for(bucket = spec$bucket, prefix = spec$prefix,
+                                               region = spec$region,
+                                               endpoint = spec$endpoint,
+                                               access_key = spec$access_key,
+                                               secret_key = spec$secret_key,
+                                               session_token = spec$session_token)))
   }
-  return(spec$dir)
+  return(.zarr_store_open(spec$dir))
 }
 
 #Build a pointer from metadata already in hand, without opening the store. The
