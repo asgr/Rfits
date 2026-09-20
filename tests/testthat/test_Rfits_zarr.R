@@ -1193,21 +1193,34 @@ expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, extname = cha
 expect_error(cut_silent(dir = cut_dir, pattern = 'nothing_here', RA = 1, Dec = 1),
              'No Zarr stores found')
 
-#ex 57 the metadata cache. Reading it must give exactly the same answer as not having
-#it, and must survive a filtered run without losing the stores that run skipped
+#ex 57 the metadata cache, which is a parquet index of the search metadata of each store.
+#Reading it must give exactly the same answer as not having it, and must survive a
+#filtered run without losing the stores that run skipped
+skip_if_not_installed("arrow")
 cache_file = file.path(subdir, 'cutout_cache.rds')
+#The .rds name is the one a caller of the older cache format already has, and is
+#deliberately left in place below to check that it resolves rather than being doubled up
+cache_parquet = Rfits:::.zarr_index_local_path(cache_file)
+expect_identical(cache_parquet, file.path(subdir, 'cutout_cache.parquet'))
 cold = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
                   cache = cache_file)
 warm = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
                   cache = cache_file)
-expect_true(file.exists(cache_file))
+expect_true(file.exists(cache_parquet))
 expect_identical(names(cold), names(warm))
 expect_identical(sort(names(warm)), sort(names(four)))
 filtered = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
                       cache = cache_file, pattern = 'tile_[12]_1')
 expect_true(all(c('tile_1_1', 'tile_2_1') %in% names(filtered)))
 #the filtered run keeps the entries it did not visit
-expect_length(readRDS(cache_file), 9)
+index_rows = function(path){
+  arrow::read_parquet(Rfits:::.zarr_index_local_path(path))
+}
+stores_row = function(path){
+  ix = index_rows(path)
+  ix[ix$kind == 'store', ]
+}
+expect_identical(nrow(stores_row(cache_parquet)), 9L)
 #a header that has genuinely changed is noticed, since local entries are checked
 #against the metadata file rather than trusted
 changed = cut_tile(2, 3)
@@ -1253,9 +1266,15 @@ expect_identical(pwarm[[1]]$type, 'cube')
 expect_true(all(c('NAXIS3', 'CRPIX3', 'CRVAL3', 'CTYPE3') %in%
                   names(pwarm[[1]]$keyvalues)))
 expect_identical(pwarm[[1]]$keyvalues$NAXIS3, 4L)
-#the cache holds strictly more keywords than the record the search filters with
-pent = readRDS(ptr_cache)[[1]]
-expect_true(length(pent$info$full_keyvalues) > length(pent$info$keyvalues))
+#the index holds strictly more keywords than the record the search filters with, since
+#the trimmed two-axis form cannot build a pointer for a cube
+pent = Rfits:::.zarr_index_tile(
+  Rfits:::.zarr_index_light_rows(Rfits:::.zarr_index_local_path(ptr_cache))[1, ],
+  keyvalues = Rfits:::.zarr_index_payload_rows(
+    Rfits:::.zarr_index_local_path(ptr_cache),
+    Rfits:::.zarr_index_light_rows(Rfits:::.zarr_index_local_path(ptr_cache))$cache_key[1]
+  )$keyvalues[[1]])
+expect_true(length(pent$full_keyvalues) > length(pent$keyvalues))
 #cached and uncached runs must agree field by field, so the cache cannot change
 #what a search reports
 for(f in c('filename', 'extname', 'type', 'dim', 'keyvalues')){
@@ -1263,15 +1282,18 @@ for(f in c('filename', 'extname', 'type', 'dim', 'keyvalues')){
 }
 #an entry written before the cache held the full keywords is re-read rather than
 #used, since it cannot build a correct pointer
-broken = readRDS(ptr_cache)
-for(e in seq_along(broken)){
-  broken[[e]]$info$full_keyvalues = NULL
-}
-saveRDS(broken, ptr_cache)
+ptr_parquet = Rfits:::.zarr_index_local_path(ptr_cache)
+broken = Rfits:::.zarr_index_load_all(ptr_parquet)
+at = which(broken$kind == 'store')
+broken$keyvalues[at] = list(raw(0))
+broken$has_keyvalues[at] = FALSE
+Rfits:::.zarr_index_write(broken, ptr_parquet)
 preflow = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
                      cache = ptr_cache, extract = FALSE)
 expect_true(all(c('NAXIS3', 'CRVAL3') %in% names(preflow[[1]]$keyvalues)))
-expect_true(!is.null(readRDS(ptr_cache)[[1]]$info$full_keyvalues))
+#and the stripped rows are repaired by the run that had to re-read them
+expect_true(all(index_rows(ptr_parquet)$has_keyvalues[index_rows(ptr_parquet)$kind ==
+                            'store']))
 
 #A lazy pointer is not opened by the search: the slot is there but holds no handle,
 #which is the whole saving. The first slice opens it and keeps it, so a second slice
@@ -1796,11 +1818,11 @@ again = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = r
                               RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
                               cache = s3_cache, extract = FALSE, verbose = FALSE)
 expect_identical(names(first), names(again))
-expect_true(file.exists(s3_cache))
+s3_parquet = Rfits:::.zarr_index_local_path(s3_cache)
+expect_true(file.exists(s3_parquet))
 #the listing of the prefix is cached beside the headers, since a walk costs a
 #request per directory and is repeated on every search without it
-scache = readRDS(s3_cache)
-expect_true(any(grepl('^LIST\\|', names(scache))))
+expect_true(any(grepl('^WALK\\|', index_rows(s3_parquet)$cache_key)))
 #refresh drops the cached listing and walks again, and must still agree
 third = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
                               endpoint = endpoint, access_key = keys$access_key,
@@ -1811,8 +1833,8 @@ third = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = r
                               verbose = FALSE)
 expect_identical(names(third), names(again))
 #a narrower prefix is a different spec, so it cannot be served by the broad listing
-narrow = file.path(subdir, 's3_narrow.rds')
-file.copy(s3_cache, narrow, overwrite = TRUE)
+narrow = file.path(subdir, 's3_narrow.parquet')
+file.copy(s3_parquet, narrow, overwrite = TRUE)
 sub_store = Rfits_cutout_zarr_dir(bucket = bucket, prefix = paste0(batch_prefix, '/'),
                                   region = region, endpoint = endpoint,
                                   access_key = keys$access_key,

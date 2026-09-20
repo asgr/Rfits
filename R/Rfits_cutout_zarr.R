@@ -159,20 +159,6 @@
   return(unique(out))
 }
 
-#Can a cached tile record build a lazy pointer? Only 'ok' stores are ever pointed at,
-#and those must carry the untrimmed keywords and the array type; an entry written
-#before the cache held either is treated as a miss and re-read, rather than handed
-#back as a pointer whose header is quietly missing an axis.
-.zarr_cache_entry_usable = function(info){
-  if(is.null(info)){
-    return(FALSE)
-  }
-  if(!identical(info$status, 'ok')){
-    return(TRUE)
-  }
-  return(!is.null(info$full_keyvalues) && !is.null(info$type) && !is.null(info$dim))
-}
-
 #Is the prefix itself a store? The root group document is the only thing that makes a
 #prefix a store, and it is one small key, so this is worth asking before listing. The
 #tri state probe is deliberately not used as a veto: a prefix that cannot be probed is
@@ -568,34 +554,6 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
   remote = !is.null(bucket)
   client = NULL
 
-  #The cache is loaded before the store list is built, because the listing of a
-  #remote prefix is itself one of the things worth caching: finding the stores costs
-  #a request per directory, and a bucket laid out as one directory of tiles pays
-  #that on every search. Metadata entries are keyed by store and extension; this one
-  #entry is keyed by the whole spec of the walk, so a narrower prefix or a different
-  #pattern cannot be served from a listing that did not make them.
-  cache_path = NULL
-  cached = list()
-  list_key = NULL
-  walked = NULL
-  if(!is.null(cache)){
-    cache_path = path.expand(cache)
-    if(!isTRUE(refresh) && file.exists(cache_path)){
-      loaded = tryCatch(readRDS(cache_path), error = function(e) NULL)
-      if(is.list(loaded)){
-        cached = loaded
-      }
-    }
-    if(remote){
-      #max_dirs is part of the spec because a walk that stopped early holds a partial
-      #list, and reusing that as though it were complete would be worse than the cost
-      #of walking again
-      list_key = paste0('LIST|', bucket, '|', prefix, '|', isTRUE(recursive), '|',
-                        paste0(pattern, collapse = ','), '|', max_dirs)
-    }
-  }
-  cached_list = if(is.null(list_key)) NULL else cached[[list_key]]
-
   if(remote){
     if(!requireNamespace('paws.storage', quietly = TRUE)){
       stop('The paws.storage package is needed to search a Zarr directory over S3. ',
@@ -614,178 +572,121 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
                                                        access_key = creds$access_key,
                                                        secret_key = creds$secret_key,
                                                        session_token = creds$session_token))
-    if(is.null(cached_list)){
-      #A walk that gave up at max_dirs holds a partial list, and caching that would
-      #hide stores from every later search without saying so. Catching the warning
-      #here rather than in the helper keeps the batch paths untouched.
-      truncated = FALSE
-      filelist = withCallingHandlers(
-        .zarr_s3_find_stores(client, bucket, prefix, recursive = recursive,
-                             pattern = pattern, max_dirs = max_dirs),
-        warning = function(w){
-          #No muffleRestart here, so the warning still reaches the caller: it is
-          #their only notice that the search saw part of the directory
-          if(grepl('directories; use a narrower prefix', conditionMessage(w))){
-            truncated <<- TRUE
-          }
-        })
-      #Remember that this run paid for the walk, so the list is worth caching
-      if(!truncated){
-        walked = filelist
-      }
-    }else{
-      #Served straight from the cache. A listing whose directories were walked
-      #cannot be checked against the bucket without walking it again, which is the
-      #request refresh exists to skip, so this is trusted exactly as a cached header
-      #is and is reported as such when verbose.
-      filelist = as.character(cached_list)
-      if(verbose){
-        message('Using cached store list for s3://', bucket, '/',
-                .zarr_s3_prefix(prefix), ' (', length(filelist),
-                ' stores); refresh = TRUE to re-list')
-      }
-    }
-    if(length(filelist) == 0){
-      stop('No Zarr stores found under s3://', bucket, '/', .zarr_s3_prefix(prefix),
-           if(length(pattern) > 0) ' with the given pattern' else '', '!', call. = FALSE)
-    }
-  }else{
-    if(is.null(filelist)){
-      dir = path.expand(dir)
-      if(!dir.exists(dir)){
-        stop('Directory does not exist: ', dir, call. = FALSE)
-      }
-      #A Zarr store is a directory, so the search is for directories, not files.
-      #list.files reports what is below dir and never dir itself, so a directory named
-      #*.zarr is offered as its own store here, matching the remote path which probes
-      #the prefix before listing it.
-      filelist = character(0)
-      if(grepl('\\.zarr$', dir)){
-        filelist = dir
-      }
-      found = list.files(dir, full.names = TRUE, include.dirs = TRUE,
-                         recursive = recursive)
-      filelist = c(filelist, grep('\\.zarr$', found, value = TRUE))
-      filelist = filelist[dir.exists(filelist)]
-    }else{
-      filelist = path.expand(filelist)
-      filelist = filelist[dir.exists(filelist)]
-    }
-    if(length(pattern) > 0){
-      for(p in pattern){
-        filelist = grep(p, filelist, value = TRUE)
-      }
-    }
-    filelist = sort(unique(filelist))
-    if(length(filelist) == 0){
-      stop('No Zarr stores found', if(!is.null(dir)) paste0(' in ', dir) else '',
-           if(length(pattern) > 0) ' with the given pattern' else '', '!', call. = FALSE)
-    }
   }
 
+  #The stores to search, and the index they may be described by. Both come from
+  #.zarr_index_find_stores so that the search and the standalone builder cannot disagree
+  #about which store is which, or about what makes a cached listing the one asked for.
+  stores = .zarr_index_find_stores(dir = dir, filelist = filelist, pattern = pattern,
+                                   recursive = recursive, bucket = bucket,
+                                   prefix = prefix, max_dirs = max_dirs, cache = cache,
+                                   refresh = refresh, client = client, verbose = verbose)
+  filelist = stores$store
   Nstore = length(filelist)
-  labels = if(remote) paste0('s3://', bucket, '/', filelist) else filelist
+  labels = stores$label
+  client = stores$client
 
-  #A cached copy of the search metadata, keyed by store and extension (the listing is
-  #keyed separately, above). Local entries are validated against the size and mtime
-  #of the metadata file, which costs a stat and so cannot go stale unnoticed. Over
-  #S3 the only check available would be the request the cache exists to avoid, so a
-  #cached remote entry is trusted and refresh = TRUE is the documented way to ignore it.
-  fresh = list()
-  if(!is.null(cache_path)){
-    #Untouched entries carry over. A run filtered by pattern searches a subset of the
-    #stores, and rebuilding the cache from only that subset would quietly discard the
-    #work every other run had put into it.
-    fresh = cached
-    if(!is.null(list_key)){
-      #Either the listing this run just walked and may keep, or the one it was served
-      #and must not drop. Only the exact spec that was searched is recorded, so a run
-      #narrowed by pattern cannot make a broad listing out of a partial one.
-      fresh[[list_key]] = if(is.null(cached_list)) walked else cached_list
+  #The index, if one is held for this store set. It is opened before anything is read
+  #because it answers two questions: which stores exist under a remote prefix, and what
+  #their headers say. A remote one is downloaded whole to a temporary file, since every
+  #query against it is an arrow scan and a scan needs a seekable file.
+  idx_path = NULL
+  idx_rows = NULL
+  idx_at = NULL
+  idx_src = NULL
+  if(!is.null(cache)){
+    src = .zarr_index_open(cache, bucket = bucket, prefix = prefix, client = client)
+    if(!is.null(src$path)){
+      ver = .zarr_index_version_of(src$path)
+      if(is.na(ver) || ver > .zarr_index_version){
+        .zarr_index_close(src)
+        stop('The Zarr index at ', src$shown, ' is not a readable Rfits index (version ',
+             if(is.na(ver)) 'missing' else ver, '). Rebuild it with ',
+             'Rfits_zarr_index(index = ..., refresh = TRUE).', call. = FALSE)
+      }
+      #The file is kept open even when its rows are being ignored, because the merge at the
+      #end still needs the rows of stores this run is not searching. refresh means "do not
+      #trust these entries", not "these rows never existed".
+      idx_src = src
+      idx_path = src$path
+      if(!isTRUE(refresh)){
+        idx_rows = .zarr_index_light_rows(idx_path)
+        idx_at = stats::setNames(as.list(seq_len(nrow(idx_rows))), idx_rows$cache_key)
+      }
+    }else{
+      .zarr_index_close(src)
     }
   }
+  #The downloaded copy of a remote index is this call's own temporary file, and nothing
+  #after the scan needs it, so it goes whatever the search returns
+  on.exit(.zarr_index_close(idx_src))
 
+  #The search works on the light rows, which carry everything the cone filter reads but
+  #not the keywords. A store's keywords are only needed once it has survived that filter,
+  #and they are the bulk of the index, so they are fetched for the candidates rather than
+  #for every store in the directory (see .zarr_index_heavy_col).
   tiles = vector(mode = 'list', length = Nstore)
   status = rep(NA_character_, Nstore)
   used_ext = rep(NA_character_, Nstore)
   store_errors = rep(NA_character_, Nstore)
+  #Where each tile's keywords are: in the index, to be fetched, or already in hand
+  from_index = rep(FALSE, Nstore)
+  idx_use = vector(mode = 'list', length = Nstore)
+  new_rows = vector(mode = 'list', length = Nstore)
 
   for(i in seq_len(Nstore)){
     store = filelist[i]
     got = NULL
     fail = NULL
     for(name in extname){
-      entry = NULL
-      stamp = NA_character_
-      if(!is.null(cache_path)){
-        hit = cached[[paste0(labels[i], '|', name)]]
-        #An entry written before the format carried the full keywords and the array
-        #type cannot build a correct lazy pointer (a cube would lose its third axis),
-        #so it counts as a miss and is rewritten by the read below
-        if(!is.null(hit) && !.zarr_cache_entry_usable(hit$info)){
-          hit = NULL
+      key = .zarr_index_store_key(labels[i], name)
+      at = if(is.null(idx_at)) NULL else idx_at[[key]]
+      if(!is.null(at)){
+        row = idx_rows[at, ]
+        if(!is.na(row$error) && nzchar(row$error)){
+          store_errors[i] = row$error
         }
-        if(!is.null(hit)){
-          if(remote){
-            entry = hit$info
-          }else{
-            info_stat = file.info(file.path(store, .zarr_meta_key(name)))
-            if(isTRUE(info_stat$exists) && !is.na(info_stat$size)){
-              stamp = paste0(info_stat$size, '-', as.numeric(info_stat$mtime))
-              if(identical(hit$stamp, stamp)){
-                entry = hit$info
-              }
-            }
-          }
+        #A row written without the full keywords and the array type cannot build a correct
+        #lazy pointer (a cube would lose its third axis), so it counts as a miss and is
+        #rewritten by the read below
+        ok_row = .zarr_index_row_usable(row)
+        if(ok_row && !remote){
+          #Local rows are checked against the size and mtime of the metadata document,
+          #which costs a stat and so cannot go stale unnoticed. Over S3 the only check
+          #available is the request the index exists to avoid, so remote rows are trusted
+          #and refresh = TRUE is the documented way to ignore them.
+          ok_row = identical(row$stamp, .zarr_index_stamp(store, name))
         }
-      }
-
-      if(!is.null(entry)){
-        got = entry
-      }else if(remote){
-        meta = .zarr_meta_from_s3(client, bucket, store, name)
-        if(is.null(meta)){
-          next
-        }
-        if(!is.null(attr(meta, 'error'))){
-          fail = attr(meta, 'error')
+        if(ok_row){
+          got = .zarr_index_tile(row)
+          from_index[i] = TRUE
+          idx_use[i] = at
+          used_ext[i] = name
           break
         }
-        got = .zarr_cutout_tile_info(meta$keyvalues, meta$shape)
-      }else{
-        meta = .zarr_meta_from_dir(store, name)
-        if(is.null(meta)){
-          #Either a v2 store or one whose array is not named as asked. Only now is it
-          #worth opening the store properly, which also gives a better message than
-          #'not found' when the store is genuinely unreadable.
-          opened = tryCatch(Rfits_point_zarr(store, extname = name, header = TRUE),
-                            error = function(e) e)
-          if(inherits(opened, 'error')){
-            msg = conditionMessage(opened)
-            if(grepl('does not exist in the Zarr store', msg)){
-              next
-            }
-            fail = msg
-            break
-          }
-          got = .zarr_cutout_tile_info(opened$keyvalues, opened$dim)
-        }else{
-          got = .zarr_cutout_tile_info(meta$keyvalues, meta$shape)
-        }
       }
 
-      if(!is.null(cache_path)){
-        fresh[[paste0(labels[i], '|', name)]] = list(stamp = stamp, info = got)
+      read = .zarr_store_meta(store, label = labels[i], extname = name,
+                              remote = remote, client = client, bucket = bucket)
+      if(is.null(read$extname)){
+        if(!is.null(read$info)){
+          #A store that could not be read at all is a failure rather than a filtering
+          #choice, and the reason is reported whatever verbose says
+          fail = read$info$error
+        }
+        next
       }
+      got = read$info
       used_ext[i] = name
+      stamp = if(remote){
+        NA_character_
+      }else{
+        .zarr_index_stamp(store, name)
+      }
+      new_rows[[i]] = .zarr_index_store_row(labels[i], store, name, got, stamp = stamp)
       break
     }
 
-    #A store that could not be read at all, or that holds none of the extensions asked
-    #for, is a failure rather than a filtering choice, so it is reported whatever
-    #verbose says. It is counted here and reported once after the loop: a directory of
-    #a thousand tiles with one typo in extname would otherwise emit a thousand
-    #identical warnings, which hides the message rather than making it.
     if(!is.null(fail)){
       status[i] = 'error'
       store_errors[i] = fail
@@ -800,18 +701,37 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
     tiles[[i]] = got
   }
 
-  if(!is.null(cache_path)){
-    saved = tryCatch({saveRDS(fresh, cache_path); TRUE}, error = function(e) FALSE)
+  added = new_rows[!vapply(new_rows, is.null, logical(1))]
+  #The version travels with every write, including the first, since an index that cannot
+  #say which version it is cannot be read back safely
+  fresh = .zarr_index_rows(c(added, list(.zarr_index_meta_row('index_version',
+                                                               .zarr_index_version))))
+  if(!is.null(stores$walked) && !is.null(cache)){
+    fresh = .zarr_index_merge(fresh, .zarr_index_rows(
+      list(.zarr_index_walk_row(stores$walk_key, stores$walked))))
+  }
+  if(!is.null(cache) && nrow(fresh) > 0){
+    #The whole file is read first because a merge that carried rows over without their
+    #keywords would quietly strip the stores this run did not visit. That is the one place
+    #where loading an index rather than querying it is right, and it is a few hundred kB.
+    #A failed write is a warning rather than an error: the search already has its answers,
+    #and losing them because a cache could not be updated would be the worse outcome.
+    saved = tryCatch({
+      if(!is.null(idx_path)){
+        fresh = .zarr_index_merge(.zarr_index_load_all(idx_path), fresh)
+      }
+      .zarr_index_put(fresh, cache, bucket = bucket, prefix = prefix, client = client)
+      TRUE
+    }, error = function(e) e)
     if(!isTRUE(saved) && verbose){
-      warning('Could not write the metadata cache: ', cache_path, call. = FALSE)
+      warning('Could not write the Zarr index: ', conditionMessage(saved), call. = FALSE)
     }
   }
 
-  #One warning per distinct reason rather than per store. The reason is usually a
-  #property of the request (a mistyped extname, a directory that is not a store at
-  #all) and so repeats for every store in the directory, and a thousand identical
-  #warnings is noise that buries the message rather than a way of making it. The
-  #per store detail is left in the scan table for whoever needs it.
+  #A store that could not be read, or that holds none of the extensions asked for, is a
+  #failure rather than a filtering choice. It is counted here and reported once after the
+  #loop: a directory of a thousand tiles with one typo in extname would otherwise emit a
+  #thousand identical warnings, which hides the message rather than making it.
   skipped = which(status %in% c('error', 'noext'))
   if(length(skipped) > 0){
     reasons = store_errors[skipped]
@@ -914,6 +834,36 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
 
   #Stores opened so far, so one matched by several positions is not reopened each time
   open_ptrs = vector(mode = 'list', length = Nstore)
+
+  #The keywords of the candidates, now that the cheap stage has said which ones matter.
+  #This is the second half of the staged read: the light rows gave the coarse filter
+  #everything it needed without decoding a single header, and only the handful that
+  #survive to the boundary test have their full header pulled out of the index, by key.
+  #The order of the survivors is irrelevant, so they are fetched once for all positions
+  #rather than per position, which keeps it to one scan of the file.
+  need_kv = which(from_index & !vapply(tiles, function(t) !is.null(t$full_keyvalues),
+                                       logical(1)))
+  cand = unique(unlist(candidates, use.names = FALSE))
+  need_kv = intersect(need_kv, cand)
+  if(length(need_kv) > 0){
+    keys = vapply(need_kv, function(i) .zarr_index_store_key(labels[i], used_ext[i]),
+                  character(1))
+    pay = .zarr_index_payload_rows(idx_path, keys)
+    blobs = stats::setNames(as.list(pay$keyvalues), pay$cache_key)
+    for(i in need_kv){
+      key = .zarr_index_store_key(labels[i], used_ext[i])
+      tile = .zarr_index_tile(idx_rows[idx_use[[i]], ], keyvalues = blobs[[key]])
+      if(identical(tile$status, 'error')){
+        #An index row whose blob will not unpick is treated as a miss rather than as a
+        #store that does not overlap, because that is what it is
+        status[i] = 'error'
+        store_errors[i] = tile$error
+        from_index[i] = FALSE
+        next
+      }
+      tiles[[i]] = tile
+    }
+  }
 
   for(k in seq_len(Npos)){
     for(i in candidates[[k]]){
