@@ -1287,7 +1287,25 @@ broken = Rfits:::.zarr_index_load_all(ptr_parquet)
 at = which(broken$kind == 'store')
 broken$keyvalues[at] = list(raw(0))
 broken$has_keyvalues[at] = FALSE
-Rfits:::.zarr_index_write(broken, ptr_parquet)
+
+replacement = tempfile(
+  pattern = "cutout_ptr-",
+  tmpdir = dirname(ptr_parquet),
+  fileext = ".parquet"
+)
+
+Rfits:::.zarr_index_write(broken, replacement)
+
+# Release Arrow's mapped file before replacing the original on Windows.
+rm(broken)
+gc()
+
+if (!file.rename(replacement, ptr_parquet)) {
+  unlink(ptr_parquet)
+  if (!file.rename(replacement, ptr_parquet)) {
+    stop("Could not replace the Parquet index")
+  }
+}
 preflow = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
                      cache = ptr_cache, extract = FALSE)
 expect_true(all(c('NAXIS3', 'CRVAL3') %in% names(preflow[[1]]$keyvalues)))
