@@ -574,18 +574,6 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
                                                        session_token = creds$session_token))
   }
 
-  #The stores to search, and the index they may be described by. Both come from
-  #.zarr_index_find_stores so that the search and the standalone builder cannot disagree
-  #about which store is which, or about what makes a cached listing the one asked for.
-  stores = .zarr_index_find_stores(dir = dir, filelist = filelist, pattern = pattern,
-                                   recursive = recursive, bucket = bucket,
-                                   prefix = prefix, max_dirs = max_dirs, cache = cache,
-                                   refresh = refresh, client = client, verbose = verbose)
-  filelist = stores$store
-  Nstore = length(filelist)
-  labels = stores$label
-  client = stores$client
-
   #The index, if one is held for this store set. It is opened before anything is read
   #because it answers two questions: which stores exist under a remote prefix, and what
   #their headers say. A remote one is downloaded whole to a temporary file, since every
@@ -620,6 +608,21 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
   #The downloaded copy of a remote index is this call's own temporary file, and nothing
   #after the scan needs it, so it goes whatever the search returns
   on.exit(.zarr_index_close(idx_src))
+
+  #The stores to search. This comes after the index has been opened because the index
+  #holds the listing of a remote prefix, and reading a cached walk out of it is the only
+  #way a search avoids a request per directory. Both this and the standalone builder go
+  #through .zarr_index_find_stores so they cannot disagree about which store is which, or
+  #about what makes a cached listing the one asked for.
+  stores = .zarr_index_find_stores(dir = dir, filelist = filelist, pattern = pattern,
+                                   recursive = recursive, bucket = bucket,
+                                   prefix = prefix, max_dirs = max_dirs,
+                                   index_path = idx_path, refresh = refresh,
+                                   client = client, verbose = verbose)
+  filelist = stores$store
+  Nstore = length(filelist)
+  labels = stores$label
+  client = stores$client
 
   #The search works on the light rows, which carry everything the cone filter reads but
   #not the keywords. A store's keywords are only needed once it has survived that filter,
