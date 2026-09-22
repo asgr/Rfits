@@ -1397,10 +1397,90 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   return(invisible(header))
 }
 
+#Split the space into contiguous runs of whole chunks along one axis, so that no two
+#bands share a chunk. That is what makes it safe for a worker to write a band without
+#reading anything another worker has written: a chunk is only ever opened by one
+#process, and zarr flushes a chunk in full. Returns one list per band of the 1 based
+#inclusive bounds per dimension, which is what zarr node$write wants as a selection, or
+#NULL when no axis has two chunks to split. The highest such axis is used, since R
+#stores dim 1 fastest varying, so a band cut along a later axis is contiguous in memory.
+.zarr_chunk_bands = function(shape, chunk_shape, nbands){
+  Nd = length(shape)
+  nchunks = ceiling(shape/chunk_shape)
+  splittable = which(nchunks >= 2)
+  if(length(splittable) == 0){
+    return(NULL)
+  }
+  axis = max(splittable)
+  nch = nchunks[axis]
+  nbands = min(nbands, nch)
+  #Whole chunks per band, front loaded, so the bands differ in size by at most one chunk
+  per = integer(nbands)
+  rest = nch
+  for(k in seq_len(nbands)){
+    left = nbands - k + 1L
+    per[k] = ceiling(rest/left)
+    rest = rest - per[k]
+  }
+  hi_chunk = cumsum(per)
+  lo_chunk = hi_chunk - per + 1L
+  full = lapply(seq_len(Nd), function(d) c(1L, as.integer(shape[d])))
+  return(lapply(seq_len(nbands), function(k){
+    sel = full
+    sel[[axis]] = c(as.integer((lo_chunk[k] - 1L) * chunk_shape[axis] + 1L),
+                    as.integer(min(hi_chunk[k] * chunk_shape[axis], shape[axis])))
+    return(sel)
+  }))
+}
+
+#Write one chunk aligned band, which is the whole of a worker's job. Everything is
+#reached through :: or through the job, since a worker starts with nothing from the
+#parent. The store is reopened from its path rather than carried across, because a
+#store object keeps its data and its connection in the process that opened it.
+.zarr_write_band = function(job){
+  suppressPackageStartupMessages({library(Rfits); library(zarr)})
+  store = Rfits:::.zarr_store_open(job$filename, write = TRUE)
+  node = store$get_node(job$path)
+  node$write(job$band, selection = job$selection)
+  return(length(job$band))
+}
+
+#Fan the data out over workers as whole bands
+.zarr_write_bands_parallel = function(filename, path, data, shape, chunk_shape, cores){
+  bands = .zarr_chunk_bands(shape, chunk_shape, cores)
+  if(is.null(bands)){
+    return(invisible(FALSE))
+  }
+  cluster = parallel::makeCluster(min(cores, length(bands)), type = 'PSOCK')
+  on.exit(parallel::stopCluster(cluster), add = TRUE)
+  #The worker is named rather than passed as a function object, because parLapply ships
+  #a closure together with its environment, and the environment of the caller holds the
+  #array being written, so every worker would receive its own copy of all of it. A name
+  #is resolved on the node, which is why it is defined there first. invisible() because
+  #clusterEvalQ would print the value from every node.
+  invisible(parallel::clusterEvalQ(cluster, {
+    zarr_band_worker = Rfits:::.zarr_write_band
+  }))
+  jobs = lapply(bands, function(selection){
+    #Sliced here rather than in the worker, so what each worker is sent is only its own
+    #band. This is also why the split is taken along a trailing dimension, since R
+    #stores the leading dimension fastest and such a band is one contiguous block.
+    band = do.call(`[`, c(list(data), lapply(selection, function(b) b[1]:b[2])))
+    return(list(filename = filename, path = path, selection = selection, band = band))
+  })
+  counts = parallel::parLapply(cluster, jobs, 'zarr_band_worker')
+  written = sum(vapply(counts, function(n) if(is.numeric(n)) n else 0, numeric(1)))
+  if(!identical(as.numeric(written), as.numeric(prod(shape)))){
+    stop('The parallel Zarr write only covered ', written, ' of ', prod(shape),
+         ' pixels!', call. = FALSE)
+  }
+  return(invisible(TRUE))
+}
+
 Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', create_ext=TRUE,
                                   overwrite_file=FALSE, data_type=NULL, chunk_shape=NULL,
                                   clevel=6L, compressor='blosc', shuffle=NULL,
-                                  append=FALSE, update_root=TRUE,
+                                  append=FALSE, update_root=TRUE, cores=NULL,
                                   keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
@@ -1417,6 +1497,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   assertFlag(append)
   assertFlag(update_root)
   assertIntegerish(clevel, len=1, lower=0, upper=9)
+  assertIntegerish(cores, len=1, lower=1, null.ok=TRUE)
 
   if(append & overwrite_file){
     stop('Cannot use both append and overwrite_file!', call. = FALSE)
@@ -1517,6 +1598,14 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   #Appending grows the array that is already there, so it has to branch before
   #anything is deleted or created
   if(append){
+    #Appending has to resize the array before any of it can be written, and a resize is
+    #a single metadata operation that the bands cannot be arranged around, so the
+    #increment is written in one. Said out loud because a caller who sets cores batch
+    #wide would otherwise have no idea which of their appends were parallel.
+    if(!is.null(cores)){
+      message('cores is ignored when append = TRUE; the increment is written in one.',
+              call. = FALSE)
+    }
     return(invisible(.zarr_append(store = store, extname = extname, data = data,
                                   shape = shape, typed = typed,
                                   data_type_requested = data_type,
@@ -1552,7 +1641,35 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
 
   node = store$add_array('/', sub('^/', '', extname), .zarr_array_metadata(builder, store$store))
 
-  node$write(data)
+  #The pixels go in either as one write or as a set of disjoint bands, and the metadata
+  #afterwards either way, since the bands write into the array the node already describes
+  in_bands = FALSE
+  if(!is.null(cores)){
+    #A store object cannot be handed to a worker. zarr keeps a store's contents in
+    #memory for some store types, and a client connected by the parent for others, so
+    #whatever a worker wrote would either be invisible here or go through a connection
+    #that belongs to another process. Only a path names a store two processes can each
+    #open for themselves, which is what makes the parallel write safe.
+    if(filename_is_store){
+      message('cores is ignored for a Zarr store object, since only a local store path ',
+              'can be opened by the workers independently. The array is written in one.',
+              call. = FALSE)
+    }else{
+      in_bands = .zarr_write_bands_parallel(filename = filename, path = path, data = data,
+                                            shape = shape, chunk_shape = chunk_shape,
+                                            cores = cores)
+      if(!in_bands){
+        message('cores is ignored: no dimension of ', paste(shape, collapse = ' x '),
+                ' is large enough to hold two ', paste(chunk_shape, collapse = ' x '),
+                ' chunks, so there is nothing to split. The array is written in one.',
+                call. = FALSE)
+      }
+    }
+  }
+
+  if(!in_bands){
+    node$write(data)
+  }
 
   #FITS style metadata, stored as attributes on the array node
   if(!is.null(header)){
@@ -1634,11 +1751,94 @@ Rfits_append_array_zarr = Rfits_append_image_zarr
 #The FITS names the readers take, matched the way Rfits_key_scan matches them
 .zarr_fits_pattern = '\\.(fits|fit)(\\.gz)?$'
 
+#Convert one FITS file to one store and report what happened as a single row. Kept
+#out of Rfits_dir_to_zarr so that the serial and parallel paths run exactly the same
+#code, and so that nothing here writes into a shared data frame from inside a worker,
+#where the row would be lost the moment it came back.
+#
+#Both the progress message and the warning about a skipped file are raised in here
+#rather than by the caller, so that the serial path reports a file the moment it is
+#handled, exactly as it did before this was pulled out of the loop. In a worker the
+#message streams out as it is raised, but the warning is collected and only raised
+#once the batch is over, which is later but not lost.
+.zarr_convert_one = function(i, fullnames, filelist, stubs, target, prefix,
+                             bucket, region, endpoint, access_key, secret_key,
+                             session_token, ext, extname, args, verbose = TRUE){
+  remote = !is.null(bucket)
+
+  file_in = fullnames[i]
+  name_out = stubs[i]
+
+  #Decided before the read, so a file that fails still records where it was aimed
+  if(remote){
+    store_prefix = paste0(.zarr_s3_prefix(prefix), name_out)
+    dest = paste0('s3://', bucket, '/', store_prefix)
+    shown = paste0(bucket, '/', store_prefix)
+  }else{
+    dest = file.path(target, name_out)
+    shown = dest
+  }
+
+  if(verbose){
+    message('[', i, '/', length(fullnames), '] ', filelist[i], ' -> ', shown)
+  }
+
+  #Recorded rather than returned directly, because an assignment inside a handler is
+  #local to that handler and would be lost the moment the loop moved on
+  written = NULL
+  nkey = NA_integer_
+  fail = NULL
+
+  tryCatch({
+    data = Rfits_read_image(file_in, ext = ext, header = TRUE)
+    if(!inherits(data, c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
+      stop('Extension ', ext, ' of ', basename(file_in), ' is not an image!')
+    }
+    nkey = length(data$keyvalues)
+
+    if(remote){
+      #One store per file, so the store object is built per iteration
+      store = .zarr_s3_store_for(bucket = bucket, prefix = store_prefix, region = region,
+                                 endpoint = endpoint, access_key = access_key,
+                                 secret_key = secret_key, session_token = session_token)
+    }else{
+      store = dest
+    }
+
+    written = do.call(Rfits_write_image_zarr,
+                      c(list(data = data, filename = store, extname = extname), args))
+  }, error = function(e) {
+    fail <<- conditionMessage(e)
+  })
+
+  if(is.null(fail)){
+    #The writer reports the name it used, which for a store object is the URI
+    #including the trailing slash. The pre-computed dest is kept for a failure,
+    #where it records what the run was aimed at
+    return(list(store = written$filename,
+                dim = paste(written$dim, collapse = 'x'),
+                data_type = written$data_type,
+                nkey = nkey,
+                status = 'ok',
+                error = NA_character_))
+  }
+
+  if(verbose){
+    warning('Skipping ', basename(file_in), ': ', fail, call. = FALSE)
+  }
+  return(list(store = dest,
+              dim = NA_character_,
+              data_type = NA_character_,
+              nkey = NA_integer_,
+              status = 'error',
+              error = fail))
+}
+
 Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recursive = TRUE,
                              target = NULL, bucket = NULL, prefix = '',
                              region = NULL, endpoint = NULL,
                              access_key = NULL, secret_key = NULL, session_token = NULL,
-                             ext = 1L, extname = 'data1', verbose = TRUE, ...){
+                             ext = 1L, extname = 'data1', cores = NULL, verbose = TRUE, ...){
   .zarr_require()
 
   assertString(dir, null.ok = TRUE)
@@ -1655,6 +1855,7 @@ Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recurs
   assertString(session_token, null.ok = TRUE)
   assertIntegerish(ext, len = 1)
   assertString(extname)
+  assertIntegerish(cores, len = 1, lower = 1, null.ok = TRUE)
 
   #Reading the credentials out of the environment is worth doing here, since the
   #alternative is a key in a script and this function exists to be scripted. bucket
@@ -1767,72 +1968,69 @@ Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recurs
                       status = rep(NA_character_, Nfile), error = rep(NA_character_, Nfile),
                       stringsAsFactors = FALSE)
 
+  #The per-file index is supplied by the caller, and deliberately not given a value
+  #here: an entry in this list would collide with the one added by do.call
+  batch = c(list(fullnames = fullnames, filelist = filelist, stubs = stubs,
+                 target = target, prefix = prefix, bucket = bucket, region = region,
+                 endpoint = endpoint, access_key = access_key, secret_key = secret_key,
+                 session_token = session_token, ext = ext, extname = extname,
+                 args = args, verbose = verbose))
+
+  if(is.null(cores)){
+    rows = lapply(seq_len(Nfile), function(i){
+      return(do.call(.zarr_convert_one, c(list(i = i), batch)))
+    })
+  }else{
+    #A cluster owned by this call rather than registerDoParallel plus %dopar%, because
+    #that pair changes a backend shared by the whole session. Registering here would
+    #take over a cluster the caller had made, and the one made here would stay
+    #registered after this call returned, so their next %dopar% would fail with a
+    #message about dead workers that points nowhere near here. PSOCK on every platform,
+    #since forking with cfitsio and OpenMP state in the parent is not safe.
+    #More workers than files only pays for idle processes, hence the cap.
+    #
+    #outfile = '' is what makes the per-file progress visible: without it a message
+    #raised in a worker is swallowed, and a batch that takes an hour would report
+    #nothing at all until it finished. The cost is one 'starting worker' line each.
+    cluster = parallel::makeCluster(min(cores, Nfile), type = 'PSOCK', outfile = '')
+    #The cluster is stopped on the way out even if a worker dies, since idle workers
+    #would each hold the memory of a whole image until the session ended
+    on.exit(parallel::stopCluster(cluster), add = TRUE)
+    #Workers start empty, so the package has to be loaded there before the helper can
+    #be found, and zarr because the writer needs it
+    parallel::clusterEvalQ(cluster, {
+      suppressPackageStartupMessages({library(Rfits); library(zarr)})
+      return(NULL)
+    })
+    #Each file is read, compressed and written by one worker, so the parallelism is
+    #embarrassing: no worker touches a store another worker has opened
+    rows = parallel::parLapply(cluster, seq_len(Nfile), function(i){
+      #Wrapped again because the helper catches what it expects to catch, and anything
+      #else should still cost one row rather than the whole batch
+      tryCatch(do.call(Rfits:::.zarr_convert_one, c(list(i = i), batch)),
+               error = function(e){
+                 return(list(store = NA_character_, dim = NA_character_,
+                             data_type = NA_character_, nkey = NA_integer_,
+                             status = 'error',
+                             error = paste0('worker failed: ', conditionMessage(e))))
+               })
+    })
+  }
+
   n_ok = 0L
   n_fail = 0L
-
   for(i in seq_len(Nfile)){
-    file_in = fullnames[i]
-    name_out = stubs[i]
-
-    #Decided before the read, so a file that fails still records where it was aimed
-    if(remote){
-      store_prefix = paste0(.zarr_s3_prefix(prefix), name_out)
-      dest = paste0('s3://', bucket, '/', store_prefix)
-      shown = paste0(bucket, '/', store_prefix)
-    }else{
-      dest = file.path(target, name_out)
-      shown = dest
-    }
-
-    if(verbose){
-      message('[', i, '/', Nfile, '] ', filelist[i], ' -> ', shown)
-    }
-
-    #Recorded rather than returned, because an assignment inside a handler is local
-    #to that handler and would be lost the moment the loop moved on
-    written = NULL
-    data = NULL
-    fail = NULL
-
-    tryCatch({
-      data = Rfits_read_image(file_in, ext = ext, header = TRUE)
-      if(!inherits(data, c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))){
-        stop('Extension ', ext, ' of ', basename(file_in), ' is not an image!')
-      }
-
-      if(remote){
-        #One store per file, so the store object is built per iteration
-        store = .zarr_s3_store_for(bucket = bucket, prefix = store_prefix, region = region,
-                                   endpoint = endpoint, access_key = access_key,
-                                   secret_key = secret_key, session_token = session_token)
-      }else{
-        store = dest
-      }
-
-      written = do.call(Rfits_write_image_zarr,
-                        c(list(data = data, filename = store, extname = extname), args))
-    }, error = function(e) {
-      fail <<- conditionMessage(e)
-    })
-
-    if(is.null(fail)){
-      #The writer reports the name it used, which for a store object is the URI
-      #including the trailing slash. The pre-computed dest is kept for a failure,
-      #where it records what the run was aimed at
-      output$store[i] = written$filename
-      output$dim[i] = paste(written$dim, collapse = 'x')
-      output$data_type[i] = written$data_type
-      output$nkey[i] = length(data$keyvalues)
-      output$status[i] = 'ok'
+    row = rows[[i]]
+    output$store[i] = row$store
+    output$dim[i] = row$dim
+    output$data_type[i] = row$data_type
+    output$nkey[i] = row$nkey
+    output$status[i] = row$status
+    output$error[i] = row$error
+    if(identical(row$status, 'ok')){
       n_ok = n_ok + 1L
     }else{
-      output$store[i] = dest
-      output$status[i] = 'error'
-      output$error[i] = fail
       n_fail = n_fail + 1L
-      if(verbose){
-        warning('Skipping ', basename(file_in), ': ', fail, call. = FALSE)
-      }
     }
   }
 
