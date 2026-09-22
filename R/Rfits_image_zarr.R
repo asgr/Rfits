@@ -1439,7 +1439,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #store object keeps its data and its connection in the process that opened it.
 .zarr_write_band = function(job){
   suppressPackageStartupMessages({library(Rfits); library(zarr)})
-  store = Rfits:::.zarr_store_open(job$filename, write = TRUE)
+  store = .zarr_store_open(job$filename, write = TRUE)
   node = store$get_node(job$path)
   node$write(job$band, selection = job$selection)
   return(length(job$band))
@@ -1459,7 +1459,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   #is resolved on the node, which is why it is defined there first. invisible() because
   #clusterEvalQ would print the value from every node.
   invisible(parallel::clusterEvalQ(cluster, {
-    zarr_band_worker = Rfits:::.zarr_write_band
+    zarr_band_worker = .zarr_write_band
   }))
   jobs = lapply(bands, function(selection){
     #Sliced here rather than in the worker, so what each worker is sent is only its own
@@ -2007,7 +2007,7 @@ Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recurs
     rows = parallel::parLapply(cluster, seq_len(Nfile), function(i){
       #Wrapped again because the helper catches what it expects to catch, and anything
       #else should still cost one row rather than the whole batch
-      tryCatch(do.call(Rfits:::.zarr_convert_one, c(list(i = i), batch)),
+      tryCatch(do.call(.zarr_convert_one, c(list(i = i), batch)),
                error = function(e){
                  return(list(store = NA_character_, dim = NA_character_,
                              data_type = NA_character_, nkey = NA_integer_,
