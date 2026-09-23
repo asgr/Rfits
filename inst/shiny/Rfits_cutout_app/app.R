@@ -23,7 +23,7 @@
 library(shiny)
 library(bslib)
 
-need = c('Rfits', 'ggplot2')
+need = c('Rfits', 'plotly')
 missing = need[!vapply(need, requireNamespace, logical(1), quietly = TRUE)]
 if(length(missing) > 0){
   stop('The Rfits cutout app needs: ', paste(missing, collapse = ', '),
@@ -497,7 +497,7 @@ ui = page_navbar(
             fluidRow(
               column(6, numericInput('slice', 'Slice', value = 1, min = 1, step = 1),
                      div(class = 'rf-meta', 'Plane of a cube or array cutout.')),
-              column(6, numericInput('cut_width', 'Cutout width (px)', value = 320,
+              column(6, numericInput('cut_width', 'Cutout width (px)', value = 720,
                                      min = 160, step = 20),
                      div(class = 'rf-meta', 'Side of each square panel, and the pixel ',
                          'size of a downloaded JPEG.'))
@@ -579,23 +579,32 @@ ui = page_navbar(
       card(
         card_header(icon('vector-square'), ' Available frames'),
         card_body(
-          helpText('Drag a box to select frames; the table below lists them and you can ',
-                   'send the centre of the box to the Cutouts tab. Boxes are footprints ',
-                   'worked out from the index, so they are axis aligned and ignore ',
-                   'rotation. Filters on the Index tab apply here too.'),
-          #The RA axis is reversed, so a left-to-right drag covers a *decreasing* range.
-          #Everything downstream takes min/max rather than trusting the drag order
-          plotOutput('frames', height = '620px',
-                     brush = brushOpts(id = 'frames_brush', delay = 300,
-                                       delayType = 'debounce')),
-          verbatimTextOutput('brush_info', placeholder = TRUE)
+          #Interactive rather than a static plot because the whole point of this panel is
+          #finding a position inside a crowded release: you zoom on the tiles that matter
+          #and click the one you want, which is not something a dragged box can do.
+          #Drawn from the index, so no pixel is read to place a box
+          helpText('Click a frame centre to pick its exact RA/Dec (click as many as you ',
+                   'like, at any zoom). Drag with the Select box tool in the mode bar to ',
+                   'highlight a group instead. Scroll to zoom, or use the zoom tool; ',
+                   'double click resets. Hovering a frame gives its store, extension and ',
+                   'shape. Boxes are footprints worked out from the index, so they are ',
+                   'axis aligned and ignore rotation. Filters on the Index tab apply here ',
+                   'too.'),
+          plotly::plotlyOutput('frames', height = '620px'),
+          verbatimTextOutput('frames_info', placeholder = TRUE)
         )
       ),
       card(
         card_header(' Selection'),
         card_body(
-          actionButton('send_pos', 'Send centre to Cutouts', class = 'btn-primary w-100',
+          actionButton('send_pos', 'Send picked positions', class = 'btn-primary w-100',
                        icon = icon('crop')),
+          div(style = 'height: 0.4rem;'),
+          actionButton('send_sel', 'Send selected frames', class = 'btn-outline-primary w-100',
+                       icon = icon('object-group')),
+          div(style = 'height: 0.4rem;'),
+          actionButton('clear_picks', 'Clear picks', class = 'btn-outline-secondary w-100',
+                       icon = icon('eraser')),
           div(style = 'height: 0.8rem;'),
           if(has_dt){
             DT::dataTableOutput('frames_table', height = '420px')
@@ -792,6 +801,16 @@ server = function(input, output, session){
     rows = as.data.frame(got$rows, stringsAsFactors = FALSE)
     state$idx = got
     state$rows = rows
+    #The frames are numbered by row, so a fresh index invalidates every pick on it, and
+    #the one place the app re-reads an index from underneath the session is here. Keeping
+    #the picks would send the centre of whichever tile happened to land on that row this
+    #time, which is the one failure mode a numeric id makes possible
+    picks(character(0))
+    #A new index is a different set of stores, so the row numbers the Frames picks are held
+    #as no longer mean what they meant. Dropping them is the only honest answer, and it
+    #matters because a pick is invisible until it is sent: a stale one would go to the
+    #Cutouts tab as the centre of a tile nobody clicked
+    picks(character(0))
     updateSelectInput(session, 'idx_status', choices = c('all', sort(unique(rows$status))))
     note('Index ready: ', nrow(rows), ' row(s), ', length(unique(rows$label)),
          ' store(s), extname(s) ',
@@ -846,8 +865,8 @@ server = function(input, output, session){
   #Side of a square cutout panel, in pixels. Used for both the on screen cell and the
   #downloaded JPEG so what a user sees is what they get
   cut_width = reactive({
-    w = num_('cut_width', 320)
-    if(is.na(w) || w < 160) 320 else min(w, 1200)
+    w = num_('cut_width', 720)
+    if(is.na(w) || w < 160) 720 else min(w, 1200)
   })
 
   #Only this many of the results are drawn. A request that overlaps a thousand tiles would
@@ -1388,53 +1407,39 @@ server = function(input, output, session){
     adopt_index(val)
   })
 
+  #The id plotly hands back on a click or a box drag. Numbers rather than the store name
+  #or the index cache key, because every vertex of every footprint carries one and a ring
+  #is six vertices: on a release of three thousand tiles a 120 character path would put
+  #more than two megabytes of label into the page before any of it was read, and the
+  #browser would pay that on every redraw. Numbering the rows of the unfiltered set is
+  #what makes a number stable while the index is loaded, because filtering only takes rows
+  #away and never renumbers the rest. The index itself is only reloaded by an explicit
+  #refresh or a rebuild, and that clears the picks below rather than letting an old number
+  #point at a different tile
   frame_rows = reactive({
     rows = state$rows
-    req(rows)
-    index_footprints(rows[rows$status == 'ok', , drop = FALSE])
+    #No index yet is an ordinary state of this tab rather than an error to interrupt on, so
+    #that the panel can say so in words. The callers that genuinely need frames req() on
+    #the NULL
+    if(is.null(rows)){
+      return(NULL)
+    }
+    fr = index_footprints(rows[rows$status == 'ok', , drop = FALSE])
+    fr$frame_id = seq_len(nrow(fr))
+    return(fr)
   })
 
-  #The box a brush dragged, as data coordinates, always with the smaller value first.
-  #Shiny's brush object carries xmin/xmax/ymin/ymax and nothing else; there is no xrange
-  #or yrange, and range(NULL) on those would return c(Inf, -Inf) and select nothing while
-  #warning about empty min and max. The order is also not safe to assume, because the RA
-  #axis is reversed and the values arrive on the scale the panel was built with. Taking
-  #the extremes of the pair costs nothing and is right either way
-  brush_box = function(br){
-    if(is.null(br)){
-      return(NULL)
-    }
-    x = suppressWarnings(as.numeric(unlist(br[c('xmin', 'xmax')], use.names = FALSE)))
-    y = suppressWarnings(as.numeric(unlist(br[c('ymin', 'ymax')], use.names = FALSE)))
-    if(length(x) != 2 || length(y) != 2){
-      return(NULL)
-    }
-    if(!all(is.finite(x)) || !all(is.finite(y))){
-      return(NULL)
-    }
-    list(x = range(x), y = range(y))
-  }
-
-  brushed_rows = function(){
+  #The frames this tab is showing: every searchable footprint the Index tab's filters
+  #leave. One function rather than the filtering in four places, so the plot, the table,
+  #the count and the two Send buttons can never disagree about what is on screen. Empty is
+  #returned as a zero row data frame rather than as a req() failure, because a renderer that
+  #can see 'nothing' says so and one that only gets an interrupting condition leaves a
+  #blank box where the answer should be
+  frames_subset = function(){
     fr = frame_rows()
-    box = brush_box(input$frames_brush)
-    if(is.null(fr) || nrow(fr) == 0 || is.null(box)){
+    if(is.null(fr)){
       return(NULL)
     }
-    xr = box$x
-    yr = box$y
-    #A frame is in the selection if its box intersects the dragged box at all, which is
-    #the question a user is asking; requiring containment would drop the tiles the
-    #request actually needs
-    fr[fr$xmax >= xr[1] & fr$xmin <= xr[2] & fr$ymax >= yr[1] & fr$ymin <= yr[2], ,
-       drop = FALSE]
-  }
-
-  output$frames = renderPlot({
-    fr = frame_rows()
-    req(nrow(fr) > 0)
-    #The Index tab's filters apply here too, so a session narrowed by name or status shows
-    #the same set of frames in both places
     if(nzchar(in_('idx_filter'))){
       fr = fr[grepl(in_('idx_filter'), fr$label), , drop = FALSE]
     }
@@ -1442,72 +1447,351 @@ server = function(input, output, session){
     if(status != 'all'){
       fr = fr[fr$status == status, , drop = FALSE]
     }
-    req(nrow(fr) > 0)
-    sel = brushed_rows()
-    #Every call is qualified because ggplot2 is only a suggested package, checked for at
-    #the top of the file but never attached
-    ggplot2::ggplot() +
-      ggplot2::geom_rect(data = fr,
-                         ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin,
-                                      ymax = ymax),
-                         inherit.aes = FALSE, fill = 'steelblue', colour = 'steelblue',
-                         alpha = 0.25, linewidth = 0.2) +
-      {if(!is.null(sel) && nrow(sel) > 0){
-        ggplot2::geom_rect(data = sel,
-                           ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin,
-                                        ymax = ymax),
-                           inherit.aes = FALSE, fill = NA, colour = 'firebrick',
-                           linewidth = 0.6)
-      }else{
-        NULL
-      }} +
-      ggplot2::scale_x_reverse(name = 'RA (deg)', breaks = pretty) +
-      ggplot2::scale_y_continuous(name = 'Dec (deg)', breaks = pretty) +
-      ggplot2::coord_quickmap(xlim = range(c(fr$xmin, fr$xmax), na.rm = TRUE),
-                              ylim = range(c(fr$ymin, fr$ymax), na.rm = TRUE)) +
-      ggplot2::theme_minimal(base_size = 12) +
-      ggplot2::labs(title = paste(nrow(fr), 'searchable frame(s)'),
-                    subtitle = 'drag a box to select')
+    return(fr)
+  }
+
+  frames_view = reactive({
+    fr = frames_subset()
+    req(!is.null(fr), nrow(fr) > 0)
+    return(fr)
   })
 
-  output$brush_info = renderText({
-    box = brush_box(input$frames_brush)
-    if(is.null(box)){
-      return('No selection. Drag a box over the frames.')
+  #What a hover shows. The store the tile came from is the thing a user wants at this
+  #moment -- it is what a result is named after on the Cutouts tab -- and the shape and
+  #scale say whether this is the tile they meant. Kept to the columns the index always
+  #has, since a release written without a field would otherwise print NA beside every tile
+  frame_hover = function(fr){
+    bits = paste0('<b>', fr$name, '</b>',
+                  if('extname' %in% names(fr)) paste0('<br>extname: ', fr$extname) else '',
+                  if('type' %in% names(fr)) paste0('<br>type: ', fr$type) else '',
+                  '<br>RA, Dec: ', signif(fr$ra, 8), ', ', signif(fr$dec, 8))
+    if(all(c('naxis1', 'naxis2') %in% names(fr))){
+      bits = paste0(bits, '<br>shape: ', fr$naxis1, ' x ', fr$naxis2)
     }
-    sel = brushed_rows()
-    paste0('Selection: ', paste(round(box$x, 4), collapse = ' to '), ' RA, ',
-           paste(round(box$y, 4), collapse = ' to '), ' Dec\n',
-           'Centre:    ', round(mean(box$x), 5), '  ', round(mean(box$y), 5), '\n',
-           'Frames:    ', nrow(sel))
+    if('pixscale_x' %in% names(fr)){
+      bits = paste0(bits, '<br>pixscale: ', signif(fr$pixscale_x, 4), '"/pix')
+    }
+    if('label' %in% names(fr)){
+      bits = paste0(bits, '<br>', fr$label)
+    }
+    return(bits)
+  }
+
+  #The payload of one of the Frames plot's plotly events, parsed the way
+  #plotly::event_data() parses it. Reading the widget's own input id rather than calling
+  #event_data() is deliberate: event_data() registers an onFlushed callback that warns
+  #whenever the event has not been registered by a plot that has already rendered, and this
+  #panel sits in a tab that Shiny keeps suspended until the user opens it. At startup, and
+  #under testServer, which never renders an output unless asked, nothing has rendered, so
+  #the observer below would emit a warning no user can either see or act on. The widget
+  #posts 'plotly_<event>-<source>', with the source set on the plot itself, and the value
+  #is the JSON text of an array of points. jsonlite is not in the checks at the top of the
+  #file because plotly imports it, so a session that can draw the plot can parse this
+  plotly_event = function(event){
+    txt = input[[paste0('plotly_', event, '-frames')]]
+    if(is.null(txt) || !is.character(txt) || !nzchar(txt)){
+      return(NULL)
+    }
+    val = tryCatch(jsonlite::parse_json(txt, simplifyVector = TRUE), error = function(e) NULL)
+    return(val)
+  }
+
+  #plotly sends each event as JSON text, which arrives as a data frame with one row per
+  #point and the columns the widget attaches (curveNumber, pointNumber, x, y, customdata).
+  #Everything here resolves back through customdata rather than pointNumber: that would
+  #work for the centre markers, but the footprints are drawn as one NaN separated polyline,
+  #so their point numbers index into a list of vertices, not into frames. A vertex with no
+  #id (the separators) is dropped rather than guessed at
+  event_ids = function(ev){
+    if(is.null(ev) || NROW(ev) == 0 || is.null(ev$customdata)){
+      return(character(0))
+    }
+    id = suppressWarnings(as.character(unlist(ev$customdata, use.names = FALSE)))
+    return(id[!is.na(id) & nzchar(id)])
+  }
+
+  #Frames the user clicked, held as ids rather than coordinates. A set of ids survives the
+  #plot being redrawn and survives the frame being filtered out of the view later, while
+  #still naming exactly which tile was chosen at the time
+  picks = reactiveVal(character(0))
+
+  #The picked frames, resolved against the current view. A pick whose frame is no longer
+  #in the view is dropped from the drawing (the plot can only show what it has), but the
+  #id is kept in picks so it comes back if the filter is widened again
+  picked_frames = reactive({
+    fr = frames_subset()
+    id = picks()
+    if(is.null(fr) || length(id) == 0){
+      return(NULL)
+    }
+    out = fr[fr$frame_id %in% id, , drop = FALSE]
+    if(nrow(out) == 0){
+      return(NULL)
+    }
+    return(out)
+  })
+
+  #The frames a box or lasso drag caught, in the order they appear in the view rather than
+  #the order plotly reported them. plotly selects points, and both traces carry one point
+  #per frame, so the ids arrive twice over; unique() through the %in% below already folds
+  #that back to one row per frame
+  selected_frames = function(fr = frames_subset()){
+    id = event_ids(plotly_event('selected'))
+    if(length(id) == 0 || is.null(fr)){
+      return(NULL)
+    }
+    out = fr[fr$frame_id %in% id, , drop = FALSE]
+    if(nrow(out) == 0){
+      return(NULL)
+    }
+    return(out)
+  }
+
+  #The rectangle a selection was made inside, which is the one thing plotly's selected
+  #event does not report as a range: plotly_selected carries points, and only the lasso
+  #tool's brushing event carries a point cloud of its own. So the extremes of the selected
+  #points are used, which is the box the user drew for every purpose this serves -- a
+  #single frame selected reports the bounds of that frame
+  selected_box = function(fr = frames_subset()){
+    sel = selected_frames(fr)
+    if(is.null(sel)){
+      return(NULL)
+    }
+    list(x = range(c(sel$xmin, sel$xmax), na.rm = TRUE),
+         y = range(c(sel$ymin, sel$ymax), na.rm = TRUE))
+  }
+
+  #The centres of a set of frames as the Cutouts tab reads them. The tile's reference
+  #position is the coordinate, not the middle of the box that drew it, which is the whole
+  #reason the frames are clickable rather than just brushable
+  pos_lines = function(fr){
+    return(paste(signif(fr$ra, 9), signif(fr$dec, 9)))
+  }
+
+  #What a send put in the log: which frames went in, and the coordinates themselves. A
+  #pick is otherwise invisible once it leaves the tab, and the log is the only record of
+  #what reached the position list. Only the frames whose lines were really added are
+  #named, so a send that found them already in the list cannot claim credit for them
+  log_send = function(kind, fr, new){
+    fr = fr[pos_lines(fr) %in% new, , drop = FALSE]
+    if(nrow(fr) == 0){
+      return(invisible(NULL))
+    }
+    note('Sent ', nrow(fr), ' ', kind, ' frame centre(s) to the Cutouts tab: ',
+         paste(utils::head(fr$name, 8), collapse = ', '),
+         if(nrow(fr) > 8) paste0(' (+', nrow(fr) - 8, ' more)') else '', '. Positions: ',
+         paste(utils::head(new, 4), collapse = '; '),
+         if(length(new) > 4) paste0(' (+', length(new) - 4, ' more)') else '')
+    invisible(NULL)
+  }
+
+  #Append to the position list rather than replacing it, and skip lines that are already
+  #there, so picking a tile twice cannot fill the request with duplicates. Returns the
+  #lines actually added, or NULL when there was nothing new to add
+  add_positions = function(lines){
+    cur = trimws(unlist(strsplit(as.character(isolate(input$positions)), '[\r\n]+')))
+    cur = cur[nzchar(cur)]
+    new = unique(lines)
+    new = new[!(new %in% cur)]
+    if(length(new) == 0){
+      return(NULL)
+    }
+    updateTextAreaInput(session, 'positions', value = paste(c(cur, new), collapse = '\n'))
+    return(new)
+  }
+
+  #One click can report several points when footprints overlap at the cursor, so all the
+  #ids in the event are taken. Clicking an already picked frame repeats a payload Shiny
+  #treats as no change, so the set only grows and Clear picks is the way back
+  observeEvent(plotly_event('click'), {
+    id = event_ids(plotly_event('click'))
+    if(length(id) == 0){
+      return(NULL)
+    }
+    picks(unique(c(picks(), id)))
+    return(NULL)
+  })
+
+  #Clearing the picks is a deliberate action. A stray click on empty space, or a legend
+  #toggle, is not, and neither should be allowed to throw away a list the user built
+  observeEvent(input$clear_picks, {
+    picks(character(0))
+    showNotification('Picked frames cleared.', type = 'message')
+  })
+
+  output$frames = plotly::renderPlotly({
+    fr = frames_view()
+    picked = picked_frames()
+    #One NaN separated polyline carrying every footprint, rather than one trace per tile.
+    #A release of a few thousand tiles would otherwise build a few thousand plotly traces,
+    #and the browser feels that as a stall long before it feels it as a map
+    idv = fr$frame_id
+    hv = frame_hover(fr)
+    #Each ring is five vertices plus a separator, and every vertex of a ring carries that
+    #ring's id so a click on an edge resolves to the same frame as a click on its centre.
+    #The separator has to be NA_character_ rather than NA_real_: cbind() with a character
+    #column coerces the whole row to character, so a numeric NA would arrive as the string
+    #'NA' and read back as the id of a frame called NA
+    ring = function(v) as.vector(t(cbind(v, v, v, v, v, NA_character_)))
+    xs = as.vector(t(cbind(fr$xmin, fr$xmax, fr$xmax, fr$xmin, fr$xmin, NA_real_)))
+    ys = as.vector(t(cbind(fr$ymin, fr$ymin, fr$ymax, fr$ymax, fr$ymin, NA_real_)))
+    p = plotly::plot_ly(source = 'frames') |>
+      plotly::add_trace(x = xs, y = ys, customdata = ring(idv),
+                        text = ring(hv), type = 'scatter', mode = 'lines',
+                        name = 'frames', showlegend = FALSE,
+                        hovertemplate = '%{text}<extra></extra>',
+                        line = list(color = '#4c78a8', width = 0.8), opacity = 0.65) |>
+      plotly::add_trace(x = fr$ra, y = fr$dec, customdata = as.character(idv),
+                        text = hv, type = 'scatter', mode = 'markers',
+                        name = 'frame centres', showlegend = TRUE,
+                        hovertemplate = '%{text}<extra></extra>',
+                        marker = list(color = '#4c78a8', size = 3.5, opacity = 0.85))
+    if(!is.null(picked)){
+      p = plotly::add_trace(p, x = picked$ra, y = picked$dec,
+                            customdata = as.character(picked$frame_id),
+                            text = frame_hover(picked), type = 'scatter',
+                            mode = 'markers', name = 'picked', showlegend = TRUE,
+                            hovertemplate = '%{text}<extra></extra>',
+                            marker = list(color = '#e45756', size = 9, symbol = 'cross',
+                                          line = list(width = 2)))
+    }
+    xr = range(c(fr$xmin, fr$xmax), na.rm = TRUE)
+    yr = range(c(fr$ymin, fr$ymax), na.rm = TRUE)
+    #A little air at the edges so a tile on the boundary is not drawn under an axis
+    ax = diff(xr) * 0.03 + 1e-6
+    ay = diff(yr) * 0.03 + 1e-6
+    p = plotly::layout(p,
+                       #The RA axis is reversed the way a sky map is read, and passing the
+                       #range with the larger bound first is what does it here. That is
+                       #also the order plotly reports a range back in, so nothing
+                       #downstream has to care which way the drag went
+                       xaxis = list(title = 'RA (deg)', range = c(xr[2] + ax, xr[1] - ax),
+                                    zeroline = FALSE, ticks = 'outside',
+                                    #Equal degrees per pixel on both axes, so a square tile
+                                    #draws square. Without the anchor the two axes scale
+                                    #independently to the panel, and a long thin release
+                                    #comes out as a row of tall rectangles
+                                    scaleanchor = 'y', scaleratio = 1,
+                                    constrain = 'domain'),
+                       yaxis = list(title = 'Dec (deg)',
+                                    range = c(yr[1] - ay, yr[2] + ay),
+                                    zeroline = FALSE, ticks = 'outside',
+                                    constrain = 'domain'),
+                       dragmode = 'zoom', hovermode = 'closest',
+                       selectdirection = 'any',
+                       title = list(text = paste(nrow(fr), 'searchable frame(s)'),
+                                    font = list(size = 13)),
+                       legend = list(orientation = 'h', x = 0, y = 1.04,
+                                     font = list(size = 10)),
+                       margin = list(l = 58, r = 14, t = 46, b = 42),
+                       #A zoom is a state the user set, so a redraw after a click must not
+                       #throw it away. The revision is keyed to the filters rather than
+                       #fixed: narrowing the view is the one moment an old zoom genuinely
+                       #is the wrong window, and holding it would leave an empty panel
+                       uirevision = paste(in_('idx_filter'), '|',
+                                          in_('idx_status', 'all')))
+    p = plotly::config(p, displaylogo = FALSE, scrollZoom = TRUE, doubleClick = 'reset',
+                       modeBarButtonsToRemove = c('toImage', 'sendDataToCloud',
+                                                  'toggleSpikelines',
+                                                  'hoverCompareCartesian',
+                                                  'hoverClosestCartesian'))
+    return(p)
+  })
+
+  output$frames_info = renderText({
+    #Read through frames_subset rather than frames_view, so that a session with no index
+    #yet is told so in words rather than leaving a blank box where the answer should be
+    fr = frames_subset()
+    if(is.null(fr) || nrow(fr) == 0){
+      return('No frames to show. Load an index on the Store tab first.')
+    }
+    sel = selected_frames()
+    picked = picked_frames()
+    box = selected_box()
+    npick = length(picks())
+    bits = paste0('Picked by click: ', npick,
+                  if(npick > 0 && is.null(picked))
+                    ' (none of them in the current filter)' else '',
+                  '\nSelected by box: ', if(is.null(sel)) 0 else nrow(sel))
+    if(!is.null(box)){
+      bits = paste0(bits, '\nSelection box: ', paste(round(box$x, 4), collapse = ' to '),
+                    ' RA, ', paste(round(box$y, 4), collapse = ' to '), ' Dec')
+    }
+    if(!is.null(sel) && nrow(sel) > 0){
+      bits = paste0(bits, '\nSelected: ', paste(utils::head(sel$name, 8),
+                                               collapse = ', '),
+                    if(nrow(sel) > 8) paste0(' (+', nrow(sel) - 8, ' more)') else '')
+    }
+    bits = paste0(bits, '\nFrames in view: ', nrow(fr))
+    return(bits)
+  })
+
+  #What the table shows. Clicked frames come first, because that is the deliberate act; a
+  #box selection is shown alongside rather than instead, so dragging a box cannot throw
+  #away the list a user has been building. With neither, the frames in view are listed
+  #rather than an empty table, so the tab has something to read before anything is picked
+  frames_shown = reactive({
+    fr = frames_subset()
+    req(!is.null(fr), nrow(fr) > 0)
+    picked = picked_frames()
+    sel = selected_frames(fr)
+    id = unique(c(picks(), if(is.null(sel)) character(0) else sel$frame_id))
+    out = if(length(id) > 0) fr[fr$frame_id %in% id, , drop = FALSE] else fr
+    return(out)
   })
 
   output$frames_table = if(has_dt){
     DT::renderDataTable({
-      sel = brushed_rows()
+      sel = frames_shown()
       req(nrow(sel) > 0)
       cols = c('name', 'extname', 'type', 'ra', 'dec', 'naxis1', 'naxis2', 'pixscale_x')
       dt_table(as.data.frame(sel)[, cols, drop = FALSE], pageLength = 10)
     }, server = FALSE)
   }else{
     renderTable({
-      sel = brushed_rows()
+      sel = frames_shown()
       req(sel)
       head(as.data.frame(sel)[, c('name', 'extname', 'type', 'ra', 'dec')], 50)
     })
   }
 
+  #The exact centre of every frame the user clicked. This is the main route from this tab
+  #to a request, and it is why the plot is clickable at all: the coordinate sent is the
+  #reference position of a tile, not the middle of some rectangle drawn around tiles
   observeEvent(input$send_pos, {
-    box = brush_box(input$frames_brush)
-    if(is.null(box)){
-      showNotification('Drag a box over the frames first.', type = 'warning')
+    picked = picked_frames()
+    if(is.null(picked)){
+      showNotification('Click a frame first, at any zoom. Clear picks starts over.',
+                       type = 'warning')
       return(NULL)
     }
-    line = paste(signif(mean(box$x), 9), signif(mean(box$y), 9))
-    cur = trimws(unlist(strsplit(as.character(isolate(input$positions)), '[\r\n]+')))
-    updateTextAreaInput(session, 'positions',
-                        value = paste(c(cur[nzchar(cur)], line), collapse = '\n'))
-    note('Sent brush centre ', line, ' to the Cutouts tab.')
+    new = add_positions(pos_lines(picked))
+    if(is.null(new)){
+      showNotification('Those positions are already in the list.', type = 'message')
+      return(NULL)
+    }
+    log_send('picked', picked, new)
+    bslib::nav_select('nav', 'cutouts')
+  })
+
+  #The box selection route, kept because a box is the fast way to take in a neighbourhood.
+  #What is sent is still the centres of the frames the box caught, not the centre of the
+  #box, which is the answer the old brush gave and the reason it was not very useful
+  observeEvent(input$send_sel, {
+    sel = selected_frames()
+    if(is.null(sel)){
+      showNotification('Drag a selection box over the frames first.', type = 'warning')
+      return(NULL)
+    }
+    new = add_positions(pos_lines(sel))
+    if(is.null(new)){
+      showNotification('Those positions are already in the list.', type = 'message')
+      return(NULL)
+    }
+    box = selected_box()
+    note('Selection box: ', paste(round(box$x, 4), collapse = ' to '), ' RA, ',
+         paste(round(box$y, 4), collapse = ' to '), ' Dec.')
+    log_send('selected', sel, new)
     bslib::nav_select('nav', 'cutouts')
   })
 }

@@ -352,76 +352,202 @@ testServer(app_env$server, expr = {
   expect_match(paste(s$log, collapse = '\n'), 'Name pattern kept 1')
 }, session = shiny::MockShinySession$new())
 
-#ex 16 the frames tab, and the brush that turns a box into a position. The footprint plot
-#is drawn from index numbers, so it has to work with no cutouts in memory at all
+#ex 16 the frames tab. The plot is an interactive plotly panel, so what has to hold is the
+#contract between the widget and the server: the footprints are drawn from index numbers
+#alone, every vertex carries the id of the frame it belongs to, and a click or a box drag
+#comes back through that id as a position. The panel sits in a tab Shiny keeps suspended,
+#so it is read here as the JSON the renderer hands to the browser
 testServer(app_env$server, expr = {
   put_inputs(session, run_inputs)
   put_inputs(session, load = 1)
   session$flushReact()
-  #before any brush, the tab still renders
-  expect_no_error(session$getOutput('frames'))
-  #The tiles are 0.05 apart and about 0.0335 wide, so tile1 ends at CRVAL1 + 0.0168 and
-  #tile2 begins at CRVAL1 + 0.0332, leaving a gap between them. A box that straddles that
-  #boundary overlaps each tile without containing either, which is what distinguishes an
-  #intersection test from a containment one.
-  #
-  #The shape is exactly what shiny sends: xmin/xmax/ymin/ymax and a mapping, with no
-  #xrange or yrange to read. Those two fields are the whole reason this block exists,
-  #because the app once assumed a range vector that does not exist, and range(NULL) then
-  #answered Inf to -Inf and selected nothing while warning about an empty min and max
-  make_brush = function(xmin, xmax, ymin, ymax){
-    list(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
-         mapping = list(x = 'xmin', y = 'ymin'), direction = 'xy', brushId = 'frames_brush',
-         panelvars = list(), resetOnNew = FALSE)
-  }
-  yr = c(img_kv$CRVAL2 - 0.05, img_kv$CRVAL2 + 0.05)
-  put_inputs(session, frames_brush = make_brush(img_kv$CRVAL1 + 0.010,
-                                                img_kv$CRVAL1 + 0.040, yr[1], yr[2]))
+  spec_of = function() jsonlite::fromJSON(
+    paste(as.character(session$getOutput('frames')), collapse = ''),
+    simplifyVector = FALSE)
+  spec = spec_of()
+  #with no cutouts in memory at all the tab still renders, which is the point of drawing
+  #the footprints from the index rather than from the tiles
+  expect_false(is.null(spec))
+  #one polyline trace carrying every footprint, and one marker trace carrying the centres.
+  #A trace per tile would mean a trace per thousand tiles, so the count is the thing
+  expect_length(spec$x$data, 2)
+  expect_identical(spec$x$data[[1]]$mode, 'lines')
+  expect_identical(spec$x$data[[2]]$mode, 'markers')
+  fr = app_env$index_footprints(as.data.frame(reactiveValuesToList(state)$rows)[
+    reactiveValuesToList(state)$rows$status == 'ok', , drop = FALSE])
+  n_ok = nrow(fr)
+  expect_gt(n_ok, 1)
+  expect_equal(length(spec$x$data[[2]]$x), n_ok)
+  #five vertices per ring (four corners and the closing point) with a NaN separator between
+  #rings, which is what stops plotly drawing a line from one tile to the next. The trailing
+  #separator is dropped on the way out, so the total is bounded rather than pinned to a
+  #plotly internal: what has to hold is that the payload stays the same length as the
+  #coordinates, and that every frame contributes exactly five vertices with an id
+  expect_equal(length(spec$x$data[[1]]$customdata), length(spec$x$data[[1]]$x))
+  expect_gte(length(spec$x$data[[1]]$x), n_ok * 5)
+  expect_lte(length(spec$x$data[[1]]$x), n_ok * 6)
+  #the ids are row numbers of the unfiltered set, which is what keeps a pick pointing at
+  #the same tile when a filter takes other rows away. Numbers rather than store names
+  #because every one of those vertices carries one
+  cd = function(sp, trace) vapply(sp$x$data[[trace]]$customdata,
+                                  function(z) if(is.null(z)) NA_real_ else as.numeric(z),
+                                  numeric(1))
+  expect_identical(cd(spec, 2), as.numeric(seq_len(n_ok)))
+  #and every vertex of a ring carries its own ring's id, so a click on an edge resolves to
+  #the same frame as a click on its centre. The separator carries nothing
+  ring = cd(spec, 1)
+  expect_identical(ring[1:5], rep(1, 5))
+  expect_true(is.na(ring[6]))
+  expect_identical(ring[7:11], rep(2, 5))
+  #the RA axis runs backwards, the way a sky map is read, and it is the range that does it
+  xr = unlist(spec$x$layout$xaxis$range)
+  expect_gt(xr[1], xr[2])
+  #equal degrees per pixel, so a square tile is drawn square rather than stretched to the
+  #panel by whatever shape the release happens to have
+  expect_identical(spec$x$layout$xaxis$scaleanchor, 'y')
+  #a box drag must be able to catch a tile in any direction, since a selection that only
+  #worked left to right would miss tiles on a reversed axis
+  expect_identical(spec$x$layout$selectdirection, 'any')
+  expect_identical(spec$x$layout$dragmode, 'zoom')
+  #the hover text names the tile, which is the one thing needed to identify what is under
+  #the cursor on a release of thousands of stores
+  hv = vapply(spec$x$data[[2]]$text, function(z) as.character(z), character(1))
+  expect_true(all(grepl('tile', hv)))
+  expect_true(all(grepl('RA, Dec', hv)))
+  expect_true(all(grepl('extname', hv)))
+
+  #a click on a frame centre picks that frame, and the panel says so
+  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
+    list(list(curveNumber = 1L, pointNumber = 0L, x = fr$ra[1], y = fr$dec[1],
+              customdata = 1)), auto_unbox = TRUE)))
   session$flushReact()
-  expect_match(session$getOutput('brush_info'), 'Frames:    2')
-  #a box inside the gap touches neither, so a selection can be empty as well as partial
-  put_inputs(session, frames_brush = make_brush(img_kv$CRVAL1 + 0.020,
-                                                img_kv$CRVAL1 + 0.028, yr[1], yr[2]))
+  expect_match(session$getOutput('frames_info'), 'Picked by click: 1')
+  #the picked frames are drawn as a third trace, so what was chosen is visible on the panel
+  spec = spec_of()
+  expect_length(spec$x$data, 3)
+  expect_identical(spec$x$data[[3]]$name, 'picked')
+  expect_equal(length(spec$x$data[[3]]$x), 1)
+
+  #clicking a second frame adds to the list rather than replacing it, and one click can
+  #report several points at once when the traces overlap under the cursor
+  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
+    list(list(curveNumber = 1L, pointNumber = 1L, x = fr$ra[2], y = fr$dec[2],
+              customdata = 2),
+         list(curveNumber = 0L, pointNumber = 4L, x = fr$ra[2], y = fr$dec[2],
+              customdata = 2)), auto_unbox = TRUE)))
   session$flushReact()
-  expect_match(session$getOutput('brush_info'), 'Frames:    0')
-  #and one centred on a tile selects it
-  put_inputs(session, frames_brush = make_brush(img_kv$CRVAL1 - 0.005,
-                                                img_kv$CRVAL1 + 0.005, yr[1], yr[2]))
+  expect_match(session$getOutput('frames_info'), 'Picked by click: 2')
+
+  #a click that lands on a separator carries no id and must pick nothing. Left unchecked,
+  #the absent customdata arriving as NULL would read as a selection of something
+  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
+    list(list(curveNumber = 0L, pointNumber = 5L, x = 0, y = 0)), auto_unbox = TRUE)))
   session$flushReact()
-  expect_match(session$getOutput('brush_info'), 'Frames:    1')
-  #the RA axis is reversed, so a left to right drag arrives with the larger value first
-  #and the reported range still has to be the smaller bound followed by the larger one
-  put_inputs(session, frames_brush = make_brush(img_kv$CRVAL1 + 0.040,
-                                                img_kv$CRVAL1 + 0.010, yr[1], yr[2]))
-  session$flushReact()
-  info = session$getOutput('brush_info')
-  expect_match(info, 'Frames:    2')
-  expect_match(info, 'Selection: [0-9.]+ to [0-9.]+ RA', fixed = FALSE)
-  lo = as.numeric(sub('.*Selection: ([0-9.]+) to .*', '\\1', info))
-  hi = as.numeric(sub('.* to ([0-9.]+) RA.*', '\\1', info))
-  expect_lt(lo, hi)
-  #a brush whose coordinates are missing or non finite is treated as no selection at all,
-  #rather than silently selecting every frame
-  put_inputs(session, frames_brush = make_brush(NA, 1, yr[1], yr[2]))
-  session$flushReact()
-  expect_match(session$getOutput('brush_info'), 'No selection')
-  #the centre of the box is what goes to the Cutouts tab
-  put_inputs(session, positions = '53.0 -27.0',
-             frames_brush = make_brush(img_kv$CRVAL1 - 0.005, img_kv$CRVAL1 + 0.005,
-                                       yr[1], yr[2]),
-             send_pos = 1)
+  info = session$getOutput('frames_info')
+  expect_match(info, 'Picked by click: 2')
+  expect_match(info, 'Selected by box: 0')
+
+  #the table beside the plot lists the picked frames by name
+  html = paste(as.character(session$getOutput('frames_table')), collapse = '\n')
+  expect_match(html, 'tile1')
+  expect_match(html, 'tile2')
+
+  #what goes to the Cutouts tab is the reference position of each picked tile, which is the
+  #reason the frames are clickable at all: the middle of a box drawn around two tiles is a
+  #position that belongs to neither. The log is checked because MockShinySession swallows
+  #an updateTextAreaInput rather than applying it back to the inputs, so this is the only
+  #place the coordinates that were sent can be seen
+  put_inputs(session, send_pos = 1)
   session$flushReact()
   log = paste(reactiveValuesToList(state)$log, collapse = '\n')
-  expect_match(log, 'Sent brush centre')
-  #and the centre that goes over is the centre of the box, not one of its edges. The log
-  #is checked rather than the text area because MockShinySession records an
-  #updateTextAreaInput as a message to send, and never applies it back to the inputs
-  sent = sub('.*Sent brush centre ([-0-9.e+]+) ([-0-9.e+]+) to.*', '\\1 \\2', log)
-  expect_false(grepl('Sent brush centre', sent))
-  mid = as.numeric(strsplit(sent, ' ')[[1]])
-  #the app sends signif(, 9), so the expectation is written against that same rounding
-  expect_equal(mid[1], signif(img_kv$CRVAL1, 9))
-  expect_equal(mid[2], signif(mean(yr), 9))
+  expect_match(log, 'Sent 2 picked frame centre')
+  expect_match(log, 'tile1, tile2')
+  #the coordinates in the log are the centres of the two tiles, to the rounding used
+  for(i in 1:2){
+    expect_match(log, paste(signif(fr$ra[i], 9), signif(fr$dec[i], 9)), fixed = TRUE)
+  }
+  #and not the middle of the box that would have been drawn around them, which is the
+  #regression the old brush had
+  expect_false(grepl(paste(signif(mean(fr$ra[1:2]), 9), signif(mean(fr$dec[1:2]), 9)),
+                     log, fixed = TRUE))
+
+  #a box selection resolves through the ids of the points it caught. The two traces each
+  #carry a point per frame, so the same frame arrives twice and must still be one row
+  put_inputs(session, 'plotly_selected-frames' = as.character(jsonlite::toJSON(
+    list(list(curveNumber = 0L, pointNumber = 3L, x = fr$ra[2], y = fr$dec[2],
+              customdata = 2),
+         list(curveNumber = 1L, pointNumber = 0L, x = fr$ra[1], y = fr$dec[1],
+              customdata = 1),
+         list(curveNumber = 1L, pointNumber = 1L, x = fr$ra[2], y = fr$dec[2],
+              customdata = 2)), auto_unbox = TRUE)))
+  session$flushReact()
+  info = session$getOutput('frames_info')
+  expect_match(info, 'Selected by box: 2')
+  expect_match(info, 'Selected: tile1, tile2')
+  #the box reported is the extent of what was caught, with the smaller bound first
+  #whatever way the drag went, since the RA axis is reversed
+  lo = as.numeric(sub('.*Selection box: ([-0-9.]+) to .*', '\\1', info))
+  hi = as.numeric(sub('.*Selection box: [-0-9.]+ to ([-0-9.]+) RA.*', '\\1', info))
+  expect_lt(lo, hi)
+  expect_equal(c(lo, hi), range(c(fr$xmin[1:2], fr$xmax[1:2])), tolerance = 1e-3)
+  #sending a selection sends the frames in it, not the centre of the box
+  put_inputs(session, send_sel = 1)
+  session$flushReact()
+  log = paste(reactiveValuesToList(state)$log, collapse = '\n')
+  expect_match(log, 'Sent 2 selected frame centre')
+
+  #picking is cleared deliberately, and clearing picks leaves the box selection alone: a
+  #stray click on empty space must not throw away a list the user built
+  put_inputs(session, clear_picks = 1)
+  session$flushReact()
+  info = session$getOutput('frames_info')
+  expect_match(info, 'Picked by click: 0')
+  expect_match(info, 'Selected by box: 2')
+
+  #the Index tab's filters apply here too, so a session narrowed by name shows the same
+  #tiles in both places. The surviving frame keeps the id it was given in the unfiltered
+  #set, which is what stops a pick re-pointing at a different tile
+  put_inputs(session, idx_filter = 'tile2')
+  session$flushReact()
+  spec = spec_of()
+  expect_equal(length(spec$x$data[[2]]$x), 1)
+  expect_equal(as.numeric(spec$x$data[[2]]$customdata[[1]]), 2)
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 1')
+  #the box now holds only the frame that is still in the view
+  expect_match(session$getOutput('frames_info'), 'Selected by box: 1')
+  #with nothing picked, sending picks adds no position at all rather than a stale one
+  put_inputs(session, send_pos = 2)
+  session$flushReact()
+  log = paste(reactiveValuesToList(state)$log, collapse = '\n')
+  expect_match(log, 'Sent 2 picked frame centre',
+               info = 'the earlier send is still in the log')
+  expect_equal(sum(grepl('Sent [0-9]+ picked', strsplit(log, '\n')[[1]])), 1L)
+}, session = shiny::MockShinySession$new())
+
+#ex 16b the Frames tab before anything is loaded. A panel with no index behind it has to
+#say so in words rather than leaving a blank box, which reads as a broken app rather than
+#as an empty one, and no button may invent a position out of nothing
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  session$flushReact()
+  expect_match(session$getOutput('frames_info'), 'Load an index on the Store tab first')
+  #the plot and the table have nothing to draw, and say so by interrupting quietly rather
+  #than by erroring loudly or showing a stale panel
+  cond = tryCatch(session$getOutput('frames'), error = function(e) e)
+  expect_true(inherits(cond, 'shiny.silent.error'))
+  #a click arriving with no index behind it changes nothing about what the tab says, and
+  #neither Send button may invent a position out of nothing. The id is recorded in picks,
+  #which is harmless because loading an index clears them before it can be resolved
+  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
+    list(list(curveNumber = 1L, pointNumber = 0L, x = 1, y = 1, customdata = 1)),
+    auto_unbox = TRUE)))
+  session$flushReact()
+  expect_match(session$getOutput('frames_info'), 'Load an index on the Store tab first')
+  put_inputs(session, send_pos = 1, send_sel = 1)
+  session$flushReact()
+  expect_match(session$getOutput('frames_info'), 'Load an index on the Store tab first')
+  log = paste(reactiveValuesToList(state)$log, collapse = '\n')
+  expect_false(grepl('frame centre\\(s\\) to the Cutouts tab', log))
 }, session = shiny::MockShinySession$new())
 
 #ex 17 credentials. A blank field falls back to the environment, which is how a scripted

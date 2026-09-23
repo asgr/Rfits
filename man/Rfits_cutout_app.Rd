@@ -80,9 +80,19 @@ reason any store was found not searchable. The table is wide and scrolls horizon
 inside its own card.
 
 \strong{Frames} plots the footprint of every store in the index, from the same numbers and
-without reading a pixel. Dragging a box selects the frames it intersects and sends the
-centre of the box to the Cutouts tab. The boxes are axis aligned and ignore rotation,
-which is the same approximation the search's own coarse filter makes.
+without reading a pixel, as an interactive plotly panel: scroll to zoom (or use the zoom
+tool in the mode bar), double click to reset, and the RA axis is reversed the way a sky map
+is read. Hovering a footprint or its centre gives the store name, extension, type,
+reference position, shape and pixel scale. \emph{Clicking} a frame adds its exact reference
+position to the picks, at any number of frames and any zoom level, and
+\strong{Send picked positions} appends those centres to the position list on the Cutouts
+tab and switches to it. A drag with the Select box tool instead highlights the frames it
+intersects, and \strong{Send selected frames} appends the centre of every frame in that
+selection; the centre of the box itself is never sent, since it generally falls between
+tiles. The picked and selected frames are listed in the table beside the plot, which shows
+the frames in view when nothing has been picked yet. The boxes are axis aligned and ignore
+rotation, which is the same approximation the search's own coarse filter makes. Filters set
+on the Index tab apply here too, and a frame picked before a filter change keeps its pick.
 
 FITS files are written from the extracted pixels and header with
 \code{\link{Rfits_write_image}}, so each one keeps the WCS of the tile it came from. The

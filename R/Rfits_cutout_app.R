@@ -8,7 +8,7 @@
 Rfits_cutout_app = function(launch.browser = getOption('shiny.launch.browser', interactive()),
                             display.mode = c('normal', 'static'),
                             port = NULL, ...){
-  need = c('shiny', 'bslib', 'ggplot2', 'Rwcs')
+  need = c('shiny', 'bslib', 'plotly', 'Rwcs')
   missing = need[!vapply(need, requireNamespace, logical(1), quietly = TRUE)]
   if(length(missing) > 0){
     stop('Rfits_cutout_app needs: ', paste(missing, collapse = ', '),
