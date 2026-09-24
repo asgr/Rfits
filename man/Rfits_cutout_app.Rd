@@ -83,16 +83,18 @@ inside its own card.
 without reading a pixel, as an interactive plotly panel: scroll to zoom (or use the zoom
 tool in the mode bar), double click to reset, and the RA axis is reversed the way a sky map
 is read. Hovering a footprint or its centre gives the store name, extension, type,
-reference position, shape and pixel scale. \emph{Clicking} a frame adds its exact reference
-position to the picks, at any number of frames and any zoom level, and
-\strong{Send picked positions} appends those centres to the position list on the Cutouts
-tab and switches to it. A drag with the Select box tool instead highlights the frames it
-intersects, and \strong{Send selected frames} appends the centre of every frame in that
-selection; the centre of the box itself is never sent, since it generally falls between
-tiles. The picked and selected frames are listed in the table beside the plot, which shows
-the frames in view when nothing has been picked yet. The boxes are axis aligned and ignore
-rotation, which is the same approximation the search's own coarse filter makes. Filters set
-on the Index tab apply here too, and a frame picked before a filter change keeps its pick.
+reference position, shape and pixel scale. \emph{Clicking anywhere} in the panel adds that
+exact RA/Dec to the list of clicked positions, as often as you like and at any zoom, and
+\strong{Send clicked positions} appends them to the position list on the Cutouts tab and
+switches to it. A click leaves the view exactly where it is: the markers are drawn by
+restyling one trace through \code{plotlyProxy} rather than by redrawing the panel, since a
+redraw reconciles a new specification against the plot on screen and is what would reset
+the zoom. To take whole tiles rather than a position, use the Select box or lasso tool in
+the mode bar, which highlights the frames caught and lists them in the table beside the
+plot; \strong{Send selected frames} then appends the centre of every frame in that
+selection, never the centre of the box itself, which generally falls between tiles. The
+boxes are axis aligned and ignore rotation, which is the same approximation the search's
+own coarse filter makes. Filters set on the Index tab apply here too.
 
 FITS files are written from the extracted pixels and header with
 \code{\link{Rfits_write_image}}, so each one keeps the WCS of the tile it came from. The

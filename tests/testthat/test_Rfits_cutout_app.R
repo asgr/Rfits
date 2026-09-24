@@ -369,15 +369,13 @@ testServer(app_env$server, expr = {
   #the footprints from the index rather than from the tiles
   expect_false(is.null(spec))
   #one polyline trace carrying every footprint, one marker trace carrying the centres, and
-  #one trace for the clicked positions that is always present even when empty. A trace per
-  #tile would mean a trace per thousand tiles, so the count is the thing
+  #one trace held open for the clicked positions. A trace per tile would mean a trace per
+  #thousand tiles, so the count is the thing; that it stays at three whatever has been
+  #picked is what lets a click leave the zoom alone
   expect_length(spec$x$data, 3)
-  #the picks trace being fixed rather than added on the first click is what keeps a click
-  #from re-rendering the panel, which is how the zoom used to get thrown away
-  expect_identical(spec$x$data[[3]]$name, 'picked')
-  expect_length(spec$x$data[[3]]$x, 0)
   expect_identical(spec$x$data[[1]]$mode, 'lines')
   expect_identical(spec$x$data[[2]]$mode, 'markers')
+  expect_identical(spec$x$data[[3]]$mode, 'markers')
   fr = app_env$index_footprints(as.data.frame(reactiveValuesToList(state)$rows)[
     reactiveValuesToList(state)$rows$status == 'ok', , drop = FALSE])
   n_ok = nrow(fr)
@@ -428,12 +426,13 @@ testServer(app_env$server, expr = {
   click = function(ra, dec){
     put_inputs(session, frames_click = list(ra = ra, dec = dec, t = 1))
   }
+  before = paste(as.character(session$getOutput('frames')), collapse = '')
   click(fr$ra[1] + 0.001, fr$dec[1] - 0.001)
   expect_match(session$getOutput('frames_info'), 'Picked by click: 1')
-  #the panel still has the same three traces, and the first click has not been drawn by
-  #re-rendering it: the marker goes to the browser through the proxy instead
-  spec = spec_of()
-  expect_length(spec$x$data, 3)
+  #the panel is not redrawn by a click, which is the whole point of drawing the pick
+  #through the proxy: a re-render reconciles a new specification against the panel on
+  #screen, and that is what used to snap the view back out to the full extent
+  expect_identical(paste(as.character(session$getOutput('frames')), collapse = ''), before)
   #a second click adds to the list rather than replacing it
   click(fr$ra[2] + 0.002, fr$dec[2] + 0.002)
   expect_match(session$getOutput('frames_info'), 'Picked by click: 2')

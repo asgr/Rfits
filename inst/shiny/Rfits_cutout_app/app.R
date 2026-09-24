@@ -1660,11 +1660,17 @@ server = function(input, output, session){
       plotly::add_trace(x = xs, y = ys, customdata = ring(idv),
                         text = ring(hv), type = 'scatter', mode = 'lines',
                         name = 'frames', showlegend = FALSE,
+                        #event rather than event+select, so that a click reports a position
+                        #without also being a one-point selection: the drag tools are the
+                        #way to catch tiles, and a click that quietly replaced the box
+                        #selection would make the two routes fight over the same state
+                        clickmode = 'event',
                         hovertemplate = '%{text}<extra></extra>',
                         line = list(color = '#4c78a8', width = 0.8), opacity = 0.65) |>
       plotly::add_trace(x = fr$ra, y = fr$dec, customdata = as.character(idv),
                         text = hv, type = 'scatter', mode = 'markers',
                         name = 'frame centres', showlegend = TRUE,
+                        clickmode = 'event',
                         hovertemplate = '%{text}<extra></extra>',
                         marker = list(color = '#4c78a8', size = 3.5, opacity = 0.85)) |>
       #The picks live in a third trace that is always there, drawn from the list read with
@@ -1672,12 +1678,9 @@ server = function(input, output, session){
       #a re-render reconciles a whole new specification against the panel on screen, which is
       #how the zoom gets thrown away even with uirevision set, and a trace appearing or
       #disappearing changes how many axes have to be worked out again. So the trace count is
-      #fixed and a pick reaches the browser through the proxy below. An empty list is drawn
-      #as one NA rather than as nothing at all, because plotly replaces an empty array with a
-      #reference to the widget's default data, and an NA marker is not drawn anyway
-      plotly::add_trace(x = if(length(pk$ra)) pk$ra else NA_real_,
-                        y = if(length(pk$dec)) pk$dec else NA_real_,
-                        type = 'scatter', mode = 'markers',
+      #fixed and a pick reaches the browser through the proxy below. With nothing picked the
+      #arrays are empty, which plotly renders as a trace with no data at all
+      plotly::add_trace(x = pk$ra, y = pk$dec, type = 'scatter', mode = 'markers',
                         name = 'picked', showlegend = TRUE,
                         hovertemplate = 'clicked<br>RA, Dec: %{x}, %{y}<extra></extra>',
                         marker = list(color = '#e45756', size = 9, symbol = 'cross',
@@ -1726,17 +1729,19 @@ server = function(input, output, session){
     return(p)
   })
 
-  #The picks trace, updated in the browser. Re-rendering the whole panel to add one marker
-  #is what used to throw the zoom away, since plotly reconciles a fresh specification
-  #against the old one even with uirevision set; restyling the third trace touches nothing
-  #the user is looking at. The proxy is only a message queue when the panel has not been
-  #rendered yet, so a pick made before the tab was opened is applied by the render above
-  #when it eventually is
-  observe({
+  #The picked positions, drawn in the browser by restyling that third trace. Re-rendering
+  #the panel to add a marker is what used to throw the zoom away, since a fresh
+  #specification is reconciled against the panel on screen even with uirevision set, while
+  #restyling one trace touches nothing the user is looking at. ignoreInit matters: a proxy
+  #call is a message to the page, and the browser throws when the graph div it names is not
+  #there yet, so nothing is sent until a pick has actually been made. Every pick is made by
+  #clicking the rendered panel and every clear is a button in the card beside it, so when
+  #this runs the panel exists
+  observeEvent(picks(), {
     pk = picks()
     plotly::plotlyProxyInvoke(plotly::plotlyProxy('frames'), 'restyle',
                               list(x = list(pk$ra), y = list(pk$dec)), 2)
-  })
+  }, ignoreInit = TRUE)
 
   output$frames_info = renderText({
     #Read through frames_subset rather than frames_view, so that a session with no index
