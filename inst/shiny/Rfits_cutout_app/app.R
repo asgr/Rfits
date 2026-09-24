@@ -1660,17 +1660,11 @@ server = function(input, output, session){
       plotly::add_trace(x = xs, y = ys, customdata = ring(idv),
                         text = ring(hv), type = 'scatter', mode = 'lines',
                         name = 'frames', showlegend = FALSE,
-                        #event rather than event+select, so that a click reports a position
-                        #without also being a one-point selection: the drag tools are the
-                        #way to catch tiles, and a click that quietly replaced the box
-                        #selection would make the two routes fight over the same state
-                        clickmode = 'event',
                         hovertemplate = '%{text}<extra></extra>',
                         line = list(color = '#4c78a8', width = 0.8), opacity = 0.65) |>
       plotly::add_trace(x = fr$ra, y = fr$dec, customdata = as.character(idv),
                         text = hv, type = 'scatter', mode = 'markers',
                         name = 'frame centres', showlegend = TRUE,
-                        clickmode = 'event',
                         hovertemplate = '%{text}<extra></extra>',
                         marker = list(color = '#4c78a8', size = 3.5, opacity = 0.85)) |>
       #The picks live in a third trace that is always there, drawn from the list read with
@@ -1709,6 +1703,11 @@ server = function(input, output, session){
                                     constrain = 'domain'),
                        dragmode = 'zoom', hovermode = 'closest',
                        selectdirection = 'any',
+                       #A click fires an event but does not become a one-point selection.
+                       #The drag tools are the way to catch whole tiles, and a click that
+                       #quietly replaced the box selection would have the two routes fight
+                       #over the same state
+                       clickmode = 'event',
                        title = list(text = paste(nrow(fr), 'searchable frame(s)'),
                                     font = list(size = 13)),
                        legend = list(orientation = 'h', x = 0, y = 1.04,
