@@ -368,9 +368,14 @@ testServer(app_env$server, expr = {
   #with no cutouts in memory at all the tab still renders, which is the point of drawing
   #the footprints from the index rather than from the tiles
   expect_false(is.null(spec))
-  #one polyline trace carrying every footprint, and one marker trace carrying the centres.
-  #A trace per tile would mean a trace per thousand tiles, so the count is the thing
-  expect_length(spec$x$data, 2)
+  #one polyline trace carrying every footprint, one marker trace carrying the centres, and
+  #one trace for the clicked positions that is always present even when empty. A trace per
+  #tile would mean a trace per thousand tiles, so the count is the thing
+  expect_length(spec$x$data, 3)
+  #the picks trace being fixed rather than added on the first click is what keeps a click
+  #from re-rendering the panel, which is how the zoom used to get thrown away
+  expect_identical(spec$x$data[[3]]$name, 'picked')
+  expect_length(spec$x$data[[3]]$x, 0)
   expect_identical(spec$x$data[[1]]$mode, 'lines')
   expect_identical(spec$x$data[[2]]$mode, 'markers')
   fr = app_env$index_footprints(as.data.frame(reactiveValuesToList(state)$rows)[
@@ -393,8 +398,8 @@ testServer(app_env$server, expr = {
                                   function(z) if(is.null(z)) NA_real_ else as.numeric(z),
                                   numeric(1))
   expect_identical(cd(spec, 2), as.numeric(seq_len(n_ok)))
-  #and every vertex of a ring carries its own ring's id, so a click on an edge resolves to
-  #the same frame as a click on its centre. The separator carries nothing
+  #and every vertex of a ring carries its own ring's id, so a box or lasso drag that catches
+  #an edge resolves to the right frame. The separator carries nothing
   ring = cd(spec, 1)
   expect_identical(ring[1:5], rep(1, 5))
   expect_true(is.na(ring[6]))
@@ -416,60 +421,38 @@ testServer(app_env$server, expr = {
   expect_true(all(grepl('RA, Dec', hv)))
   expect_true(all(grepl('extname', hv)))
 
-  #a click on a frame centre picks that frame, and the panel says so
-  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
-    list(list(curveNumber = 1L, pointNumber = 0L, x = fr$ra[1], y = fr$dec[1],
-              customdata = 1)), auto_unbox = TRUE)))
-  session$flushReact()
+  #a click anywhere is a position, given to the server by the browser as degrees rather
+  #than as the point plotly thinks was hit. This is the whole reason the coordinate is
+  #worked out client side: plotly's click event reports the coordinates of the nearest
+  #point, which would snap every pick to a tile centre or marker
+  click = function(ra, dec){
+    put_inputs(session, frames_click = list(ra = ra, dec = dec, t = 1))
+  }
+  click(fr$ra[1] + 0.001, fr$dec[1] - 0.001)
   expect_match(session$getOutput('frames_info'), 'Picked by click: 1')
-  #the picked frames are drawn as a third trace, so what was chosen is visible on the panel
+  #the panel still has the same three traces, and the first click has not been drawn by
+  #re-rendering it: the marker goes to the browser through the proxy instead
   spec = spec_of()
   expect_length(spec$x$data, 3)
-  expect_identical(spec$x$data[[3]]$name, 'picked')
-  expect_equal(length(spec$x$data[[3]]$x), 1)
-
-  #clicking a second frame adds to the list rather than replacing it, and one click can
-  #report several points at once when the traces overlap under the cursor
-  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
-    list(list(curveNumber = 1L, pointNumber = 1L, x = fr$ra[2], y = fr$dec[2],
-              customdata = 2),
-         list(curveNumber = 0L, pointNumber = 4L, x = fr$ra[2], y = fr$dec[2],
-              customdata = 2)), auto_unbox = TRUE)))
-  session$flushReact()
+  #a second click adds to the list rather than replacing it
+  click(fr$ra[2] + 0.002, fr$dec[2] + 0.002)
+  expect_match(session$getOutput('frames_info'), 'Picked by click: 2')
+  #clicking the same position twice must not duplicate it
+  click(fr$ra[2] + 0.002, fr$dec[2] + 0.002)
+  expect_match(session$getOutput('frames_info'), 'Picked by click: 2')
+  #a click whose coordinates never arrived is ignored rather than picked as NA
+  click(NA, NA)
   expect_match(session$getOutput('frames_info'), 'Picked by click: 2')
 
-  #a click that lands on a separator carries no id and must pick nothing. Left unchecked,
-  #the absent customdata arriving as NULL would read as a selection of something
-  put_inputs(session, 'plotly_click-frames' = as.character(jsonlite::toJSON(
-    list(list(curveNumber = 0L, pointNumber = 5L, x = 0, y = 0)), auto_unbox = TRUE)))
-  session$flushReact()
-  info = session$getOutput('frames_info')
-  expect_match(info, 'Picked by click: 2')
-  expect_match(info, 'Selected by box: 0')
-
-  #the table beside the plot lists the picked frames by name
-  html = paste(as.character(session$getOutput('frames_table')), collapse = '\n')
-  expect_match(html, 'tile1')
-  expect_match(html, 'tile2')
-
-  #what goes to the Cutouts tab is the reference position of each picked tile, which is the
-  #reason the frames are clickable at all: the middle of a box drawn around two tiles is a
-  #position that belongs to neither. The log is checked because MockShinySession swallows
-  #an updateTextAreaInput rather than applying it back to the inputs, so this is the only
-  #place the coordinates that were sent can be seen
+  #what goes to the Cutouts tab is the position that was clicked, to the rounding used
   put_inputs(session, send_pos = 1)
   session$flushReact()
   log = paste(reactiveValuesToList(state)$log, collapse = '\n')
-  expect_match(log, 'Sent 2 picked frame centre')
-  expect_match(log, 'tile1, tile2')
-  #the coordinates in the log are the centres of the two tiles, to the rounding used
-  for(i in 1:2){
-    expect_match(log, paste(signif(fr$ra[i], 9), signif(fr$dec[i], 9)), fixed = TRUE)
-  }
-  #and not the middle of the box that would have been drawn around them, which is the
-  #regression the old brush had
-  expect_false(grepl(paste(signif(mean(fr$ra[1:2]), 9), signif(mean(fr$dec[1:2]), 9)),
-                     log, fixed = TRUE))
+  expect_match(log, 'Sent 2 clicked position')
+  expect_match(log, paste(signif(fr$ra[1] + 0.001, 9), signif(fr$dec[1] - 0.001, 9)),
+               fixed = TRUE)
+  #and it is not the centre of the nearest tile, which is what it used to be
+  expect_false(grepl(paste(signif(fr$ra[1], 9), signif(fr$dec[1], 9)), log, fixed = TRUE))
 
   #a box selection resolves through the ids of the points it caught. The two traces each
   #carry a point per frame, so the same frame arrives twice and must still be one row
@@ -496,8 +479,8 @@ testServer(app_env$server, expr = {
   log = paste(reactiveValuesToList(state)$log, collapse = '\n')
   expect_match(log, 'Sent 2 selected frame centre')
 
-  #picking is cleared deliberately, and clearing picks leaves the box selection alone: a
-  #stray click on empty space must not throw away a list the user built
+  #clearing the clicked list is deliberate, and leaves the box selection alone: a legend
+  #toggle or a stray click must not throw away a list the user built
   put_inputs(session, clear_picks = 1)
   session$flushReact()
   info = session$getOutput('frames_info')
@@ -506,7 +489,7 @@ testServer(app_env$server, expr = {
 
   #the Index tab's filters apply here too, so a session narrowed by name shows the same
   #tiles in both places. The surviving frame keeps the id it was given in the unfiltered
-  #set, which is what stops a pick re-pointing at a different tile
+  #set, which is what keeps a box selection pointing at the right tile
   put_inputs(session, idx_filter = 'tile2')
   session$flushReact()
   spec = spec_of()
@@ -515,13 +498,12 @@ testServer(app_env$server, expr = {
   expect_match(session$getOutput('frames_info'), 'Frames in view: 1')
   #the box now holds only the frame that is still in the view
   expect_match(session$getOutput('frames_info'), 'Selected by box: 1')
-  #with nothing picked, sending picks adds no position at all rather than a stale one
+  #with nothing clicked left, sending adds no position at all rather than a stale one
   put_inputs(session, send_pos = 2)
   session$flushReact()
   log = paste(reactiveValuesToList(state)$log, collapse = '\n')
-  expect_match(log, 'Sent 2 picked frame centre',
-               info = 'the earlier send is still in the log')
-  expect_equal(sum(grepl('Sent [0-9]+ picked', strsplit(log, '\n')[[1]])), 1L)
+  expect_equal(sum(grepl('clicked position', strsplit(log, '\n')[[1]])), 1L,
+               info = 'only the earlier send should be in the log')
 }, session = shiny::MockShinySession$new())
 
 #ex 16b the Frames tab before anything is loaded. A panel with no index behind it has to

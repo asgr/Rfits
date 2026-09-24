@@ -583,11 +583,12 @@ ui = page_navbar(
           #finding a position inside a crowded release: you zoom on the tiles that matter
           #and click the one you want, which is not something a dragged box can do.
           #Drawn from the index, so no pixel is read to place a box
-          helpText('Click a frame centre to pick its exact RA/Dec (click as many as you ',
-                   'like, at any zoom). Drag with the Select box tool in the mode bar to ',
-                   'highlight a group instead. Scroll to zoom, or use the zoom tool; ',
-                   'double click resets. Hovering a frame gives its store, extension and ',
-                   'shape. Boxes are footprints worked out from the index, so they are ',
+          helpText('Click anywhere to pick that exact RA/Dec, as often as you like and at ',
+                   'any zoom; the view does not move while you do it. To take whole tiles, ',
+                   'use the Select box or lasso tool in the mode bar, which highlights the ',
+                   'frames caught and sends their centres. Scroll to zoom or use the zoom ',
+                   'tool; double click resets. Hovering a frame gives its store, extension ',
+                   'and shape. Boxes are footprints worked out from the index, so they are ',
                    'axis aligned and ignore rotation. Filters on the Index tab apply here ',
                    'too.'),
           plotly::plotlyOutput('frames', height = '620px'),
@@ -597,13 +598,13 @@ ui = page_navbar(
       card(
         card_header(' Selection'),
         card_body(
-          actionButton('send_pos', 'Send picked positions', class = 'btn-primary w-100',
+          actionButton('send_pos', 'Send clicked positions', class = 'btn-primary w-100',
                        icon = icon('crop')),
           div(style = 'height: 0.4rem;'),
           actionButton('send_sel', 'Send selected frames', class = 'btn-outline-primary w-100',
                        icon = icon('object-group')),
           div(style = 'height: 0.4rem;'),
-          actionButton('clear_picks', 'Clear picks', class = 'btn-outline-secondary w-100',
+          actionButton('clear_picks', 'Clear clicked', class = 'btn-outline-secondary w-100',
                        icon = icon('eraser')),
           div(style = 'height: 0.8rem;'),
           if(has_dt){
@@ -801,16 +802,6 @@ server = function(input, output, session){
     rows = as.data.frame(got$rows, stringsAsFactors = FALSE)
     state$idx = got
     state$rows = rows
-    #The frames are numbered by row, so a fresh index invalidates every pick on it, and
-    #the one place the app re-reads an index from underneath the session is here. Keeping
-    #the picks would send the centre of whichever tile happened to land on that row this
-    #time, which is the one failure mode a numeric id makes possible
-    picks(character(0))
-    #A new index is a different set of stores, so the row numbers the Frames picks are held
-    #as no longer mean what they meant. Dropping them is the only honest answer, and it
-    #matters because a pick is invisible until it is sent: a stale one would go to the
-    #Cutouts tab as the centre of a tile nobody clicked
-    picks(character(0))
     updateSelectInput(session, 'idx_status', choices = c('all', sort(unique(rows$status))))
     note('Index ready: ', nrow(rows), ' row(s), ', length(unique(rows$label)),
          ' store(s), extname(s) ',
@@ -1413,9 +1404,8 @@ server = function(input, output, session){
   #more than two megabytes of label into the page before any of it was read, and the
   #browser would pay that on every redraw. Numbering the rows of the unfiltered set is
   #what makes a number stable while the index is loaded, because filtering only takes rows
-  #away and never renumbers the rest. The index itself is only reloaded by an explicit
-  #refresh or a rebuild, and that clears the picks below rather than letting an old number
-  #point at a different tile
+  #away and never renumbers the rest. Only the box and lasso tools resolve to a number;
+  #clicked picks are held as coordinates, so they mean the same thing across a reload
   frame_rows = reactive({
     rows = state$rows
     #No index yet is an ordinary state of this tab rather than an error to interrupt on, so
@@ -1510,26 +1500,12 @@ server = function(input, output, session){
     return(id[!is.na(id) & nzchar(id)])
   }
 
-  #Frames the user clicked, held as ids rather than coordinates. A set of ids survives the
-  #plot being redrawn and survives the frame being filtered out of the view later, while
-  #still naming exactly which tile was chosen at the time
-  picks = reactiveVal(character(0))
-
-  #The picked frames, resolved against the current view. A pick whose frame is no longer
-  #in the view is dropped from the drawing (the plot can only show what it has), but the
-  #id is kept in picks so it comes back if the filter is widened again
-  picked_frames = reactive({
-    fr = frames_subset()
-    id = picks()
-    if(is.null(fr) || length(id) == 0){
-      return(NULL)
-    }
-    out = fr[fr$frame_id %in% id, , drop = FALSE]
-    if(nrow(out) == 0){
-      return(NULL)
-    }
-    return(out)
-  })
+  #Positions the user clicked, as free RA/Dec rather than as frame ids. A click means "I
+  #want a cutout here", and here is wherever the cursor was, not the centre of the nearest
+  #tile; the rectangle and lasso tools are the way to ask for whole tiles. Held as a small
+  #data frame so the list survives redraws and index reloads, since a coordinate is a
+  #coordinate whatever the index says
+  picks = reactiveVal(data.frame(ra = numeric(0), dec = numeric(0)))
 
   #The frames a box or lasso drag caught, in the order they appear in the view rather than
   #the order plotly reported them. plotly selects points, and both traces carry one point
@@ -1600,35 +1576,80 @@ server = function(input, output, session){
     return(new)
   }
 
-  #One click can report several points when footprints overlap at the cursor, so all the
-  #ids in the event are taken. Clicking an already picked frame repeats a payload Shiny
-  #treats as no change, so the set only grows and Clear picks is the way back
-  observeEvent(plotly_event('click'), {
-    id = event_ids(plotly_event('click'))
-    if(length(id) == 0){
+  #A click anywhere in the panel is a position, in any number and at any zoom. The
+  #coordinate is worked out in the browser (see the onRender handler below) because plotly's
+  #own click event reports the coordinates of the point that was hit, which would snap every
+  #pick to the nearest tile centre or marker. Picks are held as coordinates rather than
+  #resolved to frames for the same reason: where you clicked is the answer, not which tile
+  #happens to own that spot
+  observeEvent(input$frames_click, {
+    pt = input$frames_click
+    ra = suppressWarnings(as.numeric(pt$ra)[1])
+    dec = suppressWarnings(as.numeric(pt$dec)[1])
+    if(!is.finite(ra) || !is.finite(dec)){
       return(NULL)
     }
-    picks(unique(c(picks(), id)))
+    old = picks()
+    both = rbind(old, data.frame(ra = ra, dec = dec))
+    #The same pixel clicked twice must not fill the list with duplicates
+    picks(both[!duplicated(paste(both$ra, both$dec)), , drop = FALSE])
     return(NULL)
   })
 
-  #Clearing the picks is a deliberate action. A stray click on empty space, or a legend
-  #toggle, is not, and neither should be allowed to throw away a list the user built
+  #The cursor's position in degrees, which is what a pick must be. plotly's click event
+  #carries the coordinates of the point that was hit rather than of the cursor, so the
+  #position is converted here from the mouse position against the two axes the panel is
+  #drawn with. p2d and _offset are plotly.js internals, so the conversion is written twice:
+  #the same linear map p2d performs, worked out from the axis range and length, is used when
+  #p2d is not there, and it is only the clicked point's own coordinates that are fallen back
+  #to if the layout cannot be read at all
+  frames_click_js = paste(
+    'function(el, x){',
+    '  var gd = el;',
+    '  function inv(ax, p){',
+    '    if(!ax || !ax.range || !ax._length) return null;',
+    '    if(typeof ax.p2d === "function") return ax.p2d(p);',
+    '    return ax.range[0] + (p / ax._length) * (ax.range[1] - ax.range[0]);',
+    '  }',
+    '  gd.on("plotly_click", function(ev){',
+    '    if(!ev || !ev.event) return;',
+    '    var fl = gd._fullLayout;',
+    '    if(!fl || !fl.xaxis || !fl.yaxis) return;',
+    '    var oe = ev.event.originalEvent || ev.event;',
+    '    if(typeof oe.clientX !== "number") return;',
+    '    var box = gd.querySelector("svg.main-svg").getBoundingClientRect();',
+    '    var ra = inv(fl.xaxis, oe.clientX - box.left - fl.xaxis._offset);',
+    '    var dec = inv(fl.yaxis, oe.clientY - box.top - fl.yaxis._offset);',
+    '    if(ra === null || dec === null || !isFinite(ra) || !isFinite(dec)){',
+    '      if(!ev.points || !ev.points.length) return;',
+    '      ra = ev.points[0].x; dec = ev.points[0].y;',
+    '    }',
+    '    Shiny.setInputValue("frames_click", {ra: ra, dec: dec, t: Date.now()},',
+    '                         {priority: "event"});',
+    '  });',
+    '}')
+
+  #Clearing the clicked list is a deliberate action. A legend toggle, or a stray click on
+  #empty space, is not, and neither should throw away a list the user built
   observeEvent(input$clear_picks, {
-    picks(character(0))
-    showNotification('Picked frames cleared.', type = 'message')
+    picks(data.frame(ra = numeric(0), dec = numeric(0)))
+    showNotification('Picked positions cleared.', type = 'message')
   })
 
   output$frames = plotly::renderPlotly({
     fr = frames_view()
-    picked = picked_frames()
+    #Read with isolate, so that the trace carries the picks made so far without a pick
+    #invalidating this renderer. A re-render reconciles a whole new specification against
+    #the panel on screen, and that is how the zoom gets thrown away even with uirevision
+    #set; a pick reaches the browser through the proxy below instead
+    pk = isolate(picks())
     #One NaN separated polyline carrying every footprint, rather than one trace per tile.
     #A release of a few thousand tiles would otherwise build a few thousand plotly traces,
     #and the browser feels that as a stall long before it feels it as a map
     idv = fr$frame_id
     hv = frame_hover(fr)
     #Each ring is five vertices plus a separator, and every vertex of a ring carries that
-    #ring's id so a click on an edge resolves to the same frame as a click on its centre.
+    #ring's id so a box or lasso drag that catches an edge resolves to the right frame.
     #The separator has to be NA_character_ rather than NA_real_: cbind() with a character
     #column coerces the whole row to character, so a numeric NA would arrive as the string
     #'NA' and read back as the id of a frame called NA
@@ -1645,16 +1666,22 @@ server = function(input, output, session){
                         text = hv, type = 'scatter', mode = 'markers',
                         name = 'frame centres', showlegend = TRUE,
                         hovertemplate = '%{text}<extra></extra>',
-                        marker = list(color = '#4c78a8', size = 3.5, opacity = 0.85))
-    if(!is.null(picked)){
-      p = plotly::add_trace(p, x = picked$ra, y = picked$dec,
-                            customdata = as.character(picked$frame_id),
-                            text = frame_hover(picked), type = 'scatter',
-                            mode = 'markers', name = 'picked', showlegend = TRUE,
-                            hovertemplate = '%{text}<extra></extra>',
-                            marker = list(color = '#e45756', size = 9, symbol = 'cross',
-                                          line = list(width = 2)))
-    }
+                        marker = list(color = '#4c78a8', size = 3.5, opacity = 0.85)) |>
+      #The picks live in a third trace that is always there, drawn from the list read with
+      #isolate() above so that a pick does not invalidate this renderer. Both halves matter:
+      #a re-render reconciles a whole new specification against the panel on screen, which is
+      #how the zoom gets thrown away even with uirevision set, and a trace appearing or
+      #disappearing changes how many axes have to be worked out again. So the trace count is
+      #fixed and a pick reaches the browser through the proxy below. An empty list is drawn
+      #as one NA rather than as nothing at all, because plotly replaces an empty array with a
+      #reference to the widget's default data, and an NA marker is not drawn anyway
+      plotly::add_trace(x = if(length(pk$ra)) pk$ra else NA_real_,
+                        y = if(length(pk$dec)) pk$dec else NA_real_,
+                        type = 'scatter', mode = 'markers',
+                        name = 'picked', showlegend = TRUE,
+                        hovertemplate = 'clicked<br>RA, Dec: %{x}, %{y}<extra></extra>',
+                        marker = list(color = '#e45756', size = 9, symbol = 'cross',
+                                      line = list(width = 2)))
     xr = range(c(fr$xmin, fr$xmax), na.rm = TRUE)
     yr = range(c(fr$ymin, fr$ymax), na.rm = TRUE)
     #A little air at the edges so a tile on the boundary is not drawn under an axis
@@ -1684,10 +1711,10 @@ server = function(input, output, session){
                        legend = list(orientation = 'h', x = 0, y = 1.04,
                                      font = list(size = 10)),
                        margin = list(l = 58, r = 14, t = 46, b = 42),
-                       #A zoom is a state the user set, so a redraw after a click must not
-                       #throw it away. The revision is keyed to the filters rather than
-                       #fixed: narrowing the view is the one moment an old zoom genuinely
-                       #is the wrong window, and holding it would leave an empty panel
+                       #A zoom is a state the user set, so a redraw must not throw it
+                       #away. The revision is keyed to the filters rather than fixed:
+                       #narrowing the view is the one moment an old zoom genuinely is the
+                       #wrong window, and holding it would leave an empty panel
                        uirevision = paste(in_('idx_filter'), '|',
                                           in_('idx_status', 'all')))
     p = plotly::config(p, displaylogo = FALSE, scrollZoom = TRUE, doubleClick = 'reset',
@@ -1695,7 +1722,20 @@ server = function(input, output, session){
                                                   'toggleSpikelines',
                                                   'hoverCompareCartesian',
                                                   'hoverClosestCartesian'))
+    p = htmlwidgets::onRender(p, frames_click_js)
     return(p)
+  })
+
+  #The picks trace, updated in the browser. Re-rendering the whole panel to add one marker
+  #is what used to throw the zoom away, since plotly reconciles a fresh specification
+  #against the old one even with uirevision set; restyling the third trace touches nothing
+  #the user is looking at. The proxy is only a message queue when the panel has not been
+  #rendered yet, so a pick made before the tab was opened is applied by the render above
+  #when it eventually is
+  observe({
+    pk = picks()
+    plotly::plotlyProxyInvoke(plotly::plotlyProxy('frames'), 'restyle',
+                              list(x = list(pk$ra), y = list(pk$dec)), 2)
   })
 
   output$frames_info = renderText({
@@ -1706,12 +1746,13 @@ server = function(input, output, session){
       return('No frames to show. Load an index on the Store tab first.')
     }
     sel = selected_frames()
-    picked = picked_frames()
     box = selected_box()
-    npick = length(picks())
+    pk = picks()
+    npick = nrow(pk)
     bits = paste0('Picked by click: ', npick,
-                  if(npick > 0 && is.null(picked))
-                    ' (none of them in the current filter)' else '',
+                  if(npick > 0)
+                    paste0(' (', paste(utils::head(signif(pk$ra, 6), 3), collapse = ', '),
+                           if(npick > 3) ' ...' else '', ')') else '',
                   '\nSelected by box: ', if(is.null(sel)) 0 else nrow(sel))
     if(!is.null(box)){
       bits = paste0(bits, '\nSelection box: ', paste(round(box$x, 4), collapse = ' to '),
@@ -1726,18 +1767,15 @@ server = function(input, output, session){
     return(bits)
   })
 
-  #What the table shows. Clicked frames come first, because that is the deliberate act; a
-  #box selection is shown alongside rather than instead, so dragging a box cannot throw
-  #away the list a user has been building. With neither, the frames in view are listed
-  #rather than an empty table, so the tab has something to read before anything is picked
+  #What the table shows. A box selection is listed when there is one, since those rows are
+  #the tiles whose centres are about to be sent. Clicked picks are not in it, because a pick
+  #is a coordinate rather than a tile; with neither, the frames in view are listed so the
+  #tab has something to read before anything is chosen
   frames_shown = reactive({
     fr = frames_subset()
     req(!is.null(fr), nrow(fr) > 0)
-    picked = picked_frames()
     sel = selected_frames(fr)
-    id = unique(c(picks(), if(is.null(sel)) character(0) else sel$frame_id))
-    out = if(length(id) > 0) fr[fr$frame_id %in% id, , drop = FALSE] else fr
-    return(out)
+    return(if(is.null(sel)) fr else sel)
   })
 
   output$frames_table = if(has_dt){
@@ -1755,22 +1793,24 @@ server = function(input, output, session){
     })
   }
 
-  #The exact centre of every frame the user clicked. This is the main route from this tab
-  #to a request, and it is why the plot is clickable at all: the coordinate sent is the
-  #reference position of a tile, not the middle of some rectangle drawn around tiles
+  #The positions the user clicked, sent as typed. This is the main route from this tab to a
+  #request, and the coordinate is exactly where the cursor was: to cut at tile centres,
+  #select the tiles with the box or lasso tool and use Send selected frames
   observeEvent(input$send_pos, {
-    picked = picked_frames()
-    if(is.null(picked)){
-      showNotification('Click a frame first, at any zoom. Clear picks starts over.',
-                       type = 'warning')
+    pk = picks()
+    if(nrow(pk) == 0){
+      showNotification('Click a position on the map first, at any zoom.', type = 'warning')
       return(NULL)
     }
-    new = add_positions(pos_lines(picked))
+    line = paste(signif(pk$ra, 9), signif(pk$dec, 9))
+    new = add_positions(line)
     if(is.null(new)){
       showNotification('Those positions are already in the list.', type = 'message')
       return(NULL)
     }
-    log_send('picked', picked, new)
+    note('Sent ', length(new), ' clicked position(s) to the Cutouts tab: ',
+         paste(utils::head(new, 4), collapse = '; '),
+         if(length(new) > 4) paste0(' (+', length(new) - 4, ' more)') else '')
     bslib::nav_select('nav', 'cutouts')
   })
 
