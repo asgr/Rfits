@@ -1596,36 +1596,83 @@ server = function(input, output, session){
     return(NULL)
   })
 
-  #The cursor's position in degrees, which is what a pick must be. plotly's click event
-  #carries the coordinates of the point that was hit rather than of the cursor, so the
-  #position is converted here from the mouse position against the two axes the panel is
-  #drawn with. p2d and _offset are plotly.js internals, so the conversion is written twice:
-  #the same linear map p2d performs, worked out from the axis range and length, is used when
-  #p2d is not there, and it is only the clicked point's own coordinates that are fallen back
-  #to if the layout cannot be read at all
+  #The cursor's position in degrees, which is what a pick must be. This is done in the
+  #browser off a plain listener on the plot surface rather than from plotly's click event
+  #for two reasons. plotly only emits plotly_click when the pointer lands on a mark, so a
+  #click on empty sky between tiles - the common case, and exactly the case where you want
+  #to choose a position - would report nothing. And that event carries the coordinates of
+  #the mark that was hit rather than of the cursor, which would snap every pick to the
+  #nearest tile centre. So the mouse position is read against the drag layer, which is
+  #positioned at the origin of the plot area and therefore already in the pixel space the
+  #axes measure from, and turned into degrees with the axis' own p2d. d3 is taken from the
+  #plotly bundle rather than assumed to be global. p2d is an internal, so the same linear
+  #map is worked out from the range and length when it is not there. If neither can be read
+  #the click is dropped rather than answered with a mark's coordinates, because the click
+  #may well have been on empty sky where there is no mark to report
   frames_click_js = paste(
     'function(el, x){',
     '  var gd = el;',
-    '  function inv(ax, p){',
-    '    if(!ax || !ax.range || !ax._length) return null;',
-    '    if(typeof ax.p2d === "function") return ax.p2d(p);',
-    '    return ax.range[0] + (p / ax._length) * (ax.range[1] - ax.range[0]);',
-    '  }',
-    '  gd.on("plotly_click", function(ev){',
-    '    if(!ev || !ev.event) return;',
+    '  var d3 = (window.Plotly && window.Plotly.d3) || window.d3;',
+    '  function to_deg(ev){',
+    '    var dl = gd.querySelector(".nsewdrag");',
     '    var fl = gd._fullLayout;',
-    '    if(!fl || !fl.xaxis || !fl.yaxis) return;',
-    '    var oe = ev.event.originalEvent || ev.event;',
-    '    if(typeof oe.clientX !== "number") return;',
-    '    var box = gd.querySelector("svg.main-svg").getBoundingClientRect();',
-    '    var ra = inv(fl.xaxis, oe.clientX - box.left - fl.xaxis._offset);',
-    '    var dec = inv(fl.yaxis, oe.clientY - box.top - fl.yaxis._offset);',
-    '    if(ra === null || dec === null || !isFinite(ra) || !isFinite(dec)){',
-    '      if(!ev.points || !ev.points.length) return;',
-    '      ra = ev.points[0].x; dec = ev.points[0].y;',
+    '    if(!dl || !fl || !fl.xaxis || !fl.yaxis) return null;',
+    '    var pts = null;',
+    '    if(d3 && d3.mouse){ try{ pts = d3.mouse(dl); }catch(e){ pts = null; } }',
+    '    if(!pts){',
+    '      var bb = dl.getBoundingClientRect();',
+    '      pts = [ev.clientX - bb.left, ev.clientY - bb.top];',
     '    }',
-    '    Shiny.setInputValue("frames_click", {ra: ra, dec: dec, t: Date.now()},',
-    '                         {priority: "event"});',
+    '    function inv(ax, p){',
+    '      if(ax.p2d) return ax.p2d(p);',
+    '      if(!ax._length || !ax.range) return null;',
+    '      return ax.range[0] + (p / ax._length) * (ax.range[1] - ax.range[0]);',
+    '    }',
+    '    var ra = inv(fl.xaxis, pts[0]), dec = inv(fl.yaxis, pts[1]);',
+    '    if(ra === null || dec === null) return null;',
+    '    if(!isFinite(ra) || !isFinite(dec)) return null;',
+    '    return {ra: ra, dec: dec};',
+    '  }',
+    #Three things have to be filtered out before a press and release counts as a pick. A
+    #drag that ends on the surface fires a click too, so a box select or a rubber band zoom
+    #would add a position nobody meant to pick. The mode bar and the legend live inside the
+    #graph div, so their buttons arrive here as well and would be converted from a pixel
+    #somewhere over the toolbar. And double click is bound to reset the view, which would
+    #otherwise register two picks on the way to doing that
+    '  var down = null, timer = null;',
+    '  function in_chrome(node){',
+    '    while(node && node !== gd){',
+    '      if(node.classList && (node.classList.contains("modebar") ||',
+    '         node.classList.contains("legend") ||',
+    '         node.classList.contains("select-outline"))) return true;',
+    '      node = node.parentNode;',
+    '    }',
+    '    return false;',
+    '  }',
+    '  gd.addEventListener("mousedown", function(ev){',
+    '    down = {x: ev.clientX, y: ev.clientY, t: Date.now()};',
+    '  });',
+    '  gd.addEventListener("click", function(ev){',
+    '    if(!down || in_chrome(ev.target)){ down = null; return; }',
+    '    var moved = Math.abs(ev.clientX - down.x) + Math.abs(ev.clientY - down.y);',
+    #down.t is when the press happened, so this is how long the button was held. ev.timeStamp
+    #would answer a different question entirely, which is when the click fired
+    '    var quick = (Date.now() - down.t) < 700;',
+    '    down = null;',
+    '    if(moved > 4 || !quick){ return; }',
+    '    var at = to_deg(ev);',
+    '    if(!at){ return; }',
+    #Held briefly so a second click, which is a reset rather than a pick, can cancel it
+    '    if(timer) clearTimeout(timer);',
+    '    timer = setTimeout(function(){',
+    '      timer = null;',
+    '      Shiny.setInputValue("frames_click", {ra: at.ra, dec: at.dec,',
+    '                          t: Date.now()}, {priority: "event"});',
+    '    }, 260);',
+    '  });',
+    '  gd.addEventListener("dblclick", function(){',
+    '    if(timer){ clearTimeout(timer); timer = null; }',
+    '    down = null;',
     '  });',
     '}')
 
