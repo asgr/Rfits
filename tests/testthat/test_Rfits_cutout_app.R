@@ -200,15 +200,21 @@ keep = app_env$filter_by_keyword(index_rows, app_index, 'NOSUCHKEYWORD', '', not
 expect_identical(nrow(keep), 0L)
 expect_match(paste(notes, collapse = ' '), 'No candidate store carries a NOSUCHKEYWORD')
 #a keyword that is present but whose values do not match says what the values were, which
-#is how a user tells a wrong regular expression apart from a release with no such data
+#is how a user tells a wrong pattern apart from a release with no such data. The value is
+#a glob, so '999*' is the way to ask for a value beginning 999
 notes = character(0)
-keep = app_env$filter_by_keyword(index_rows, app_index, 'CRVAL1', '^999', note = add_note)
+keep = app_env$filter_by_keyword(index_rows, app_index, 'CRVAL1', '999*', note = add_note)
 expect_identical(nrow(keep), 0L)
 expect_match(paste(notes, collapse = ' '), 'Values seen')
-#present and matching keeps the store it belongs to, and only that one
+#the note quotes back what was typed rather than the regular expression it became, since a
+#user who typed a glob and was shown '^999' would be reading the conversion, not their own
+expect_match(paste(notes, collapse = ' '), '"999\\*"')
+#present and matching keeps the store it belongs to, and only that one. The glob is
+#anchored at the front with the coordinate exactly as it appears in the index, and the
+#trailing * is what lets the stored value's full precision through
 notes = character(0)
 keep = app_env$filter_by_keyword(index_rows, app_index, 'CRVAL1',
-                                 paste0('^', round(img_kv$CRVAL1, 4)), note = add_note)
+                                 paste0(round(img_kv$CRVAL1, 4), '*'), note = add_note)
 expect_identical(nrow(keep), 1L)
 expect_match(keep$label[1], 'tile1')
 #a blank key is no filter at all
@@ -350,6 +356,141 @@ testServer(app_env$server, expr = {
   #tile2 is all the pattern leaves, and the requested position is not inside it
   expect_length(s$res, 0L)
   expect_match(paste(s$log, collapse = '\n'), 'Name pattern kept 1')
+}, session = shiny::MockShinySession$new())
+
+#ex 15a the same pattern has to narrow what the tabs list, not only what a request cuts.
+#A published index is the whole release, so a session filtered to one tile must not be shown
+#the other one on the Index, Frames or Store tabs while the search refuses to cut it
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, load = 1)
+  session$flushReact()
+  #with no pattern the whole index is in view
+  expect_equal(nrow(reactiveValuesToList(state)$rows), 2L)
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 2')
+
+  #a pattern narrowing the session to one tile narrows every view at once
+  put_inputs(session, pattern = 'tile1', load = 2)
+  session$flushReact()
+  s = reactiveValuesToList(state)
+  expect_equal(nrow(s$rows), 1L)
+  expect_true(all(grepl('tile1', s$rows$label)))
+  #the index object the queries are made against carries the narrowed rows too, so the
+  #status panel and the search cannot be reading two different sets
+  expect_equal(nrow(s$idx$rows), 1L)
+  #and the tabs, which is what the pattern was not reaching before
+  html = paste(as.character(session$getOutput('index_table')), collapse = '')
+  expect_true(grepl('tile1', html))
+  expect_false(grepl('tile2', html))
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 1')
+  expect_match(session$getOutput('idx_info'), 'index rows:   1')
+  expect_match(paste(s$log, collapse = '\n'), 'Name pattern kept 1 of 2 index row')
+
+  #a pattern that matches nothing is an ordinary empty view rather than an error, and the
+  #range() a summary would take over no rows must not warn
+  put_inputs(session, pattern = 'nope*', load = 3)
+  session$flushReact()
+  s = reactiveValuesToList(state)
+  expect_equal(nrow(s$rows), 0L)
+  expect_no_error(session$getOutput('store_summary'))
+  #renderUI hands back a tag list rather than a string, so it is pasted to characters first
+  expect_match(paste(as.character(session$getOutput('store_summary')), collapse = ''),
+               'No store in the index matches')
+  expect_match(session$getOutput('frames_info'), 'No frames to show')
+  expect_match(session$getOutput('idx_info'), 'excluded every row')
+
+  #back to the whole index, so the narrowing is not sticky
+  put_inputs(session, pattern = '', load = 4)
+  session$flushReact()
+  expect_equal(nrow(reactiveValuesToList(state)$rows), 2L)
+}, session = shiny::MockShinySession$new())
+
+#ex 15a2 the helper both the tabs and the search go through. All patterns must match, so a
+#comma separated field is an AND rather than a union, and a blank or absent pattern is no
+#filter at all rather than a filter that matches nothing
+pr_rows = data.frame(label = c('a/tile1.zarr', 'a/tile2.zarr'), status = 'ok',
+                     stringsAsFactors = FALSE)
+expect_identical(nrow(app_env$pattern_rows(pr_rows, app_env$glob_regex('tile1'))), 1L)
+expect_identical(nrow(app_env$pattern_rows(pr_rows, app_env$glob_regex('tile*'))), 2L)
+expect_identical(nrow(app_env$pattern_rows(pr_rows, app_env$glob_regex('*.zarr'))), 2L)
+#both have to match, and no single label can be both tile1 and tile2
+expect_identical(nrow(app_env$pattern_rows(pr_rows, app_env$glob_regex(c('tile1', 'tile2')))), 0L)
+#blank, NULL and an empty set all leave the rows alone
+expect_identical(nrow(app_env$pattern_rows(pr_rows, character(0))), 2L)
+expect_identical(nrow(app_env$pattern_rows(pr_rows, NULL)), 2L)
+expect_identical(nrow(app_env$pattern_rows(pr_rows[0, , drop = FALSE],
+                                           app_env$glob_regex('tile1'))), 0L)
+
+#ex 15b the store name pattern is a glob rather than a regular expression, converted with
+#glob2rx. What has to hold is that a name finds a store anywhere in its path rather than
+#only as the whole string, that * and ? are the wildcards, and that the characters glob2rx
+#does not escape are still literals rather than being read as regex
+expect_identical(app_env$glob_regex('tile2'), 'tile2')
+expect_identical(app_env$glob_regex('tile*'), 'tile.*')
+expect_identical(app_env$glob_regex('*tile*'), '.*tile.*')
+expect_identical(app_env$glob_regex('*.zarr'), '.*\\.zarr')
+#the anchors glob2rx adds are dropped, so 'tile2' is a substring test on a full store path
+expect_true(grepl(app_env$glob_regex('tile2'), '/data/releases/dr1/tile2.zarr'))
+expect_true(grepl(app_env$glob_regex('*.zarr'), '/data/releases/dr1/tile2.zarr'))
+#the characters glob2rx leaves alone must not become regex operators: '+' is a literal
+#here, not 'one or more of the previous', and '|' is a literal rather than alternation
+expect_true(grepl(app_env$glob_regex('a+b'), 'xa+bx'))
+expect_false(grepl(app_env$glob_regex('a+b'), 'xab'))
+expect_true(grepl(app_env$glob_regex('grz|riz'), 'xgrz|rizx'))
+expect_false(grepl(app_env$glob_regex('grz|riz'), 'xgrzx'))
+#a pattern containing a backslash must still compile, which it would not if glob2rx were
+#handed a bare trailing one
+expect_no_warning(grepl(app_env$glob_regex('a\\'), 'x'))
+#vectorised over the comma separated field, and a blank or NA pattern filters nothing
+expect_identical(app_env$glob_regex(c('tile*', '*.zarr')), c('tile.*', '.*\\.zarr'))
+expect_length(app_env$glob_regex(''), 0L)
+expect_length(app_env$glob_regex(NA_character_), 0L)
+expect_length(app_env$glob_regex(character(0)), 0L)
+
+#and the globs work through the search path rather than only in the helper
+testServer(app_env$server, expr = {
+  for(pat in c('tile*', '*tile*', '*.zarr')){
+    put_inputs(session, run_inputs)
+    put_inputs(session, positions = paste(img_kv$CRVAL1 + 0.02, img_kv$CRVAL2),
+               pattern = pat, load = 1, run = 1)
+    session$flushReact()
+    s = reactiveValuesToList(state)
+    #both tiles survive the pattern, and the position is inside tile1
+    expect_match(paste(s$log, collapse = '\n'), 'Name pattern kept 2',
+                 info = paste('pattern', pat))
+    expect_length(s$res, 1L)
+  }
+  #a glob that matches nothing is reported as such rather than quietly searching everything
+  put_inputs(session, pattern = 'nope*', load = 2, run = 2)
+  session$flushReact()
+  expect_match(paste(reactiveValuesToList(state)$log, collapse = '\n'),
+               'Name pattern kept 0')
+}, session = shiny::MockShinySession$new())
+
+#ex 15c the Index tab's store name filter is the same glob, and the Frames tab reads it
+#through the same helper, so the two views cannot disagree about what is on screen
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, load = 1)
+  session$flushReact()
+  index_rows_html = function(){
+    paste(as.character(session$getOutput('index_table')), collapse = '')
+  }
+  #a bare name is a substring test, so it finds the store it names and not the other
+  put_inputs(session, idx_filter = 'tile2')
+  html = index_rows_html()
+  expect_true(grepl('tile2', html))
+  expect_false(grepl('tile1', html))
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 1')
+  #a wildcard reaches both
+  put_inputs(session, idx_filter = 'tile*')
+  expect_true(grepl('tile1', index_rows_html()))
+  expect_true(grepl('tile2', index_rows_html()))
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 2')
+  #and an asterisk is a wildcard rather than the regex quantifier it would be if the text
+  #reached grepl unchanged, which is what makes 'tile*' work at all
+  put_inputs(session, idx_filter = '*.zarr')
+  expect_match(session$getOutput('frames_info'), 'Frames in view: 2')
 }, session = shiny::MockShinySession$new())
 
 #ex 16 the frames tab. The plot is an interactive plotly panel, so what has to hold is the
@@ -782,3 +923,355 @@ testServer(app_env$server, expr = {
   expect_match(line[1], 'tile2')
 }, session = shiny::MockShinySession$new())
 
+
+#ex 28 which cutouts go into a bundle. The selection is one logical vector with three
+#ways of writing it -- the buttons, the tick beside each plotted cutout, and the row
+#checkboxes of the results table -- so what has to hold is that they agree, that a new run
+#starts from everything included, and that the count on the page tracks all of it
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste0(img_kv$CRVAL1 + 0.05, ' ', img_kv$CRVAL2, '\n',
+                                         img_kv$CRVAL1, ' ', img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  res = reactiveValuesToList(state)$res
+  expect_length(res, 2L)
+  #a fresh run includes everything, whatever the last run's ticks said
+  expect_identical(reactiveValuesToList(state)$sel, rep(TRUE, 2L))
+  expect_equal(n_selected(), 2L)
+  #ids carry the run number, so a box left on the page from an earlier, longer request
+  #cannot be read as a tick against this one
+  expect_equal(cell_id(1), 'sel_1_1')
+
+  #untick one cell through the box beside it
+  put_inputs(session, sel_1_1 = TRUE, sel_1_2 = FALSE)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, FALSE))
+  expect_equal(n_selected(), 1L)
+  expect_identical(names(selected_res()), names(res)[1])
+  #and the count is shown
+  #helpText interleaves the values and the literals across lines, so the match is loose
+  expect_match(paste(as.character(session$getOutput('sel_count')), collapse = ' '),
+               '1\\s+of\\s+2')
+
+  #Include none, then invert. Both have to survive the boxes on the page still reporting
+  #their old values, which is what a round trip through the pushed update looks like
+  put_inputs(session, sel_none = 1)
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, FALSE))
+  expect_equal(n_selected(), 0L)
+  put_inputs(session, sel_1_1 = FALSE, sel_1_2 = FALSE)
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, FALSE))
+  put_inputs(session, sel_invert = 1)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, TRUE))
+  put_inputs(session, sel_1_1 = TRUE, sel_1_2 = TRUE)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, TRUE))
+  put_inputs(session, sel_none = 1)
+  put_inputs(session, sel_all = 1)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, TRUE))
+
+  #a tick on a cell that has not been drawn yet must not be read at all, since a partial
+  #set would otherwise clear the results that are included but off screen
+  put_inputs(session, max_show = 1)
+  put_inputs(session, sel_1_1 = TRUE)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, TRUE))
+  put_inputs(session, sel_1_1 = FALSE)
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, TRUE))
+  put_inputs(session, max_show = 24)
+
+  #one tick in the results table, reported as the index of the cutout in the result list
+  #rather than as a row number, since the rows get sorted and filtered in the browser
+  put_inputs(session, sel_none = 1)
+  put_inputs(session, sel_1_1 = FALSE, sel_1_2 = FALSE)
+  put_inputs(session, match_tick = list(i = 2, on = TRUE))
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, TRUE))
+  #a change outside the current result list is ignored rather than recycled
+  put_inputs(session, match_tick = list(i = 99, on = TRUE))
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, TRUE))
+  put_inputs(session, match_tick = list(i = 2, on = FALSE))
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, FALSE))
+
+  #a run that returns a different number of cutouts resets to all in
+  put_inputs(session, sel_none = 1)
+  put_inputs(session, positions = paste(img_kv$CRVAL1, img_kv$CRVAL2), run = 2)
+  session$flushReact()
+  expect_equal(cell_id(1), 'sel_2_1')
+  expect_identical(reactiveValuesToList(state)$sel, rep(TRUE, 1L))
+  #the previous run's unticked box is stale and must not be read against this one
+  put_inputs(session, sel_1_1 = FALSE)
+  expect_identical(reactiveValuesToList(state)$sel, TRUE)
+}, session = shiny::MockShinySession$new())
+
+#ex 28b the selection is pushed back to the page, including to every box on it. The state
+#on its own is not enough: 'Include none' has to clear the boxes as well, or the boxes
+#report their old ticks back on the next flush and undo the button. That is the bug the
+#count beside the buttons was hiding, because the count reads the state and the pictures
+#read the page.
+#
+#updateCheckboxInput is replaced with something that records what was asked for. It has to
+#be put in the environment the app was sourced into rather than in the testServer body,
+#because an observer looks the name up in the environment it was created in, which is that
+#one and not the one this expression runs in
+tick_pushes = list()
+app_env$updateCheckboxInput = function(session, inputId, ..., value){
+  tick_pushes[[length(tick_pushes) + 1]] <<- list(id = inputId, value = value)
+  invisible(NULL)
+}
+withr::defer(rm(updateCheckboxInput, envir = app_env), teardown_env())
+
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste0(img_kv$CRVAL1 + 0.05, ' ', img_kv$CRVAL2, '\n',
+                                         img_kv$CRVAL1, ' ', img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  tick_pushes <<- list()
+
+  #both boxes are rewritten whenever the selection moves, and only the unticked one differs
+  put_inputs(session, sel_1_1 = TRUE, sel_1_2 = FALSE)
+  #asserted before anything else, because every check below reads the same list and all()
+  #over an empty one is true, so a shadow that never fired would otherwise pass quietly
+  expect_gte(length(tick_pushes), 2L)
+  ids = vapply(tick_pushes, function(x) x$id, character(1))
+  expect_true(all(c('sel_1_1', 'sel_1_2') %in% ids))
+  vals = setNames(lapply(tick_pushes, function(x) x$value), ids)
+  expect_false(isTRUE(vals$sel_1_2))
+  expect_true(isTRUE(vals$sel_1_1))
+
+  #Include none is the case that used to be lost. An all FALSE vector is falsy, so a req()
+  #on the selection aborted the push and the page never heard about it
+  tick_pushes <<- list()
+  put_inputs(session, sel_none = 1)
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, FALSE))
+  ids = vapply(tick_pushes, function(x) x$id, character(1))
+  expect_true(all(c('sel_1_1', 'sel_1_2') %in% ids))
+  expect_true(all(!vapply(tick_pushes, function(x) isTRUE(x$value), logical(1))))
+
+  #the boxes follow the state rather than the other way round: once they have been told,
+  #reporting them settles the selection instead of oscillating
+  put_inputs(session, sel_1_1 = FALSE, sel_1_2 = FALSE)
+  expect_identical(reactiveValuesToList(state)$sel, c(FALSE, FALSE))
+  tick_pushes <<- list()
+  put_inputs(session, sel_all = 1)
+  expect_true(all(vapply(tick_pushes, function(x) isTRUE(x$value), logical(1))))
+  put_inputs(session, sel_1_1 = TRUE, sel_1_2 = TRUE)
+  expect_identical(reactiveValuesToList(state)$sel, c(TRUE, TRUE))
+}, session = shiny::MockShinySession$new())
+
+#ex 28c the results table carries a real column of checkboxes. DT's own row selection is
+#only a highlight, so the boxes a user is meant to click are drawn by the app
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste0(img_kv$CRVAL1 + 0.05, ' ', img_kv$CRVAL2, '\n',
+                                         img_kv$CRVAL1, ' ', img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  skip_if_not(app_env$has_dt, 'DT is not installed')
+  html = paste(as.character(session$getOutput('match_table')), collapse = '\n')
+  #the widget payload is JSON, so the quotes inside a cell arrive escaped; they are not
+  #what is being asserted and unescaping them keeps the patterns readable
+  html = gsub('\\\\', '', html)
+  expect_match(html, 'rf-tick', fixed = TRUE)
+  expect_equal(length(gregexpr('type="checkbox"', html, fixed = TRUE)[[1]]), 2L)
+  #each box carries the index of its cutout, and starts ticked because the run did
+  expect_match(html, 'data-rf-i="1"', fixed = TRUE)
+  expect_match(html, 'data-rf-i="2"', fixed = TRUE)
+  expect_match(html, 'checked', fixed = TRUE)
+  #and the callback that wires them up is in the widget, not lost between renderers
+  expect_match(html, 'match_tick', fixed = TRUE)
+  expect_match(html, 'rf_set_ticks', fixed = TRUE)
+}, session = shiny::MockShinySession$new())
+
+#ex 29 the download options. The compression string is what cfitsio parses out of the file
+#name, so its shape is worth pinning: the algorithm, then the tile sizes, then a semicolon
+#and the quantization level
+testServer(app_env$server, expr = {
+  expect_equal(dl_opts()$fits_format, 'raw')
+  expect_equal(comp_spec(list(alg = 'RICE', tile = '', quant = NA_real_)), 'RICE')
+  #the box is typed by a person, so spaces and a stray comma are tidied rather than
+  #passed through into the name cfitsio will parse
+  expect_equal(comp_spec(list(alg = 'RICE', tile = ' 64, 64 ', quant = NA_real_)),
+               'RICE 64,64')
+  expect_equal(comp_spec(list(alg = 'RICE', tile = '64 64,', quant = NA_real_)),
+               'RICE 64,64')
+  expect_equal(comp_spec(list(alg = 'RICE', tile = '64,64', quant = 8)),
+               'RICE 64,64; q 8')
+  expect_equal(comp_spec(list(alg = 'HCOMPRESS', tile = '', quant = -0.0002)),
+               'HCOMPRESS; q -0.0002')
+  #0 has to survive as text, since it is the difference between lossy and lossless
+  expect_equal(comp_spec(list(alg = 'GZIP', tile = '', quant = 0)), 'GZIP; q 0')
+  #a quality outside the device's range is pulled back rather than passed on
+  put_inputs(session, jpeg_quality = 500)
+  expect_equal(dl_opts()$jpeg_quality, 100)
+  put_inputs(session, jpeg_quality = NA)
+  expect_equal(dl_opts()$jpeg_quality, 75)
+}, session = shiny::MockShinySession$new())
+
+#ex 30 a compressed bundle, read back from the archive. The point of the option is that
+#the file is smaller and still opens, so both halves are checked; the pixels may not be
+#identical, because cfitsio quantizes unless told otherwise
+if(requireNamespace('zip', quietly = TRUE)){
+  testServer(app_env$server, expr = {
+    put_inputs(session, run_inputs)
+    put_inputs(session, positions = paste(img_kv$CRVAL1, img_kv$CRVAL2),
+               load = 1, run = 1)
+    session$flushReact()
+    priv = session$.__enclos_env__$private
+    if(is.null(priv) || is.null(priv$file_generators)){
+      skip('this shiny version does not expose registered downloads')
+    }
+    fits_gen = function(){
+      keys = priv$file_generators$keys()
+      priv$file_generators$get(keys[grepl('dl_fits', keys)][1])
+    }
+    raw = tempfile(fileext = '.zip')
+    fits_gen()$content(raw)
+    raw_dir = file.path(tempdir(), 'app_unzip_raw')
+    dir.create(raw_dir, showWarnings = FALSE)
+    zip::unzip(raw, exdir = raw_dir)
+    raw_file = list.files(raw_dir, pattern = '[.]fits$', full.names = TRUE)
+    expect_length(raw_file, 1L)
+
+    put_inputs(session, fits_format = 'compress', fits_alg = 'GZIP', fits_tile = '',
+               fits_quant = 0)
+    #the name of the archive says what is in it, since raw and compressed are not
+    #interchangeable and a downloads folder will hold both
+    keys = priv$file_generators$keys()
+    gen = fits_gen()
+    expect_match(gen$filename(), 'compressed')
+    comp = tempfile(fileext = '.zip')
+    gen$content(comp)
+    comp_dir = file.path(tempdir(), 'app_unzip_comp')
+    dir.create(comp_dir, showWarnings = FALSE)
+    zip::unzip(comp, exdir = comp_dir)
+    comp_file = list.files(comp_dir, pattern = '[.]fits$', full.names = TRUE)
+    expect_length(comp_file, 1L)
+    #a tile compressed image lives in a binary table, so it is read from extension 2
+    back = Rfits_read_image(comp_file[1], ext = 2)
+    expect_identical(dim(back$imDat), c(51L, 51L))
+    expect_equal(max(abs(back$imDat - Rfits_read_image(raw_file[1])$imDat)), 0,
+                 tolerance = 1e-6)
+    expect_equal(back$keyvalues$CRVAL1, img_kv$CRVAL1, tolerance = 1e-6)
+    expect_true(isTRUE(back$keyvalues$ZIMAGE))
+    #and the raw download of the same cutout stays a plain image
+    plain = Rfits_read_image(raw_file[1])
+    expect_null(plain$keyvalues$ZIMAGE)
+    expect_identical(dim(plain$imDat), c(51L, 51L))
+  }, session = shiny::MockShinySession$new())
+}
+
+#ex 31 a cutout whose header came from a tile compressed store must still download as a
+#readable raw file. The shape a compressed store records is ZNAXIS, and Rfits_write_image
+#honours ZIMAGE when it is in the keywords, so writing one out raw without stripping them
+#gives a plain image that tells a reader to expect a binary table it does not hold
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste(img_kv$CRVAL1, img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  item = reactiveValuesToList(state)$res[[1]]
+  item$keyvalues$ZIMAGE = TRUE
+  item$keyvalues$ZBITPIX = -32
+  item$keyvalues$ZNAXIS = 2L
+  item$keyvalues$ZNAXIS1 = 999
+  item$keyvalues$ZNAXIS2 = 999
+  item$keycomments$ZIMAGE = ''
+  item$keycomments$ZNAXIS1 = ''
+  item$keycomments$ZNAXIS2 = ''
+  item$keynames = names(item$keyvalues)
+
+  stripped = prepare_fits_item(item, list(fits_format = 'raw'))
+  expect_null(stripped$keyvalues$ZIMAGE)
+  expect_null(stripped$keyvalues$ZNAXIS1)
+  #the shape is taken from the pixels, which is the only thing that can be authoritative
+  expect_identical(stripped$keyvalues$NAXIS1, nrow(item$imDat))
+  expect_identical(stripped$keyvalues$NAXIS2, ncol(item$imDat))
+  #a compressed download keeps the keys, since cfitsio rewrites them for real tiles
+  kept = prepare_fits_item(item, list(fits_format = 'compress'))
+  expect_true(isTRUE(kept$keyvalues$ZIMAGE))
+
+  #and the file it writes has to open, which is the assertion that catches the original
+  #failure rather than merely the bookkeeping around it
+  out = tempfile(fileext = '.fits')
+  Rfits_write_image(stripped, filename = out)
+  back = Rfits_read_image(out)
+  expect_identical(dim(back$imDat), dim(item$imDat))
+  expect_equal(max(abs(back$imDat - item$imDat)), 0, tolerance = 1e-6)
+}, session = shiny::MockShinySession$new())
+
+#ex 32 an empty selection downloads nothing rather than everything, and says so. A user
+#who has clicked Include none and then the download button needs to be told the two
+#actions are the reason for the empty archive, not that the app lost the results
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste(img_kv$CRVAL1, img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  put_inputs(session, sel_none = 1)
+  expect_length(selected_idx(), 0L)
+  expect_null(selected_res())
+  #write_all reports rather than writing an archive of nothing
+  wrote = write_all('fits', function(item, path){
+    Rfits_write_image(item, filename = path)
+  })
+  expect_null(wrote)
+  log = paste(reactiveValuesToList(state)$log, collapse = '\n')
+  expect_match(log, 'No cutouts are selected', fixed = TRUE)
+}, session = shiny::MockShinySession$new())
+
+#ex 33 every include box that the gallery draws is an input the server reads back, so a
+#renamed id would silently leave the app unable to unselect anything. Checked against the
+#rendered cell as well as the observers, because the id is built by a helper
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste(img_kv$CRVAL1, img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  html = paste(as.character(session$getOutput('gallery')), collapse = '\n')
+  expect_match(html, 'id="sel_1_1"', fixed = TRUE)
+  #the results card carries the three buttons and the count
+  bar = paste(as.character(session$getOutput('select_bar')), collapse = '\n')
+  for(id in c('sel_all', 'sel_none', 'sel_invert')){
+    expect_match(bar, paste0('id="', id, '"'), fixed = FALSE)
+  }
+}, session = shiny::MockShinySession$new())
+
+#ex 34 the tables that have no callback of their own must still render. DT checks the
+#callback argument against its own default and stops for anything else, NULL included, so
+#naming it unconditionally errored the Index and Frames tables with "The 'callback'
+#argument only accept a value returned from JS()". The default is left unset for those and
+#supplied only by the results table, which needs one to report its tick boxes
+testServer(app_env$server, expr = {
+  put_inputs(session, run_inputs)
+  put_inputs(session, positions = paste0(img_kv$CRVAL1 + 0.02, ' ', img_kv$CRVAL2),
+             load = 1, run = 1)
+  session$flushReact()
+  if(!app_env$has_dt){
+    skip('DT is not installed')
+  }
+  #each of the three tables renders rather than erroring, which is the whole assertion:
+  #two of them have no callback and one does
+  for(id in c('index_table', 'frames_table', 'match_table')){
+    expect_no_error(session$getOutput(id))
+  }
+  #and the one that does carry a callback still carries it, since dropping it would leave
+  #the results table's boxes unable to report a change
+  html = paste(as.character(session$getOutput('match_table')), collapse = '')
+  expect_match(gsub('\\\\', '', html), 'match_tick', fixed = TRUE)
+}, session = shiny::MockShinySession$new())
+
+#ex 35 the payload that draws a clicked position on the Frames plot. plotly's restyle wants
+#one value per trace, so the arrays have to be a list holding one array, {x: [[...]]}. A
+#bare list() lets jsonlite unbox a length one vector, and a single pick then goes over the
+#wire as a scalar that restyle cannot draw: the first click appeared to do nothing and the
+#second drew two marks at once, because only then was the vector long enough to survive
+#unboxing. Checked as the JSON Shiny would send rather than as the R object, since the
+#unboxing is the bug and it happens on the way out
+shape = function(ra, dec){
+  as.character(shiny:::toJSON(list(x = app_env$pick_restyle_args(ra, dec)$x,
+                                   y = app_env$pick_restyle_args(ra, dec)$y)))
+}
+expect_identical(shape(numeric(0), numeric(0)), '{"x":[[]],"y":[[]]}')
+#the decisive case: one pick must still arrive as an array of one
+expect_identical(shape(53.1234, -27.8123), '{"x":[[53.1234]],"y":[[-27.8123]]}')
+expect_identical(shape(c(1, 2, 3), c(4, 5, 6)), '{"x":[[1,2,3]],"y":[[4,5,6]]}')
+#and never as the unboxed scalar, which is what the bare list() produced
+expect_false(grepl('"x":\\[53', shape(53.1234, -27.8123)))

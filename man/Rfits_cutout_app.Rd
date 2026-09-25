@@ -7,8 +7,9 @@ A Shiny App for Browsing and Cutting Out a Directory of Zarr Stores
 Launches the Shiny application bundled with the package, which gives a graphical
 front end to \code{\link{Rfits_cutout_zarr_dir}} and \code{\link{Rfits_zarr_index}}. A
 directory of Zarr stores, or an S3 prefix holding one, is described once; the app then
-takes RA/Dec positions, shows the cutout of every overlapping store, and offers the
-result as a zip of FITS files or a zip of JPEGs.
+takes RA/Dec positions, shows the cutout of every overlapping store, and offers any chosen
+subset of the result as a zip of FITS files or a zip of JPEGs, written raw or tile
+compressed.
 
 The application is a single file, installed under \file{inst/shiny/Rfits_cutout_app}, and
 can equally be run directly with \code{shiny::runApp(system.file('shiny',
@@ -54,20 +55,38 @@ the bucket. Credentials fall back to the environment variables
 \env{RFITS_S3_SECRET_KEY} and \env{RFITS_S3_SESSION_TOKEN} when the fields are left
 blank, as they do for \code{\link{Rfits_cutout_zarr_dir}}.
 
+\strong{Store name patterns are globs}, not regular expressions, because the field takes a
+name or a path rather than a pattern: \code{*} matches any run of characters and \code{?}
+any single one, so \code{*.zarr} and \code{tile*} mean what they look like. The conversion
+is \code{\link[utils]{glob2rx}}, with its anchors removed, so a pattern is matched against
+the whole store path rather than the whole string, and \code{tile2} finds
+\file{releases/dr1/tile2.zarr}. Patterns are comma or newline separated, and all of them
+must match. The store name filters on the Cutouts and Index tabs and the keyword value
+field take the same globs, so the same text means the same thing in each.
+
+A store name pattern is a filter on the session rather than only on a request, so it also
+narrows what the \strong{Index}, \strong{Frames} and Store summary tabs list: a published
+index describes a whole release, and a session filtered to one band has no business being
+shown every band's tiles while the search quietly refuses to cut them. The pattern is
+matched against the whole store path, so \code{*g*.zarr} is the way to keep the g-band
+tiles of a release whose other bands share the naming. Narrowing the view this way does not
+rewrite the index: the file is read whole, and \code{refresh = TRUE} rebuilds it whole.
+
 \strong{Cutouts} takes positions one per line, as \code{RA Dec} in degrees (separated by a
 space or a comma, and either is accepted from a pasted list), and a box in pixels or
 arcsec. Each position is narrowed to the stores that could overlap it by
 \code{\link{Rfits_zarr_index_query}}, and only those stores are opened, so the number of
 pixel reads a request makes is bounded by the number of tiles that matter rather than by
-the size of the release. Stores may be narrowed further by a regular expression on the
-store name, and by a header keyword and value; the keyword is read out of the index, so
+the size of the release. Stores may be narrowed further by a glob on the store name (see
+the Store tab), and by a header keyword and value; the keyword is read out of the index, so
 filtering by band or target costs a decode rather than a pixel read. Some common filters
 are index columns rather than header keywords \emph{(EXTNAME, STATUS, TYPE, LABEL,
-STORE)} and are recognised as such. The request and display controls are stacked down the
-left of the tab and the answers fill the wider panel on the right, where each cutout is
-drawn as a square of the chosen side rather than across the full width of the page. Only
-\code{Max cutouts to plot} of them are drawn, since a request that overlaps a thousand
-tiles would otherwise bind a thousand plots; all of them are still listed and downloadable.
+STORE)} and are recognised as such. The request, display and download controls are stacked
+down the left of the tab and the answers fill the wider panel on the right, where each
+cutout is drawn as a square of the chosen side rather than across the full width of the
+page. Only \code{Max cutouts to plot} of them are drawn, since a request that overlaps a
+thousand tiles would otherwise bind a thousand plots; all of them are still listed,
+selectable and downloadable.
 Each cutout is plotted with the WCS aware \code{\link{plot}} method, with \code{qdiff} and
 the \code{magimage} clipping controls exposed. The display options are live: changing a
 stretch redraws the plots from the pixels already in memory rather than re-cutting them.
@@ -77,7 +96,8 @@ the run log, since that is otherwise indistinguishable from a lost result.
 \strong{Index} shows the rows of the index the search reads, one per store per extension,
 with the reference position, shape and pixel scale each overlap test works from, plus the
 reason any store was found not searchable. The table is wide and scrolls horizontally
-inside its own card.
+inside its own card. A store name pattern set on the Store tab has already been applied, so
+what is listed is what a request can reach; the tab's own filter narrows it further.
 
 \strong{Frames} plots the footprint of every store in the index, from the same numbers and
 without reading a pixel, as an interactive plotly panel: scroll to zoom (or use the zoom
@@ -101,6 +121,51 @@ FITS files are written from the extracted pixels and header with
 JPEGs are re-rendered square, at the side given for the on screen panels, with the current
 display options, since the on screen plots are drawn into the browser's device and there
 is nothing on the server to copy.
+
+\strong{Which cutouts are downloaded.} Everything in a result is included by default, and
+a new request starts from everything included again. Three controls change that, and all
+three read and write one selection, so they cannot disagree: \emph{Include all},
+\emph{Include none} and \emph{Invert} above the results table, a tick beside the name of
+each plotted cutout, and a column of checkboxes in the results table itself. That table is
+the one view which lists every result, including the cutouts the gallery is not drawing, so
+its ticks are the only way to narrow a set larger than \code{Max cutouts to plot}. The tick
+is the table's first column, and each box carries the position of its cutout in the result
+list rather than its row number, so the table can be sorted, searched and paged without a
+tick ever landing on the wrong picture. Clicking one reports only that row, which
+is what lets the table keep its own search, sort and page while the selection changes
+underneath it. That column needs the DT package installed; without it the table is drawn
+plainly and the other two controls are what remains. The count beside the buttons says
+how many of how many are included, and the download buttons act on that set and nothing
+else.
+
+\strong{Download formats.} The Download card chooses how the two bundles are written, and
+nothing is re-cut to do it: the pixels are the ones already in memory. FITS files are
+written raw by default, which is the extracted data as it stands, and the shape keywords
+are taken from those pixels rather than from the header that came with them. A store
+written with tile compression records its shape in \code{ZNAXIS} and sets \code{ZIMAGE},
+and \code{Rfits_write_image} honours that flag, so those keys are removed from a raw
+download; a plain image that declared itself compressed would otherwise tell a reader to
+expect a binary table it does not hold.
+
+The alternative is tile compressed, which writes through cfitsio by way of the
+\code{compress} argument of \code{\link{Rfits_write_image}}, and offers the algorithm
+(\code{RICE}, \code{GZIP}, \code{HCOMPRESS} or \code{PLIO}), the compression tile size, and
+a quantization level. These controls appear only while compressing, because cfitsio reads
+the options after \code{[compress} only when it is asked to compress, and a control that
+is quietly ignored is worse than one that is absent. The quantization level is the one
+setting that decides whether the download is lossless, and blank is not the same as zero:
+cfitsio quantizes by default, at about four bins per pixel of noise, so a plain \code{RICE}
+file does not give the pixels back exactly. Zero is lossless, and \code{GZIP} at zero
+returns them to single precision; a negative value gives an absolute bin size in data units
+rather than one scaled by the noise. A compressed file is a binary table, so it reads back
+from extension 2, and its zip is named with \code{-compressed} so the two kinds are
+distinguishable in a downloads folder.
+
+JPEG quality is passed to \code{\link[grDevices]{jpeg}}, so it affects the downloaded files
+and not the plots on screen. It is written with the cairo device where one is available,
+because that is the implementation which obeys the setting; where it is not, the quality is
+left to the platform default and the run log says so rather than the page implying the
+control did something.
 }
 \value{
 Called for its side effect of serving the application. The value of

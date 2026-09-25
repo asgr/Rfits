@@ -214,6 +214,18 @@ filter_by_keyword = function(rows, index_path, key, value, note = function(...){
   if(!nzchar(key) || nrow(rows) == 0){
     return(rows)
   }
+  #The value is a glob, like the store name fields, so *grz* is the way to ask for a band
+  #that contains grz. Converted once here rather than at each of the two matches below, so
+  #the index column path and the keyword path cannot read the same text differently.
+  #
+  #The text as typed is kept for the notes, which have to quote back what the user asked
+  #for rather than the regular expression it became, and the conversion is skipped when the
+  #value is blank: glob_regex drops a blank pattern, and a zero length 'yes match anything'
+  #flag would break every nzchar() below
+  typed = value
+  if(nzchar(value)){
+    value = glob_regex(value)
+  }
   #FITs keywords are upper case by convention and the index columns are lower case, so the
   #comparison is made case insensitively; otherwise EXTNAME would silently fall through to
   #the keyword path and find nothing. Only the scalar columns a user might mean are
@@ -255,7 +267,7 @@ filter_by_keyword = function(rows, index_path, key, value, note = function(...){
     }
     return(any(grepl(value, as.character(val), ignore.case = TRUE)))
   }, logical(1))
-  note('Header keyword ', key, if(nzchar(value)) paste0(' matching "', value, '"') else '',
+  note('Header keyword ', key, if(nzchar(typed)) paste0(' matching "', typed, '"') else '',
        ': kept ', sum(keep), ' of ', nrow(rows), ' candidate store row(s)')
   if(sum(keep) == 0){
     #An empty result here is otherwise indistinguishable from a release that does not
@@ -265,7 +277,7 @@ filter_by_keyword = function(rows, index_path, key, value, note = function(...){
            'header shown on the Index tab, or narrow by store name pattern instead.')
     }else{
       vals = sort(unique(found))
-      note('The ', key, ' keyword is present, but no value matched "', value, '". ',
+      note('The ', key, ' keyword is present, but no value matched "', typed, '". ',
            'Values seen: ', paste(utils::head(vals, 10), collapse = ', '),
            if(length(vals) > 10) paste0(' (+', length(vals) - 10, ' more)') else '')
     }
@@ -308,6 +320,68 @@ index_view_columns = function(rows){
   return(rows)
 }
 
+#Store name patterns are globs, not regular expressions. A path is what a user is looking
+#at, so what they will reach for is *.zarr or tile*, and a plain release name like tile2
+#behaves the same either way. glob2rx does the conversion, with two adjustments.
+#
+#The anchors it adds come straight back off: a pattern is matched against the whole store
+#path, and the app wants a name that appears anywhere in it, not a whole-string match, so
+#'tile2' has to keep finding releases/dr1/tile2.zarr. glob2rx writes them as ^...$ in that
+#order, whatever the pattern ends with, and they are removed by position rather than by
+#sub(), which would turn a literal $ in the pattern into a real end-of-string anchor.
+#
+#glob2rx is built on the opposite assumption: it leaves + ^ $ | and the backslash alone
+#because in *its* output those are the metacharacters it needs. Every character it does not
+#escape is therefore escaped here first, so that a pattern means only what a glob means.
+#Without that, 'a+b' would be handed to grepl as 'one or more a', and a backslash would
+#reach it as a bare escape.
+glob_regex = function(pattern){
+  pattern = as.character(pattern)
+  pattern = pattern[!is.na(pattern) & nzchar(pattern)]
+  if(length(pattern) == 0){
+    return(character(0))
+  }
+  out = gsub('\\', '\\\\', pattern, fixed = TRUE)
+  out = gsub('([+^$|)])', '\\\\\\1', out)
+  out = utils::glob2rx(out, trim.tail = FALSE)
+  out = substring(out, 2)
+  return(substr(out, 1, nchar(out) - 1))
+}
+
+#Narrow index rows to those whose label matches every pattern given. The patterns arrive
+#already converted by glob_regex, which is why this only grepl()s, and all of them have to
+#match, so a comma separated field is an AND.
+#
+#The same narrowing is applied in two places: where the rows are read, so the Index, Frames
+#and Store tabs show the stores this session is working with, and where a request picks its
+#candidates. One function rather than a loop written out twice, because a published index
+#describes a whole release and a session filtered to one band must not be told two different
+#things about what is in it.
+pattern_rows = function(rows, patterns){
+  if(is.null(rows) || length(patterns) == 0 || nrow(rows) == 0){
+    return(rows)
+  }
+  keep = rep(TRUE, nrow(rows))
+  for(p in patterns){
+    keep = keep & grepl(p, rows$label)
+  }
+  return(rows[keep, , drop = FALSE])
+}
+
+#The arguments of the restyle call that redraws the picked positions on the Frames plot.
+#
+#The vectors are wrapped in I() so that Shiny's JSON keeps them as arrays. plotly's
+#restyle takes a list of per-trace values, so the payload wants to be a list holding one
+#array, {x: [[...]]}. Built from a bare list() jsonlite unboxes the inner vector when it
+#has length one, and a single pick goes over the wire as {x: [53.1234]}, which restyle
+#reads as a scalar: the marker is silently not drawn. The next click makes the vector
+#length two, no unboxing happens, and both picks appear at once -- the first click
+#appearing to do nothing and the second drawing two marks. I() marks the vector as
+#already a JSON array, so the shape holds for any number of picks, one included
+pick_restyle_args = function(ra, dec){
+  return(list(x = list(I(ra)), y = list(I(dec))))
+}
+
 safe_filename = function(x){
   x = gsub('[^A-Za-z0-9._-]+', '_', as.character(x))
   x = substr(x, 1, 90)
@@ -322,6 +396,48 @@ safe_filename = function(x){
 #"'probs' outside [0,1]" from stats::quantile instead of a plot.
 magmap_units = c('quan (quantile 0-1)' = 'quan', 'sig (sigma)' = 'sig',
                  'num (data value)' = 'num', 'rank (0-1)' = 'rank')
+
+#The results table is drawn by DT with server = FALSE, so one column of plain checkboxes
+#can stand in for DT's own row selection, which is only a highlight and reports under a name
+#of its own. Shiny cannot see a click inside a widget, so a change is sent back as an event,
+#and the state is pushed back as a custom message rather than by redrawing the table, which
+#would cost the user their search, their sort and their page.
+#
+#Two details are worth the trouble. The box carries its index in the result list as a data
+#attribute because the rows get sorted, paged and filtered while the index does not move.
+#And ticks are mirrored in ticks rather than read off the DOM, because DataTables takes rows
+#off the page entirely and puts them back from the original HTML: without a mirror, the
+#boxes on a page the user has walked away from and come back to would revert to whatever
+#they were drawn as. ticks stays null until the server says otherwise, so the state the
+#table was first rendered with is left alone rather than being cleared
+table_tick_callback = "
+  var ticks = null;
+  function sync(){
+    if(ticks === null){ return; }
+    table.column(0).nodes().each(function(cell){
+      var box = cell.querySelector('input.rf-tick');
+      if(box){ box.checked = ticks[box.getAttribute('data-rf-i')] === true; }
+    });
+  }
+  //a delegated binding, so it survives the rows DataTables takes off the page and puts
+  //back. The box is read off the event target rather than this, which is the safe form
+  //whether or not the delegation sets it
+  table.on('change', 'input.rf-tick', function(e){
+    if(!window.Shiny){ return; }
+    var box = e.target;
+    Shiny.onInputChange('match_tick', {i: Number(box.getAttribute('data-rf-i')),
+                                       on: box.checked});
+  });
+  table.on('draw.dt', sync);
+  if(window.Shiny){
+    Shiny.addCustomMessageHandler('rf_set_ticks', function(msg){
+      var on = [].concat(msg.i || []), next = {}, k;
+      for(k = 0; k < on.length; k++){ next[on[k]] = true; }
+      ticks = next;
+      sync();
+    });
+  }
+"
 
 ui = page_navbar(
   title = 'Rfits Cutout Explorer',
@@ -354,6 +470,13 @@ ui = page_navbar(
                      stretching it is not */
                   object-fit: contain; }
     .rf-cut-cell { min-width: 0; }
+    /* The include tick shares the name row of a cell, so it must not carry the bottom
+       margin Bootstrap gives a form check, and must not be wrapped away by the label */
+    .rf-cut-cell .form-check { margin-bottom: 0; flex: 0 0 auto; padding-left: 1.4em; }
+    .rf-cut-cell .form-check-label { font-size: 0.8rem;
+                                     color: var(--bs-secondary-color, #6c757d); }
+    .rf-sel-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+    .rf-sel-row .rf-name { flex: 1 1 auto; min-width: 0; }
     /* A CSS grid item defaults to min-width: auto, which means it refuses to shrink below
        the intrinsic width of its content. A wide index table is such content: it pushes
        the column open until the whole grid scrolls, so the scrollbar that appears belongs
@@ -409,9 +532,12 @@ ui = page_navbar(
           textInput('extname', 'Extension name(s)', value = 'data1'),
           helpText('Comma separated candidates, tried in order per store.'),
           textInput('pattern', 'Store name pattern(s)', value = '',
-                    placeholder = 'e.g. grdz|rile, or one per line'),
-          helpText('Regex(es) matched against the store path. They also narrow an index ',
-                   'built now, so leave them blank to keep a reusable index.'),
+                    placeholder = 'e.g. *grdz*, *tile?, or one per line'),
+          helpText('Glob(s) matched against the store path, so * and ? are wildcards and ',
+                   'a name on its own matches anywhere in the path. Comma or newline ',
+                   'separated, and all of them must match. They narrow what the Index, ',
+                   'Frames and Store summary tabs list, as well as what a request will ',
+                   'cut, so leave them blank to work with the whole index.'),
           numericInput('max_dirs', 'Max directories to walk', value = 1000, min = 1,
                        step = 100),
           checkboxInput('rebuild', 'Rebuild the index from the tiles', FALSE),
@@ -468,7 +594,9 @@ ui = page_navbar(
             textInput('kw_key', 'Header keyword filter', placeholder = 'e.g. FILTER'),
             helpText('Only cut from stores whose recorded header carries this keyword. ',
                      'Costs an index decode, not a pixel read.'),
-            textInput('kw_value', 'Keyword value (regex)', placeholder = 'e.g. grz|riz'),
+            textInput('kw_value', 'Keyword value (glob)', placeholder = 'e.g. *grz*'),
+            helpText('Matched case insensitively against the keyword, * and ? being ',
+                     'wildcards. Blank accepts any value the keyword takes.'),
             numericInput('max_stores', 'Max stores to cut per position', value = 25,
                          min = 1, step = 1),
             helpText('Caps how many stores are opened, and so how many pixel reads a ',
@@ -478,8 +606,8 @@ ui = page_navbar(
         card(
           card_header(icon('sliders'), ' Display'),
           card_body(
-            helpText('Covers both the on screen plots and the downloaded JPEGs. The FITS ',
-                     'download always carries the full unmodified pixel data.'),
+            helpText('Covers both the on screen plots and the downloaded JPEGs. The raw ',
+                     'FITS download always carries the extracted pixels unchanged.'),
             fluidRow(
               column(4, checkboxInput('qdiff', 'qdiff', TRUE)),
               column(8, selectInput('type', 'Clipping type', choices = magmap_units,
@@ -510,6 +638,29 @@ ui = page_navbar(
                          'downloadable, just not drawn.'))
             )
           )
+        ),
+        card(
+          card_header(icon('file-zipper'), ' Download'),
+          card_body(
+            helpText('Only the included cutouts are bundled, and nothing is re-cut: the ',
+                     'pixels are those already in memory, however they were chosen. Raw ',
+                     'FITS is the extracted data as it stands; tile compressed may drop ',
+                     'precision unless the quantization level is 0.'),
+            radioButtons('fits_format', 'FITS files',
+                         choices = c('Raw (uncompressed)' = 'raw',
+                                     'Tile compressed' = 'compress'),
+                         selected = 'raw'),
+            #Rendered rather than merely shown or hidden. cfitsio only reads the options
+            #after [compress when it is asked to compress at all, so controls that can be
+            #silently ignored are worse than controls that are not there
+            uiOutput('comp_opts_ui'),
+            hr(),
+            numericInput('jpeg_quality', 'JPEG quality', value = 75, min = 1, max = 100,
+                         step = 5),
+            div(class = 'rf-meta', 'Given to grDevices::jpeg, so it affects the downloaded ',
+                'JPEGs only, not the plots on screen. The R default is 75; 90 and above is ',
+                'close to lossless for these images.')
+          )
         )
       ),
       div(
@@ -517,10 +668,14 @@ ui = page_navbar(
           card_header(icon('table'), ' Results', uiOutput('result_counts')),
           card_body(
             uiOutput('index_note'),
+            #One selection for the whole tab: the buttons below, the tick beside each
+            #plotted cutout, and the results table's row checkboxes all read and write the
+            #same logical vector
+            uiOutput('select_bar'),
             div(class = 'd-flex gap-2 mb-2',
-                downloadButton('dl_fits', 'Download all as FITS (zip)',
+                downloadButton('dl_fits', 'Download selected as FITS (zip)',
                                icon = icon('file-zipper'), class = 'btn-outline-primary'),
-                downloadButton('dl_jpeg', 'Download all as JPEG (zip)',
+                downloadButton('dl_jpeg', 'Download selected as JPEG (zip)',
                                icon = icon('file-zipper'), class = 'btn-outline-success')),
             helpText('FITS files are written from the extracted pixels and header with ',
                      'Rfits_write_image, so each keeps the WCS of the tile it came from. ',
@@ -546,7 +701,7 @@ ui = page_navbar(
       card(
         card_header(icon('magnifying-glass'), ' Filter'),
         card_body(
-          textInput('idx_filter', 'Store name regex', value = ''),
+          textInput('idx_filter', 'Store name glob', value = ''),
           selectInput('idx_status', 'Status', choices = 'all'),
           actionButton('idx_refresh', 'Reload rows', class = 'btn-outline-primary',
                        icon = icon('arrows-rotate')),
@@ -621,7 +776,7 @@ ui = page_navbar(
 server = function(input, output, session){
 
   state = reactiveValues(con = NULL, idx = NULL, rows = NULL, log = character(0),
-                         res = NULL, matches = NULL)
+                         res = NULL, matches = NULL, sel = NULL, run = 0L)
 
   note = function(...){
     txt = paste0(..., collapse = '')
@@ -691,8 +846,14 @@ server = function(input, output, session){
   }
 
   collect_con = function(){
+    #Store name patterns are globs rather than regular expressions: the field holds a name
+    #or a path, and *.zarr or tile* is what someone looking at a release will type. They
+    #are converted once, here, into the regular expressions that the index builder and the
+    #re-filter in do_run both match with, so the two cannot disagree about what a pattern
+    #means. It also means the walk key of a built index is the conversion, not the typing
     patterns = trimws(unlist(strsplit(gsub('\\t', ' ', in_('pattern')), '[\r\n,]+')))
     patterns = patterns[nzchar(patterns)]
+    patterns = glob_regex(patterns)
     ext = trimws(unlist(strsplit(in_('extname', 'data1'), '[,\r\n ]+')))
     ext = ext[nzchar(ext)]
     dir = blank(in_('dir'))
@@ -748,13 +909,19 @@ server = function(input, output, session){
       }),
       tags$li(strong('Index: '), idx$shown,
               if(isTRUE(idx$built)) ' (built for this session)' else ''),
-      tags$li(strong('Rows: '), nrow(idx$rows))
+      tags$li(strong('Rows: '), nrow(idx$rows),
+              if(length(con$pattern) > 0) ' (store name pattern applied)')
     )
   })
 
   output$store_summary = renderUI({
     rows = state$rows
     req(rows)
+    #An index whose every row the name pattern excluded is an ordinary state, and range() on
+    #no rows warns rather than answering, so it is said in words instead
+    if(nrow(rows) == 0){
+      return(em('No store in the index matches the store name pattern.'))
+    }
     ok = rows$status == 'ok'
     exts = sort(unique(rows$extname[!is.na(rows$extname)]))
     typ = table(rows$type[ok])
@@ -799,13 +966,25 @@ server = function(input, output, session){
     if(!is.null(state$idx) && isTRUE(state$idx$owned) && !is.null(state$idx$path)){
       unlink(state$idx$path)
     }
-    rows = as.data.frame(got$rows, stringsAsFactors = FALSE)
+    #Every one of these rows is shown somewhere: the Index and Frames tabs and the Store
+    #summary all read state$rows, and the whole point of the name pattern is to say which
+    #stores a session is working with. A published index is the whole release, so a pattern
+    #that is not applied here would leave every tab listing stores a cutout would refuse to
+    #touch -- the search narrowing correctly while the tabs contradicted it. The narrowing is
+    #display only: the index file is queried whole, and do_run applies the same helper to the
+    #candidates it finds there
+    full = as.data.frame(got$rows, stringsAsFactors = FALSE)
+    rows = pattern_rows(full, state$con$pattern)
+    got$rows = rows
     state$idx = got
     state$rows = rows
     updateSelectInput(session, 'idx_status', choices = c('all', sort(unique(rows$status))))
     note('Index ready: ', nrow(rows), ' row(s), ', length(unique(rows$label)),
          ' store(s), extname(s) ',
          paste(sort(unique(rows$extname)), collapse = ', '))
+    if(length(state$con$pattern) > 0){
+      note('Name pattern kept ', nrow(rows), ' of ', nrow(full), ' index row(s)')
+    }
     invisible(NULL)
   }
 
@@ -898,13 +1077,317 @@ server = function(input, output, session){
     invisible(NULL)
   }
 
+  #Compression keys a tile-compressed store carries in its header. A cutout inherits them
+  #from the tile it came from, but only the compressed download is allowed to keep them:
+  #written raw, a plain image that says ZIMAGE = TRUE in its primary header is a file that
+  #tells a reader to expect a binary table it does not contain, so they are removed.
+  #ZNAXIS is built out rather than listed because it comes with one key per axis, and a
+  #header from a cube store carries ZNAXIS1 through ZNAXIS3
+  cfitsio_comp_keys = c('ZIMAGE', 'ZBITPIX', 'ZQUANTIZ', 'ZNBDTP', 'ZDITHER0', 'ZTILELEN',
+                        'ZNAXIS', paste0('ZNAXIS', 1:6), 'ZEXPSC', 'ZEXPZERO', 'ZNOFFSC',
+                        'ZNOFFZERO', 'ZBLANKFIX', 'ZVAL1', 'ZVAL2', 'ZSCALE', 'ZZERO')
+
+  #The pixels of a cutout are the pixels of its header, and the header may not have been
+  #the source of either. .zarr_cutout_box_keyvalues rewrites NAXIS to the box size, which
+  #for a cube or array is the size of one plane rather than of the data in hand, and a raw
+  #write of a tile-compressed cutout has had its ZNAXIS keys dropped above. Both are
+  #restored here from the data, which is the only thing that can be authoritative.
+  fix_shape_keys = function(item){
+    dm = dim(item$imDat)
+    if(is.null(dm) || length(dm) == 0){
+      return(item)
+    }
+    if(is.null(item$keyvalues)){
+      return(item)
+    }
+    kv = item$keyvalues
+    kv$NAXIS = length(dm)
+    for(i in seq_along(dm)){
+      kv[[paste0('NAXIS', i)]] = dm[i]
+    }
+    item$keyvalues = kv
+    return(item)
+  }
+
+  #Download options, read outside a reactive context by the handlers below. Kept as one
+  #function so the FITS and JPEG paths agree on what 'selected' and 'compressed' mean, and
+  #so a control that has not reported yet falls back to the value the UI shipped with
+  dl_opts = function(){
+    q = suppressWarnings(as.numeric(in_('jpeg_quality', 75)))[1]
+    if(is.na(q)){
+      q = 75
+    }
+    q = max(1, min(100, round(q)))
+    return(list(fits_format = in_('fits_format', 'raw'), alg = in_('fits_alg', 'RICE'),
+                tile = in_('fits_tile', ''), quant = num_('fits_quant'),
+                jpeg_quality = q))
+  }
+
+  #The cfitsio compression spec, as the text between '[compress ' and ']'. The parser in
+  #cfileio.c reads the algorithm from its first letter, then the tile dimensions, then
+  #parameters after a semicolon, so the pieces are joined in that order.
+  #
+  #The tile sizes are tidied here rather than where they are typed because this is the
+  #only place that knows they are going into a string cfitsio parses: the box happily
+  #takes '64, 64' or '64 64' from a user, and either would have to arrive as '64,64'
+  comp_spec = function(o){
+    tile = gsub('[ ,]+', ',', gsub('[^0-9, ]', '', trimws(o$tile)))
+    tile = gsub('^,+|,+$', '', tile)
+    spec = o$alg
+    if(nzchar(tile)){
+      spec = paste0(spec, ' ', tile)
+    }
+    if(is.finite(o$quant)){
+      spec = paste0(spec, '; q ', format(o$quant, scientific = FALSE, trim = TRUE))
+    }
+    return(spec)
+  }
+
+  #Which results go in a bundle. Everything by default, since the common case is 'I want
+  #this whole request', and the point of the controls below is that taking a subset is
+  #easier than naming one. A selection of the wrong length is treated as no selection at
+  #all rather than truncated, because a run that changed the number of results has to
+  #re-start from 'everything' for the count on screen to mean anything
+  sel_of = function(res, sel){
+    if(is.null(res) || length(res) == 0){
+      return(logical(0))
+    }
+    if(is.null(sel) || length(sel) != length(res)){
+      return(rep(TRUE, length(res)))
+    }
+    as.logical(sel)
+  }
+
+  #The count beside the buttons, as a reactive of its own. selected_idx() isolates because
+  #the download handlers call it from a non-reactive context, and an isolating reader is
+  #exactly the wrong thing to depend on for a number that has to move when the user ticks
+  #a box
+  n_selected = reactive({
+    sum(sel_of(state$res, state$sel))
+  })
+
+  selected_idx = function(){
+    which(sel_of(isolate(state$res), isolate(state$sel)))
+  }
+
+  #The cells that have a tick box beside them, which is the plotted prefix of the results
+  #rather than all of them. Everything that reads or writes the per cutout inputs goes
+  #through here so that the gallery and the observers cannot disagree about how many boxes
+  #are on the page
+  sel_ids = function(){
+    res = isolate(state$res)
+    if(is.null(res)){
+      return(integer(0))
+    }
+    seq_len(min(length(res), max_show()))
+  }
+
+  #Input ids carry the request that made them. A box is only ever read once every box of
+  #the current run has reported, and numbering them per run is what makes that wait mean
+  #the current run rather than a leftover from the last one: results shrink between
+  #requests as often as they grow, and a stale sel_17 reporting TRUE after a request that
+  #returned five cutouts would otherwise be read as a tick on the wrong cutout
+  cell_id = function(i){
+    paste0('sel_', isolate(state$run), '_', i)
+  }
+
+  #The same list, cut to the selection. Everything downstream writes in terms of a result
+  #list, so subsetting once here keeps the gallery, the count and the two bundles from each
+  #having to work out the selection their own way
+  selected_res = function(){
+    res = state$res
+    idx = selected_idx()
+    if(is.null(res) || length(idx) == 0){
+      return(NULL)
+    }
+    res[idx]
+  }
+
+  #A new result list always arrives with everything included, which is what the previous
+  #request's tick marks would otherwise silently contradict
+  observeEvent(state$res, {
+    res = state$res
+    state$sel = if(is.null(res) || length(res) == 0){
+      NULL
+    }else{
+      rep(TRUE, length(res))
+    }
+  })
+
+  #Both buttons go through the same three lines, so 'none' and 'invert' cannot disagree
+  #about what a selection of the wrong length means
+  set_sel = function(fn){
+    sel = sel_of(state$res, state$sel)
+    if(length(sel) == 0){
+      return(invisible(NULL))
+    }
+    state$sel = fn(sel)
+  }
+
+  observeEvent(input$sel_all, {
+    set_sel(function(sel) rep(TRUE, length(sel)))
+  })
+
+  observeEvent(input$sel_none, {
+    set_sel(function(sel) rep(FALSE, length(sel)))
+  })
+
+  observeEvent(input$sel_invert, {
+    set_sel(function(sel) !sel)
+  })
+
+  #One change of one tick in the results table, which is all the page can report: with
+  #paging, the rows on the other pages are not in the document, so a tick cannot arrive as
+  #the full set of what is included. The index is the position in the result list rather
+  #than in the table, so the sort and the search cannot move it
+  observeEvent(input$match_tick, {
+    ev = input$match_tick
+    res = state$res
+    if(is.null(res) || is.null(ev) || is.null(ev$i)){
+      return(invisible(NULL))
+    }
+    i = as.integer(ev$i)
+    if(length(i) != 1 || is.na(i) || i < 1 || i > length(res)){
+      return(invisible(NULL))
+    }
+    sel = sel_of(res, state$sel)
+    on = isTRUE(ev$on)
+    if(isTRUE(sel[i] == on)){
+      return(invisible(NULL))
+    }
+    sel[i] = on
+    state$sel = sel
+  })
+
+  #The boxes as the page reports them, or NULL while any of them is missing. A cell that
+  #has not been drawn yet arrives as NULL, and reading a partial set would clear the
+  #results that are included but not currently on screen; the cells render together, so
+  #the wait is a frame rather than anything the user can see.
+  #
+  #Deliberately a reactive of its own rather than an observer that reads the selection as
+  #well as the inputs: such an observer is re-run by its own write, and would put the
+  #stale ticks back over it, so clicking Include none would immediately undo itself
+  cell_ticks = reactive({
+    res = state$res
+    req(res)
+    n = length(sel_ids())
+    if(n == 0){
+      return(NULL)
+    }
+    got = lapply(seq_len(n), function(i) input[[cell_id(i)]])
+    if(any(vapply(got, is.null, logical(1)))){
+      return(NULL)
+    }
+    vapply(got, isTRUE, logical(1))
+  })
+
+  observeEvent(cell_ticks(), {
+    res = state$res
+    req(res)
+    ticked = cell_ticks()
+    n = length(ticked)
+    sel = sel_of(res, state$sel)
+    if(identical(sel[seq_len(n)], ticked)){
+      return(invisible(NULL))
+    }
+    sel[seq_len(n)] = ticked
+    state$sel = sel
+  })
+
+  #Pushed back to the page so that the buttons, the table and the ticks cannot disagree
+  #about what is included: the state is the only truth, and the boxes follow it. Only the
+  #plotted cells have a box to update; a cutout that is included but not drawn stays
+  #included, which is what the count beside the buttons says.
+  #
+  #req() takes the length check rather than the vector because it treats an all FALSE
+  #selection as falsy, which is precisely the state 'Include none' produces: the push was
+  #aborted, the boxes on the page kept their old ticks, and they then reported those ticks
+  #back as the user's choice and undid it
+  observeEvent(state$sel, {
+    res = state$res
+    req(res)
+    sel = state$sel
+    if(is.null(sel) || length(sel) != length(res)){
+      return(invisible(NULL))
+    }
+    for(i in sel_ids()){
+      updateCheckboxInput(session, cell_id(i), value = isTRUE(sel[i]))
+    }
+    if(has_dt){
+      #The table's boxes are drawn from data and cannot be updated by Shiny, so they are
+      #ticked in place. Redrawing the table instead would throw away the search, the sort
+      #and the page the user is on, which is the only reason the table has a search box
+      session$sendCustomMessage('rf_set_ticks', list(i = which(sel)))
+    }
+  })
+
+  output$select_bar = renderUI({
+    res = state$res
+    if(is.null(res) || length(res) == 0){
+      return(helpText('Run a request to choose which cutouts to download.'))
+    }
+    div(class = 'rf-sel-row mb-2',
+        actionButton('sel_all', 'Include all', icon = icon('check'),
+                     class = 'btn-outline-primary btn-sm'),
+        actionButton('sel_none', 'Include none', icon = icon('xmark'),
+                     class = 'btn-outline-secondary btn-sm'),
+        actionButton('sel_invert', 'Invert', icon = icon('arrows-rotate'),
+                     class = 'btn-outline-secondary btn-sm'),
+        uiOutput('sel_count'))
+  })
+
+  output$sel_count = renderUI({
+    res = state$res
+    req(res)
+    helpText(class = 'ms-auto', n_selected(), ' of ', length(res),
+             ' included in the download.')
+  })
+
+  #The compression controls only exist while something is being compressed. They are drawn
+  #in place rather than greyed out because cfitsio reads the options after [compress only
+  #when it is asked to compress, so visible-but-ignored controls would promise a quantizer
+  #that a raw download quietly drops
+  output$comp_opts_ui = renderUI({
+    if(!identical(in_('fits_format', 'raw'), 'compress')){
+      return(NULL)
+    }
+    tagList(
+      fluidRow(
+        column(6, selectInput('fits_alg', 'Algorithm',
+                              choices = c('RICE' = 'RICE', 'GZIP' = 'GZIP',
+                                          'HCOMPRESS' = 'HCOMPRESS', 'PLIO' = 'PLIO'),
+                              selected = 'RICE')),
+        column(6, textInput('fits_tile', 'Tile size (px)', value = '',
+                            placeholder = 'e.g. 64,64'))
+      ),
+      div(class = 'rf-meta', 'Blank tile size leaves cfitsio on its default, which is one ',
+          'row per tile. PLIO is integer only and will fail on a floating point cutout.'),
+      numericInput('fits_quant', 'Quantization level', value = NA, step = 1),
+      #Blank is not the same as zero, and the difference is whether the pixels come back
+      #unchanged: cfitsio quantizes by default, so a plain RICE download is a lossy one
+      helpText('How much precision the compression is allowed to drop. A positive value ',
+               'gives the number of quantization bins per pixel of noise, and cfitsio ',
+               'defaults to 4; a negative value is an absolute bin size in data units ',
+               '(e.g. -0.0002); 0 is lossless, and GZIP at 0 gives the pixels back to ',
+               'single precision. Blank leaves cfitsio on its own lossy default.'),
+      helpText('A compressed file is a tile-compressed image held in a binary table, so ',
+               'read it back with ext = 2.')
+    )
+  })
+
   #Returns the list of written files, or NULL. The directory is removed by the caller
   #after zipping, not here: bundling and archiving are two steps and the files have to
   #survive the gap between them
   write_all = function(ext, fun){
-    res = state$res
+    #The selection is read through a reactive so that this stays the only place the two
+    #download paths decide what is in a bundle
+    res = selected_res()
     if(is.null(res) || length(res) == 0){
-      showNotification('Run a request first.', type = 'warning')
+      #Logged as well as flashed, because the notification is gone in a few seconds and a
+      #user who has clicked Include none and then the download button needs to be able to
+      #see that those are two separate facts rather than a lost result
+      showNotification('No cutouts are selected for download.', type = 'warning')
+      note('No cutouts are selected for download.')
       return(NULL)
     }
     if(!requireNamespace('zip', quietly = TRUE)){
@@ -940,13 +1423,51 @@ server = function(input, output, session){
     return(list(dir = dir, files = basename(wrote)))
   }
 
+  #A downloaded FITS must say what it is. The header a cutout carries is the header of the
+  #store it came from, and a tile-compressed store records its shape in ZNAXIS rather than
+  #NAXIS and sets ZIMAGE; Rfits_write_image honours that flag and writes the keys rather
+  #than the pixels they describe, which gives a raw file no one can open. Stripping them is
+  #what makes 'download as raw' mean the same thing for either kind of source. Compressed
+  #downloads keep them, since cfitsio rewrites the Z* keys for the tiles it actually makes
+  #and a stale ZNAXIS1 in a file it is being asked to compress is not a description of the
+  #file it will end up with either
+  prepare_fits_item = function(item, o){
+    item = fix_shape_keys(item)
+    if(identical(o$fits_format, 'compress')){
+      return(item)
+    }
+    drop = intersect(cfitsio_comp_keys, names(item$keyvalues))
+    if(length(drop) > 0){
+      item$keyvalues[drop] = NULL
+      item$keycomments[drop] = NULL
+      item$keynames = names(item$keyvalues)
+      #The card image is rebuilt from the keywords when present, and a stale copy would
+      #carry the removed keys straight back into the file
+      item$header = NULL
+      item$hdr = NULL
+      item$raw = NULL
+    }
+    return(item)
+  }
+
   output$dl_fits = downloadHandler(
-    filename = function() 'rfits-cutouts-fits.zip',
+    #The name says what is in the zip, since a compressed download is not interchangeable
+    #with a raw one and a user with two of these in their downloads folder needs to know
+    filename = function(){
+      o = isolate(dl_opts())
+      if(identical(o$fits_format, 'compress')){
+        return('rfits-cutouts-fits-compressed.zip')
+      }
+      return('rfits-cutouts-fits.zip')
+    },
     content = function(file){
       #Rfits_write_image takes the object, so keyvalues and history come along with the
       #pixels and the written file is re-openable with the WCS intact
+      o = isolate(dl_opts())
+      compress = if(identical(o$fits_format, 'compress')) comp_spec(o) else FALSE
       got = write_all('fits', function(item, out){
-        Rfits::Rfits_write_image(item, filename = out)
+        Rfits::Rfits_write_image(prepare_fits_item(item, o), filename = out,
+                                 compress = compress)
       })
       if(is.null(got)){
         return(invisible(NULL))
@@ -957,6 +1478,20 @@ server = function(input, output, session){
     contentType = 'application/zip'
   )
 
+  #The arguments that open a JPEG device. cairo is the implementation that obeys a
+  #quality setting: the macOS quartz device, which is this platform's default, takes the
+  #argument and ignores it, so a quality of 20 would quietly produce the same file as 95.
+  #With no cairo at all the argument is left off rather than passed as NULL, which
+  #grDevices::jpeg hands to match.arg, and the log says so instead of the page pretending
+  #the control did something
+  jpeg_args = function(quality){
+    if(!isTRUE(capabilities('cairo'))){
+      note('WARNING: no cairo device, so the JPEG quality setting is ignored.')
+      return(list())
+    }
+    return(list(quality = quality, type = 'cairo'))
+  }
+
   output$dl_jpeg = downloadHandler(
     filename = function() 'rfits-cutouts-jpeg.zip',
     content = function(file){
@@ -965,12 +1500,27 @@ server = function(input, output, session){
       #be read outside a reactive context, and downloadHandler$content is not one, so the
       #options are isolated once here rather than inside the per file loop
       opts = isolate(display_opts())
+      o = isolate(dl_opts())
+      jpeg_args = isolate(jpeg_args(o$jpeg_quality))
       got = write_all('jpg', function(item, out){
         #Square, like the panel on screen. magimage draws into whatever device it is
         #given, so a wide device would buy a wider image rather than a bigger source
         #region, and the two would no longer look like each other
         w = as.integer(opts$width)
-        jpeg(out, width = w, height = w, res = 120)
+        #Quality is what the Download card asks for, and grDevices::jpeg takes it on the
+        #open call rather than on close.
+        #
+        #res is derived from the side rather than fixed at 120 because jpeg() works out
+        #its figure size in inches from the two, and magimage needs room for its axes: at
+        #120 dpi a 200 px cutout is 1.7 inches square and the plot dies with 'figure
+        #margins too large'. Six inches keeps the physical size the old constant gave at
+        #the default width, and makes every requested width drawable.
+        #
+        #cairo is asked for by name because it is the implementation that honours the
+        #quality argument. The macOS device takes it and ignores it, which would make the
+        #control look like it works while every download came out the same size
+        do.call(jpeg, c(list(filename = out, width = w, height = w, res = w/6),
+                        jpeg_args))
         on.exit(tryCatch(dev.off(), error = function(e) NULL), add = TRUE)
         draw_cutout(item, opts)
       })
@@ -985,6 +1535,9 @@ server = function(input, output, session){
 
   do_run = function(){
     req(state$idx)
+    #Bumped first, so that the tick boxes of the run that is about to be drawn cannot be
+    #confused with the ones still on the page
+    state$run = state$run + 1L
     #Cleared before anything is asked for, so that what is on screen is always the answer
     #to the request that is in the boxes. A run that fails part way through used to leave
     #the previous results plotted under the new positions, which reads as an answer about
@@ -1060,15 +1613,14 @@ server = function(input, output, session){
         return(NULL)
       }
     }
-    #The name pattern was already used to build the index, but an index read from the
-    #store may be broader than this session asked for, so the pattern is applied again
+    #The name pattern already narrowed the index rows that were read, but the file that was
+    #queried is the whole published index, so it has to be applied to the candidates too.
+    #Through the same helper as adopt_index, so what is cut and what the tabs show cannot
+    #drift apart
     if(length(con$pattern) > 0){
-      keep = rep(TRUE, nrow(cand))
-      for(p in con$pattern){
-        keep = keep & grepl(p, cand$label)
-      }
-      note('Name pattern kept ', sum(keep), ' of ', nrow(cand), ' candidate row(s)')
-      cand = cand[keep, , drop = FALSE]
+      n_cand = nrow(cand)
+      cand = pattern_rows(cand, con$pattern)
+      note('Name pattern kept ', nrow(cand), ' of ', n_cand, ' candidate row(s)')
     }
     if(nrow(cand) == 0){
       note('ERROR: no candidate store survived the filters.')
@@ -1271,7 +1823,22 @@ server = function(input, output, session){
       }
       div(
         class = 'rf-cut-cell',
-        div(class = 'rf-name', paste(bits, collapse = '  |  ')),
+        div(class = 'rf-sel-row',
+            #The initial value is read from the selection rather than hard wired to TRUE,
+            #so a gallery redrawn because the stretch changed cannot quietly reset which
+            #cutouts are included. Isolated because the selection must not invalidate the
+            #gallery that reports it. A selection of the wrong length means nothing has
+            #been chosen yet, which is the same as everything being chosen
+            {
+              selected = isolate({
+                s = state$sel
+                if(is.null(s) || length(s) != n_tot) TRUE else isTRUE(s[i])
+              })
+              #No width argument: that appeared in shiny 1.6 and the app has to start
+              #on whatever version the user has
+              checkboxInput(cell_id(i), 'include', value = selected)
+            },
+            div(class = 'rf-name', paste(bits, collapse = '  |  '))),
         div(class = 'rf-meta', paste0(attr(res, 'filename')[i],
                                       if(!is.null(kv$EXTNAME))
                                         paste0('  ::  ', kv$EXTNAME) else '')),
@@ -1293,8 +1860,10 @@ server = function(input, output, session){
                          w, 'px), 1fr));'),
           !!!cells),
       if(n < n_tot) helpText('Showing ', n, ' of ', n_tot, ' cutout(s). Raise "Max ',
-                             'cutouts to plot" to draw more; all ', n_tot, ' are still ',
-                             'listed above and included in the downloads.')
+                             'cutouts to plot" to draw more and give them a tick box; the ',
+                             n_tot - n, ' not drawn here are listed in the table above ',
+                             'and stay included unless you clear them with "Include ',
+                             'none" first.')
     )
   })
 
@@ -1322,19 +1891,56 @@ server = function(input, output, session){
   #table to be scrollable at all. pageLength is kept small because the outputs carry a
   #fixed pixel height and twenty five rows do not fit in it, which would push the last
   #rows and the pager out of the box rather than giving the table more room
-  dt_table = function(df, pageLength = 10, ...){
+  #escape and callback are arguments of datatable rather than of the JS options, so they
+  #are named separately from the ... that go to options
+  #selection stays a named argument because the default turns rows into something a click
+  #highlights, which reads like a control when the tick column is the one that counts
+  dt_table = function(df, pageLength = 10, escape = TRUE, callback = NULL,
+                      selection = 'none', ...){
     if(!has_dt){
       return(head(df, 200))
     }
-    DT::datatable(df, options = list(pageLength = pageLength, scrollX = TRUE, ...),
-                  rownames = FALSE, fillContainer = FALSE)
+    #callback is dropped from the call rather than passed as NULL. DT checks the argument
+    #against its own default and stops with "The 'callback' argument only accept a value
+    #returned from JS()" for anything else, NULL included, so naming it unconditionally
+    #errored every table that has no callback of its own. Omitting it leaves DT's default
+    #in place, which is what those tables want
+    args = list(data = df, options = list(pageLength = pageLength, scrollX = TRUE, ...),
+                rownames = FALSE, fillContainer = FALSE, escape = escape,
+                selection = selection)
+    if(!is.null(callback)){
+      args$callback = callback
+    }
+    do.call(DT::datatable, args)
   }
 
+  #A column of real checkboxes, because this is the one view that lists every result,
+  #including the cutouts the gallery is not drawing, and because DT's own row selection is
+  #only a highlight: it shows no mark to read the current state off, and reports it under
+  #an input name of its own. The tick is written as HTML, which is why the column is left
+  #out of the escape set, and a change is sent back as an event by the table's callback
   output$match_table = if(has_dt){
     DT::renderDataTable({
       mm = state$matches
       req(mm)
-      dt_table(mm)
+      mm = mm[mm$name %in% names(state$res), , drop = FALSE]
+      #Position in the result list rather than row number, because the rows get sorted,
+      #paged and filtered and the position does not move
+      idx = match(mm$name, names(state$res))
+      #Isolated: the boxes follow the selection through the message handler, and reading
+      #it reactively here would redraw the table on every tick and throw away whatever
+      #the user had searched for. It is only the initial state that matters, and that is
+      #whatever the selection says at the moment the table is drawn
+      sel = isolate(sel_of(state$res, state$sel))
+      mm = cbind(data.frame(tick = sprintf(
+        '<input type="checkbox" class="rf-tick" data-rf-i="%d"%s>',
+        idx, ifelse(sel[idx], ' checked', '')),
+        stringsAsFactors = FALSE), mm)
+      escape = setdiff(seq_len(ncol(mm)), 1L)
+      dt_table(mm, pageLength = 10, escape = escape,
+               columnDefs = list(list(targets = 0, orderable = FALSE,
+                                      searchable = FALSE, width = '2.6rem')),
+               callback = htmlwidgets::JS(table_tick_callback))
     }, server = FALSE)
   }else{
     renderTable({
@@ -1348,8 +1954,11 @@ server = function(input, output, session){
     rows = state$rows
     req(rows)
     out = index_view_columns(rows)
+    #The filter is a glob, like the store name pattern on the Store tab (see glob_regex),
+    #so *.zarr and tile* mean what they look like rather than being handed to grepl as a
+    #regular expression
     if(nzchar(in_('idx_filter'))){
-      out = out[grepl(in_('idx_filter'), out$label), , drop = FALSE]
+      out = out[grepl(glob_regex(in_('idx_filter')), out$label), , drop = FALSE]
     }
     status = in_('idx_status', 'all')
     if(status != 'all'){
@@ -1357,8 +1966,7 @@ server = function(input, output, session){
     }
     out
   })
-
-  #The full column set is wide enough that nothing works without a horizontal scroll, and
+#The full column set is wide enough that nothing works without a horizontal scroll, and
   #the reason it did not appear was that scrollX alone leaves DataTables sizing the
   #wrapper to the table; the CSS on .dataTables_wrapper in the header forces the scroll
   #onto the container the card actually gives it
@@ -1371,6 +1979,9 @@ server = function(input, output, session){
   output$idx_info = renderText({
     rows = state$rows
     req(rows)
+    if(nrow(rows) == 0){
+      return('index rows:   0 -- the store name pattern excluded every row.')
+    }
     paste0('index rows:   ', nrow(rows), '\n',
            'stores:       ', length(unique(rows$label)), '\n',
            'extnames:     ', paste(sort(unique(rows$extname)), collapse = ', '), '\n',
@@ -1430,8 +2041,10 @@ server = function(input, output, session){
     if(is.null(fr)){
       return(NULL)
     }
+    #The same glob as the Index tab's table, so the two views cannot disagree about
+    #what is on screen
     if(nzchar(in_('idx_filter'))){
-      fr = fr[grepl(in_('idx_filter'), fr$label), , drop = FALSE]
+      fr = fr[grepl(glob_regex(in_('idx_filter')), fr$label), , drop = FALSE]
     }
     status = in_('idx_status', 'all')
     if(status != 'all'){
@@ -1786,7 +2399,7 @@ server = function(input, output, session){
   observeEvent(picks(), {
     pk = picks()
     plotly::plotlyProxyInvoke(plotly::plotlyProxy('frames'), 'restyle',
-                              list(x = list(pk$ra), y = list(pk$dec)), 2)
+                              pick_restyle_args(pk$ra, pk$dec), 2)
   }, ignoreInit = TRUE)
 
   output$frames_info = renderText({
@@ -1794,7 +2407,8 @@ server = function(input, output, session){
     #yet is told so in words rather than leaving a blank box where the answer should be
     fr = frames_subset()
     if(is.null(fr) || nrow(fr) == 0){
-      return('No frames to show. Load an index on the Store tab first.')
+      return(paste0('No frames to show. Load an index on the Store tab first, or widen ',
+                    'the store name pattern and the Index tab filters.'))
     }
     sel = selected_frames()
     box = selected_box()
