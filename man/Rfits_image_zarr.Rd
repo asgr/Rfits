@@ -40,22 +40,22 @@ Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,head
 Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext=TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, keyvalues, keycomments, keynames, comment, history)
 
 Rfits_append_image_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
 
@@ -144,6 +144,9 @@ Logical scalar; if TRUE the data is appended along dimension 1 of an existing ar
   \item{update_root}{
 Logical scalar; if TRUE (default) the store level description is rebuilt after a successful write. Set FALSE when writing many arrays in a loop, and then do at least one final write with it left at TRUE, since the refresh reads the metadata of every array in the store. Note that \code{\link{Rfits_inspect_zarr}} only reports what is there, it never repairs it.
 }
+  \item{cores}{
+Integer scalar, or \code{NULL} for the default; the number of processes used to compress and write one array. See Details.
+}
   \item{keyvalues}{
 Named list; keyword values to store, as produced by \code{\link{Rfits_read_header}}. Only needed for data which is not already an \option{Rfits_image} style object.
 }
@@ -184,6 +187,16 @@ Stores written before this existed have no root description, which is reported h
 With \option{append} = TRUE the data is the increment, not the complete final array: writing \code{3 x 6} to an existing \code{4 x 6} array produces a \code{7 x 6} array. Growth happens along dimension 1 only, which is the slowest varying axis in FITS, R and Zarr alike, so the elements already in the store keep their indices. Every other dimension must match exactly, and the rank must not change.
 
 The stored data type is never widened or narrowed: an unrequested type difference is coerced to the existing array's type with a message, while an explicit \option{data_type} that disagrees is an error. The compressor of an existing array cannot be changed, which is reported rather than ignored. \option{NAXIS1} (or \option{ZNAXIS1} for a compressed image) is updated to follow the array, and a HISTORY line records the event on the array and in the root's \code{append_history}. Keywords already in the header win over any supplied with the append, since the alternative would be silently rewriting the WCS of a whole extension. Appending to an array with no FITS metadata leaves nothing invented behind: the array grows, and a message says no keys were updated.
+
+\strong{Writing one array in parallel}
+
+Compressing an array is single threaded work, so a large image can take minutes no matter how many cores the machine has. Setting \option{cores} spreads that work over several processes, which is worth doing for one array of its own and is how \code{\link{Rfits_dir_to_zarr}} converts a whole directory. The array is cut into bands of whole chunks along its last dimension that is split into more than one chunk, and each worker is given one band. Bands never share a chunk, so no worker has to read what another has written, and the bytes on disk are identical to a single write. A band smaller than a chunk would break that, which is why \option{cores} does nothing when no dimension reaches two chunks, and why the chunk shape caps the useful number of workers.
+
+The workers receive their band as data, which costs a copy of the whole array and a trip through the serialiser on top of starting the cluster. On a 14000 by 14000 float array that is about a second to start and five more to slice and ship, so \option{cores} only pays when compression is what the time is going on: at \code{clevel} = 9 the same array takes 102 s in one process and 24 s with \code{cores} = 8, but at \code{clevel} = 3 it takes 9.3 s and 8.1 s, which is barely worth the process management. A 2000 by 2000 array at \code{clevel} = 9 is a wash at about 2 s either way, and smaller arrays are slower in parallel.
+
+Memory goes up rather than down, since the parent holds the whole array while each worker holds its own band: the same array peaks near 4.6 GB written in one process and 10.6 GB with 8 workers. That, not the core count, is what bounds a large \option{cores}.
+
+\option{cores} needs a local store path, since each worker opens the store for itself and a store object cannot be carried across to another process. Given a store object it is reported and ignored, and the array is written in one. The same happens with \option{append} = TRUE, where the increment has to be resized before it can be written at all.
 
 \strong{Remote stores}
 

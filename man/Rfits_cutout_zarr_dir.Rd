@@ -117,10 +117,12 @@ alone unless stores that clearly overlap are being missed, in which case raising
 makes that stage less strict at the cost of more work in the second.
 }
   \item{cache}{
-Character scalar; a path to an \code{.rds} file holding the header information of the
-stores, and (for a remote search) the list of stores found under the prefix, so that a
-directory searched repeatedly is not read over the network each time. Local stores are
-checked against their metadata files and so cannot go stale quietly; remote ones are
+Character scalar; a path to a \code{Rfits_zarr_index} parquet file holding the header
+information of the stores, and (for a remote search) the list of stores found under the
+prefix, so that a directory searched repeatedly is not read over the network each time.
+The \code{.parquet} extension may be left off, and a path ending in \code{.rds} keeps
+its stem, which is where an older cache left the index. Local stores are checked
+against their metadata files and so cannot go stale quietly; remote ones are
 trusted, which is what \option{refresh} is for.
 }
   \item{refresh}{
@@ -178,10 +180,11 @@ for it a second time.
 \subsection{Caching}{
 
 A \option{cache} file makes a repeated search over the network cost about the same as
-reading a local directory. It holds two kinds of entry: the search metadata of every
-store, which is what removes a small read per store, and the list of stores found
-under a remote prefix, which is what removes the walk that finds them. Both are
-written in one \code{.rds} file.
+reading a local directory. It is a \code{\link{Rfits_zarr_index}}, and holds two kinds
+of entry: the search metadata of every store, which is what removes a small read per
+store, and the list of stores found under a remote prefix, which is what removes the
+walk that finds them. Both are held in one parquet file, which may be built ahead of
+the search and published beside the tiles it describes.
 
 Remote entries cannot be checked for staleness without making the request they exist
 to avoid, so they are trusted, and \option{refresh} = \code{TRUE} is how a bucket
@@ -191,7 +194,7 @@ size and modification time of each store's metadata document, which costs a
 when the walk that produced it reached the end of the directory; one that stopped at
 \option{max_dirs} holds a partial answer and is not kept.
 
-An entry written by an earlier version of the package, which recorded only the two
+A row written by an earlier version of the package, which recorded only the two
 celestial axes, is re-read rather than used, since a pointer needs the whole header: a
 cube or 4D array would otherwise come back having lost the keywords for its third and
 fourth axes.
@@ -254,7 +257,7 @@ names(corner)
 
 #Several positions at once, and the store list narrowed before any of them is searched
 many = Rfits_cutout_zarr_dir(dir = 'path/to/tiles', loc = targets$loc, box = 101,
-                             pattern = 'field-07', cache = 'tiles.rds')
+                             pattern = 'field-07', cache = 'tiles_index')
 
 #The same over S3, where the headers are the only thing transferred until a box is
 #actually matched. extract = FALSE answers the question for the price of the scan
@@ -271,6 +274,7 @@ plot(seen[[1]][box = 101])
 \seealso{
 \code{\link{Rfits_dir_to_zarr}}, \code{\link{Rfits_point_zarr}},
 \code{\link{Rfits_image_zarr}}, \code{\link{Rfits_methods}},
-\code{\link{Rfits_read_all}}, \code{\link[Rwcs]{Rwcs_overlap}}
+\code{\link{Rfits_read_all}}, \code{\link[Rwcs]{Rwcs_overlap}},
+\code{\link{Rfits_zarr_index}}
 }
 \concept{ Zarr }
