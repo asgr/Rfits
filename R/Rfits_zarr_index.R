@@ -121,10 +121,22 @@
 
 #arrow rather than nanoparquet, the other CRAN parquet reader. arrow is the one that can
 #push both a row filter and a column projection into the scan, which is the point of
-#querying an index rather than loading a table.
-.zarr_index_require_arrow = function(what = 'to read or write a Zarr index'){
+#querying an index rather than loading a table. data.table is checked alongside it because
+#the rows are held as one whatever the file format is, and both are only Suggests.
+#
+#This is called at the top of the index paths and nowhere else. A search run without a
+#cache reads stores and never builds index rows, so it must not be made to depend on
+#either package.
+.zarr_index_require = function(what = 'to read or write a Zarr index'){
   if(!requireNamespace('arrow', quietly = TRUE)){
     stop('The arrow package is needed ', what, '. Please install it from CRAN.',
+         call. = FALSE)
+  }
+  #Rows are held as a data.table whatever the file format is, and data.table is only a
+  #Suggests package, so it is checked here rather than left to fail from inside the row
+  #builder with a bare 'there is no package called data.table'
+  if(!requireNamespace('data.table', quietly = TRUE)){
+    stop('The data.table package is needed ', what, '. Please install it from CRAN.',
          call. = FALSE)
   }
 }
@@ -396,7 +408,7 @@
 #statistics cannot match are never read; a file with nothing to return is the ordinary
 #case for a search over one corner of a big release, not an error.
 .zarr_index_scan = function(path, cols, filter = NULL){
-  .zarr_index_require_arrow('to read a Zarr index')
+  .zarr_index_require('to read a Zarr index')
   tab = arrow::Scanner$create(arrow::open_dataset(path), projection = cols,
                               filter = filter)$ToTable()
   out = as.data.frame(tab, stringsAsFactors = FALSE)
@@ -465,7 +477,7 @@
 #reading a group at all describe a contiguous slice of the directory rather than a
 #permutation of it.
 .zarr_index_write = function(dt, path){
-  .zarr_index_require_arrow('to write a Zarr index')
+  .zarr_index_require('to write a Zarr index')
   dt = data.table::copy(data.table::as.data.table(dt))
   cols = .zarr_index_cols()
   for(col in setdiff(cols, names(dt))){
@@ -517,7 +529,7 @@
 #strip the stores this run did not visit. For that it is the one place where reading the
 #whole file is right, and the file is a few hundred kB.
 .zarr_index_load_all = function(path){
-  .zarr_index_require_arrow('to read a Zarr index')
+  .zarr_index_require('to read a Zarr index')
   dt = tryCatch(arrow::read_parquet(path), error = function(e) NULL)
   if(is.null(dt)){
     return(.zarr_index_rows(list()))
@@ -531,6 +543,12 @@
 #that were not queried are left absent rather than filled in, so that a light row cannot be
 #mistaken for a store whose keywords are known to be missing.
 .zarr_index_rows_clean = function(dt){
+  #The subset at the end is data.table syntax, and what arrives here is not always a
+  #data.table: .zarr_index_scan converts its table to a plain data.frame, and
+  #arrow::read_parquet returns a tibble unless something in the session has asked it not
+  #to. Either would fail here with 'unused argument (with = FALSE)', which does not read
+  #anything like the cause.
+  dt = data.table::as.data.table(dt)
   keep = intersect(.zarr_index_cols(), names(dt))
   for(col in intersect(.zarr_index_list_cols(), keep)){
     dt[[col]] = lapply(dt[[col]], function(val) .zarr_index_cell(col, val))
@@ -719,6 +737,10 @@ Rfits_zarr_index = function(dir = NULL, filelist = NULL, pattern = NULL, recursi
                             index = NULL, refresh = FALSE,
                             data.table = TRUE, verbose = TRUE, ...){
   .zarr_require()
+  #Asked for up front, because a refresh = TRUE run reaches the row builder without ever
+  #scanning a file, and the failure would otherwise come from data.table:: rather than
+  #naming the package that is missing
+  .zarr_index_require('to build a Zarr index')
   assertString(dir, null.ok = TRUE)
   assertCharacter(filelist, null.ok = TRUE)
   assertCharacter(pattern, null.ok = TRUE)
@@ -1099,7 +1121,14 @@ Rfits_zarr_index_query = function(index, RA = NULL, Dec = NULL, loc = NULL,
     if(any(near)){
       at = which(near)
       sep = .zarr_ang_sep_arcsec(pos[k, 1], pos[k, 2], rows$ra[at], rows$dec[at])
-      keep[at[sep <= limit[at]]] = TRUE
+      #An NA here is treated as a keep, which is what near[is.na(near)] above already
+      #does for a store whose position could not be compared. A row written 'ok' always
+      #carries a finite reference position, so this is the same defensive stance rather
+      #than a case that is expected to arise; the logical goes through which() because
+      #[<- drops an NA subscript silently instead of keeping the row it stands for
+      inside = sep <= limit[at]
+      inside[is.na(inside)] = TRUE
+      keep[at[which(inside)]] = TRUE
     }
   }
   hit = rows[keep, ]

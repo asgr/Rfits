@@ -704,16 +704,22 @@ Rfits_cutout_zarr_dir = function(dir = NULL, filelist = NULL, pattern = NULL,
     tiles[[i]] = got
   }
 
-  added = new_rows[!vapply(new_rows, is.null, logical(1))]
-  #The version travels with every write, including the first, since an index that cannot
-  #say which version it is cannot be read back safely
-  fresh = .zarr_index_rows(c(added, list(.zarr_index_meta_row('index_version',
-                                                               .zarr_index_version))))
-  if(!is.null(stores$walked) && !is.null(cache)){
-    fresh = .zarr_index_merge(fresh, .zarr_index_rows(
-      list(.zarr_index_walk_row(stores$walk_key, stores$walked))))
+  #Built only when there is somewhere to put it. Assembling the rows means a data.table of
+  #every header this run read, which a search without a cache has no use for and no reason
+  #to depend on data.table and arrow for
+  fresh = NULL
+  if(!is.null(cache)){
+    added = new_rows[!vapply(new_rows, is.null, logical(1))]
+    #The version travels with every write, including the first, since an index that cannot
+    #say which version it is cannot be read back safely
+    fresh = .zarr_index_rows(c(added, list(.zarr_index_meta_row('index_version',
+                                                                 .zarr_index_version))))
+    if(!is.null(stores$walked)){
+      fresh = .zarr_index_merge(fresh, .zarr_index_rows(
+        list(.zarr_index_walk_row(stores$walk_key, stores$walked))))
+    }
   }
-  if(!is.null(cache) && nrow(fresh) > 0){
+  if(!is.null(cache) && !is.null(fresh) && nrow(fresh) > 0){
     #The whole file is read first because a merge that carried rows over without their
     #keywords would quietly strip the stores this run did not visit. That is the one place
     #where loading an index rather than querying it is right, and it is a few hundred kB.

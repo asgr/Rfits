@@ -8,7 +8,9 @@
 Rfits_cutout_app = function(launch.browser = getOption('shiny.launch.browser', interactive()),
                             display.mode = c('normal', 'static'),
                             port = NULL, ...){
-  need = c('shiny', 'bslib', 'plotly', 'Rwcs')
+  #The same list the app checks for itself, so that a missing package is named here
+  #rather than reported from inside the app's own startup
+  need = c('shiny', 'bslib', 'plotly', 'Rwcs', 'arrow', 'data.table')
   missing = need[!vapply(need, requireNamespace, logical(1), quietly = TRUE)]
   if(length(missing) > 0){
     stop('Rfits_cutout_app needs: ', paste(missing, collapse = ', '),

@@ -1438,7 +1438,11 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #parent. The store is reopened from its path rather than carried across, because a
 #store object keeps its data and its connection in the process that opened it.
 .zarr_write_band = function(job){
-  suppressPackageStartupMessages({library(Rfits); library(zarr)})
+  #Rfits is attached rather than assumed, since the function is reached by name on the
+  #worker. zarr is not: every call into it here goes through zarr::, which loads the
+  #namespace without attaching it, and attaching a package from Suggests is what R CMD
+  #check objects to.
+  suppressPackageStartupMessages(library(Rfits))
   store = .zarr_store_open(job$filename, write = TRUE)
   node = store$get_node(job$path)
   node$write(job$band, selection = job$selection)
@@ -1459,13 +1463,19 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   #is resolved on the node, which is why it is defined there first. invisible() because
   #clusterEvalQ would print the value from every node.
   invisible(parallel::clusterEvalQ(cluster, {
-    zarr_band_worker = .zarr_write_band
+    #::: and not a bare name. The expression runs on the worker, where Rfits is in the
+    #namespace but its internals are not on the search path, so a bare .zarr_write_band
+    #is not found and every band fails before a pixel is written.
+    zarr_band_worker = Rfits:::.zarr_write_band
   }))
   jobs = lapply(bands, function(selection){
     #Sliced here rather than in the worker, so what each worker is sent is only its own
     #band. This is also why the split is taken along a trailing dimension, since R
     #stores the leading dimension fastest and such a band is one contiguous block.
-    band = do.call(`[`, c(list(data), lapply(selection, function(b) b[1]:b[2])))
+    #drop = FALSE because a band that covers a whole axis of length one is otherwise
+    #flattened to a vector, and a store cannot broadcast that into its selection.
+    band = do.call(`[`, c(list(data), lapply(selection, function(b) b[1]:b[2]),
+                          list(drop = FALSE)))
     return(list(filename = filename, path = path, selection = selection, band = band))
   })
   counts = parallel::parLapply(cluster, jobs, 'zarr_band_worker')
@@ -1996,10 +2006,11 @@ Rfits_dir_to_zarr = function(dir = NULL, filelist = NULL, pattern = NULL, recurs
     #The cluster is stopped on the way out even if a worker dies, since idle workers
     #would each hold the memory of a whole image until the session ended
     on.exit(parallel::stopCluster(cluster), add = TRUE)
-    #Workers start empty, so the package has to be loaded there before the helper can
-    #be found, and zarr because the writer needs it
+    #Workers start empty, so the package has to be loaded there before the helper can be
+    #found. zarr is not attached: the reader and the writer reach it through zarr::, and
+    #attaching a package from Suggests is what R CMD check objects to
     parallel::clusterEvalQ(cluster, {
-      suppressPackageStartupMessages({library(Rfits); library(zarr)})
+      suppressPackageStartupMessages(library(Rfits))
       return(NULL)
     })
     #Each file is read, compressed and written by one worker, so the parallelism is

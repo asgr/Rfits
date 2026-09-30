@@ -216,76 +216,157 @@ expect_identical(c3[[1]], c(1L, 2L))
 expect_identical(c3[[2]], c(1L, 10L))
 expect_identical(c3[[3]], c(1L, 5L))
 
+#Whether the cores paths are exercised at all. Launching workers needs both halves below.
+#NOT_CRAN is the opt-in devtools::test() and testthat::test_local() set, which is the
+#skip_on_cran() idiom, but it is not enough on its own: devtools::check() sets NOT_CRAN and
+#the Rproj passes --as-cran, so a check run reaches this file with NOT_CRAN true and a core
+#limit in force at the same time. _R_CHECK_LIMIT_CORES_ then makes parallel refuse more than
+#two processes rather than merely noting them, which is an error and not a skip. Both
+#conditions are read here rather than calling skip_on_cran() because this file has no
+#test_that() blocks, so a skip at top level abandons every expectation after it rather than
+#one test. The result is that these run in the developer and test_local workflow and are
+#quiet under R CMD check. A worker loads the installed package rather than a loaded one,
+#which is also what makes these the only tests that can catch a symbol a worker cannot
+#resolve.
+cores_ok = identical(Sys.getenv('NOT_CRAN'), 'true') &&
+  tolower(Sys.getenv('_R_CHECK_LIMIT_CORES_', '')) %in% c('', 'false')
+
 #ex 11c cores writes the same array as writing it in one, byte for byte. Small arrays
 #are used on purpose, since the point is equivalence rather than speed
-#Commented out since launching multiple cores generally not allowed for test (certainly on CRAN)
-# band_src = matrix(as.numeric(1:40000), 200, 200)
-# band_src[5, 5] = NA
-# band_serial = file.path(subdir, 'band_serial.zarr')
-# band_par = file.path(subdir, 'band_par.zarr')
-# Rfits_write_image_zarr(band_src, band_serial, extname = 'data1', data_type = 'float32',
-#                        chunk_shape = c(50, 50), clevel = 6,
-#                        keyvalues = list(TEST = 1), keycomments = list(TEST = 'c'))
-# band_res = Rfits_write_image_zarr(band_src, band_par, extname = 'data1',
-#                                   data_type = 'float32', chunk_shape = c(50, 50),
-#                                   clevel = 6, cores = 4,
-#                                   keyvalues = list(TEST = 1), keycomments = list(TEST = 'c'))
-# back_par = Rfits_read_image_zarr(band_par, extname = 'data1')
-# back_serial = Rfits_read_image_zarr(band_serial, extname = 'data1')
-# expect_equal(back_par$imDat, back_serial$imDat)
-# #the NA is the array fill value, so a band that did not cover it would show up here
-# expect_identical(is.na(back_par$imDat), is.na(band_src))
-# expect_identical(back_par$keyvalues, back_serial$keyvalues)
-# expect_identical(band_res$dim, c(200L, 200L))
-# #and the chunk files are the same bytes, not merely the same numbers
-# keys_s = sort(list.files(file.path(band_serial, 'data1')))
-# keys_p = sort(list.files(file.path(band_par, 'data1')))
-# expect_identical(keys_s, keys_p)
-# skip_if_not_installed('digest')
-# md5_keys = function(store, keys) vapply(keys, function(k)
-#   digest::digest(readBin(file.path(store, 'data1', k), 'raw', 1e8), algo = 'md5'), '')
-# chunk_keys = setdiff(keys_s, 'zarr.json')
-# expect_identical(md5_keys(band_serial, chunk_keys), md5_keys(band_par, chunk_keys))
-# #more cores than chunks is allowed, and the extra workers simply get nothing
-# expect_true(all(Rfits_write_image_zarr(band_src, file.path(subdir, 'band_many.zarr'),
-#                                        extname = 'data1', data_type = 'float32',
-#                                        chunk_shape = c(50, 50), clevel = 1,
-#                                        cores = 16)$dim == c(200, 200)))
-# #cores says so rather than doing nothing quietly when there is nothing to split, which
-# #means one chunk in every dimension. The array must still be written correctly, by the
-# #serial path
-# nosplit = file.path(subdir, 'band_nosplit.zarr')
-# expect_message(Rfits_write_image_zarr(data_2d, nosplit, extname = 'data1',
-#                                       chunk_shape = c(4, 6), cores = 4),
-#                'nothing to split')
-# expect_equal(Rfits_read_image_zarr(nosplit, extname = 'data1', header = FALSE), data_2d)
-# #the same for a store object, whose contents cannot be carried to a worker. This one
-# #would have been splittable, so the message is about the store and not the chunking
-# store_zarr = file.path(subdir, 'band_store.zarr')
-# store_obj = Rfits:::.zarr_store_new(store_zarr)
-# expect_message(Rfits_write_image_zarr(data_2d, store_obj, extname = 'data1',
-#                                       chunk_shape = c(2, 3), cores = 4),
-#                'store object')
-# expect_equal(Rfits_read_image_zarr(store_zarr, extname = 'data1', header = FALSE), data_2d)
-# #appending is reported and done in one. The increment grows dimension 1, so two stacks
-# #of 2 x 6 make the 4 x 6 the array started as
-# band_app = file.path(subdir, 'band_app.zarr')
-# Rfits_write_image_zarr(data_2d[1:2, ], band_app, extname = 'stack',
-#                        chunk_shape = c(2, 3), data_type = 'float64')
-# expect_message(Rfits_write_image_zarr(data_2d[3:4, ], band_app, extname = 'stack',
-#                                       append = TRUE, cores = 4),
-#                'append = TRUE')
-# expect_equal(Rfits_read_image_zarr(band_app, extname = 'stack', header = FALSE), data_2d)
-# #a bad cores value is refused before any worker is started
-# expect_error(Rfits_write_image_zarr(data_2d, file.path(subdir, 'band_badcores.zarr'),
-#                                     extname = 'data1', cores = 0), 'cores')
-# #and it survives on the aliases, which are the same function
-# expect_equal(Rfits_write_cube_zarr(array(as.numeric(1:800), c(10, 10, 8)),
-#                                    file.path(subdir, 'band_cube.zarr'), extname = 'data1',
-#                                    chunk_shape = c(5, 5, 4), cores = 2, clevel = 1)$dim,
-#              c(10, 10, 8))
-# expect_equal(Rfits_read_image_zarr(file.path(subdir, 'band_cube.zarr'), extname = 'data1',
-#                                    header = FALSE), array(as.numeric(1:800), c(10, 10, 8)))
+if(cores_ok){
+  band_src_c = matrix(as.numeric(1:40000), 200, 200)
+  band_src_c[5, 5] = NA
+  band_serial_c = file.path(subdir, 'band_serial.zarr')
+  band_par_c = file.path(subdir, 'band_par.zarr')
+  Rfits_write_image_zarr(band_src_c, band_serial_c, extname = 'data1',
+                         data_type = 'float32', chunk_shape = c(50, 50), clevel = 6,
+                         keyvalues = list(TEST = 1), keycomments = list(TEST = 'c'))
+  band_res_c = Rfits_write_image_zarr(band_src_c, band_par_c, extname = 'data1',
+                                      data_type = 'float32', chunk_shape = c(50, 50),
+                                      clevel = 6, cores = 4,
+                                      keyvalues = list(TEST = 1),
+                                      keycomments = list(TEST = 'c'))
+  back_par = Rfits_read_image_zarr(band_par_c, extname = 'data1')
+  back_serial = Rfits_read_image_zarr(band_serial_c, extname = 'data1')
+  expect_equal(back_par$imDat, back_serial$imDat)
+  #the NA is the array fill value, so a band that did not cover it would show up here
+  expect_identical(is.na(back_par$imDat), is.na(band_src_c))
+  expect_identical(back_par$keyvalues, back_serial$keyvalues)
+  expect_identical(band_res_c$dim, c(200L, 200L))
+  #and the chunk files are the same bytes, not merely the same numbers
+  keys_s = sort(list.files(file.path(band_serial_c, 'data1')))
+  keys_p = sort(list.files(file.path(band_par_c, 'data1')))
+  expect_identical(keys_s, keys_p)
+  if(requireNamespace('digest', quietly = TRUE)){
+    md5_keys = function(store, keys) vapply(keys, function(k)
+      digest::digest(readBin(file.path(store, 'data1', k), 'raw', 1e8), algo = 'md5'), '')
+    chunk_keys = setdiff(keys_s, 'zarr.json')
+    expect_identical(md5_keys(band_serial_c, chunk_keys), md5_keys(band_par_c, chunk_keys))
+  }
+  #more cores than chunks is allowed, and the extra workers simply get nothing
+  expect_true(all(Rfits_write_image_zarr(band_src_c, file.path(subdir, 'band_many.zarr'),
+                                         extname = 'data1', data_type = 'float32',
+                                         chunk_shape = c(50, 50), clevel = 1,
+                                         cores = 16)$dim == c(200, 200)))
+  #cores says so rather than doing nothing quietly when there is nothing to split, which
+  #means one chunk in every dimension. The array must still be written correctly, by the
+  #serial path
+  nosplit = file.path(subdir, 'band_nosplit.zarr')
+  expect_message(Rfits_write_image_zarr(data_2d, nosplit, extname = 'data1',
+                                        chunk_shape = c(4, 6), cores = 4),
+                 'nothing to split')
+  expect_equal(Rfits_read_image_zarr(nosplit, extname = 'data1', header = FALSE), data_2d)
+  #the same for a store object, whose contents cannot be carried to a worker. This one
+  #would have been splittable, so the message is about the store and not the chunking
+  store_zarr = file.path(subdir, 'band_store.zarr')
+  store_obj = Rfits:::.zarr_store_new(store_zarr)
+  expect_message(Rfits_write_image_zarr(data_2d, store_obj, extname = 'data1',
+                                        chunk_shape = c(2, 3), cores = 4),
+                 'store object')
+  expect_equal(Rfits_read_image_zarr(store_zarr, extname = 'data1', header = FALSE), data_2d)
+  #appending is reported and done in one. The increment grows dimension 1, so two stacks
+  #of 2 x 6 make the 4 x 6 the array started as
+  band_app = file.path(subdir, 'band_app.zarr')
+  Rfits_write_image_zarr(data_2d[1:2, ], band_app, extname = 'stack',
+                         chunk_shape = c(2, 3), data_type = 'float64')
+  expect_message(Rfits_write_image_zarr(data_2d[3:4, ], band_app, extname = 'stack',
+                                        append = TRUE, cores = 4),
+                 'append = TRUE')
+  expect_equal(Rfits_read_image_zarr(band_app, extname = 'stack', header = FALSE), data_2d)
+  #a bad cores value is refused before any worker is started
+  expect_error(Rfits_write_image_zarr(data_2d, file.path(subdir, 'band_badcores.zarr'),
+                                      extname = 'data1', cores = 0), 'cores')
+  #and it survives on the aliases, which are the same function
+  expect_equal(Rfits_write_cube_zarr(array(as.numeric(1:800), c(10, 10, 8)),
+                                     file.path(subdir, 'band_cube.zarr'), extname = 'data1',
+                                     chunk_shape = c(5, 5, 4), cores = 2, clevel = 1)$dim,
+               c(10, 10, 8))
+  expect_equal(Rfits_read_image_zarr(file.path(subdir, 'band_cube.zarr'), extname = 'data1',
+                                     header = FALSE), array(as.numeric(1:800), c(10, 10, 8)))
+}
+
+#ex 11d the band write, without launching a cluster. The worker body is called directly
+#for each band, which is the part that has to be right: a worker resolves its own symbols
+#and writes into a store it opened itself. The band split above is checked on its own, and
+#a real cores run is the same code with the loop fanned out over processes
+write_band_bands = function(src, store_path, chunk, cores = 4){
+  bands = Rfits:::.zarr_chunk_bands(dim(src), chunk, cores)
+  expect_true(length(bands) > 0)
+  for(sel in bands){
+    #The same slice the parallel path sends to a worker, drop = FALSE included: a band
+    #covering a whole axis of length one is otherwise flattened to a vector, and a store
+    #cannot broadcast that into its selection
+    band = do.call(`[`, c(list(src), lapply(sel, function(b) b[1]:b[2]), list(drop = FALSE)))
+    expect_identical(length(dim(band)), length(dim(src)))
+    Rfits:::.zarr_write_band(list(filename = store_path,
+                                  path = Rfits:::.zarr_name_to_path('data1'),
+                                  selection = sel, band = band))
+  }
+}
+band_src = matrix(as.numeric(1:120), 20, 6)
+band_src[5, 5] = NA
+band_serial = file.path(subdir, 'band_body_serial.zarr')
+band_written = file.path(subdir, 'band_body_par.zarr')
+Rfits_write_image_zarr(band_src, band_serial, extname = 'data1', data_type = 'float32',
+                       chunk_shape = c(5, 5), clevel = 6)
+Rfits_write_image_zarr(band_src, band_written, extname = 'data1', data_type = 'float32',
+                       chunk_shape = c(5, 5), clevel = 6)
+write_band_bands(band_src, band_written, c(5L, 5L))
+expect_equal(Rfits_read_image_zarr(band_written, extname = 'data1', header = FALSE),
+             Rfits_read_image_zarr(band_serial, extname = 'data1', header = FALSE))
+#the NA is the array fill value, so a band that did not cover it would show up here
+expect_identical(is.na(Rfits_read_image_zarr(band_written, extname = 'data1',
+                                             header = FALSE)), is.na(band_src))
+#an axis of length one is the case a band flattens, so it keeps its shape and its values
+band_deg = matrix(as.numeric(1:20), 20, 1)
+band_deg_path = file.path(subdir, 'band_body_deg.zarr')
+Rfits_write_image_zarr(band_deg, band_deg_path, extname = 'data1', chunk_shape = c(4L, 1L))
+write_band_bands(band_deg, band_deg_path, c(4L, 1L), cores = 2)
+expect_identical(dim(Rfits_read_image_zarr(band_deg_path, extname = 'data1',
+                                           header = FALSE)), c(20L, 1L))
+expect_equal(as.numeric(Rfits_read_image_zarr(band_deg_path, extname = 'data1',
+                                              header = FALSE)), as.numeric(1:20))
+
+#ex 11e the same thing through a real cluster. The worker body above is called in this
+#process, so it cannot catch the case that actually broke: a worker reaching for something
+#that lives in the namespace but is not attached, which fails on every band before a pixel
+#is written. This is the only test that exercises that path.
+#
+#Guarded by the same switch as ex 11c. It also needs the installed package rather than a
+#loaded one, since a worker loads what is installed, so under load_all it is the installed
+#copy that is checked against the source.
+if(cores_ok && requireNamespace('Rfits', quietly = TRUE)){
+  band_par = file.path(subdir, 'band_par.zarr')
+  band_par_res = Rfits_write_image_zarr(band_src, band_par, extname = 'data1',
+                                        data_type = 'float32', chunk_shape = c(5, 5),
+                                        clevel = 6, cores = 2)
+  expect_identical(band_par_res$dim, c(20L, 6L))
+  expect_equal(Rfits_read_image_zarr(band_par, extname = 'data1', header = FALSE),
+               Rfits_read_image_zarr(band_serial, extname = 'data1', header = FALSE))
+  #the NA still lands where it was put, so no band silently wrote over another's
+  expect_identical(is.na(Rfits_read_image_zarr(band_par, extname = 'data1',
+                                               header = FALSE)), is.na(band_src))
+}
 
 #ex 12 pointers read only what is asked of them
 point = Rfits_point_zarr(file_dims, extname = 'data4')
@@ -1009,66 +1090,81 @@ expect_error(Rfits_dir_to_zarr(dir = file.path(subdir, 'no_such_dir'), target = 
 #ex 47b cores converts several files at once, and must agree with doing them one by
 #one. A worker that failed to load Rfits would show up as an error row rather than a
 #silent success, which is what checking the table as well as the pixels buys here
-#commented out since cores generally not allowed in test (certainly not on CRAN)
 par_out = file.path(subdir, 'batch_par')
-par = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                        cores = 2, verbose = FALSE)
-expect_identical(nrow(par), 2L)
-expect_true(all(par$status == 'ok'))
-#the order is the order of the files given, not the order the workers finished in
-expect_identical(basename(par$store), basename(batch$store))
-for(name in basename(batch$store)){
-  expect_equal(Rfits_read_image_zarr(file.path(par_out, name), extname = 'data1')$imDat,
-               Rfits_read_image_zarr(file.path(batch_out, name), extname = 'data1')$imDat)
+#a bad cores value is refused before any worker is started, so this one needs no gate
+expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, cores = 0), 'cores')
+#Everything below launches processes, and so is gated on cores_ok for the reason given
+#there: a CRAN incoming check sets _R_CHECK_LIMIT_CORES_ and asks a package not to
+if(cores_ok){
+  par = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
+                          cores = 2, verbose = FALSE)
+  expect_identical(nrow(par), 2L)
+  expect_true(all(par$status == 'ok'))
+  #the order is the order of the files given, not the order the workers finished in
+  expect_identical(basename(par$store), basename(batch$store))
+  for(name in basename(batch$store)){
+    expect_equal(Rfits_read_image_zarr(file.path(par_out, name), extname = 'data1')$imDat,
+                 Rfits_read_image_zarr(file.path(batch_out, name),
+                                       extname = 'data1')$imDat)
+  }
+  #more cores than files is allowed, and the extra workers simply get nothing
+  expect_true(all(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
+                                    cores = 8, verbose = FALSE)$status == 'ok'))
+  #one unreadable file among good ones is still recorded against the right row. This is
+  #the case a parallel batch gets wrong most easily: the rows have to stay aligned with
+  #the files they describe however the workers finish. missing.fits is absent on purpose,
+  #which is the same fixture ex 46 uses for the serial path
+  mix_par = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
+                                           file.path(batch_dir, 'missing.fits'),
+                                           file.path(batch_dir, 'cube_one.fits')),
+                              target = par_out, cores = 3, verbose = FALSE)
+  expect_identical(mix_par$status, c('ok', 'error', 'ok'))
+  expect_true(grepl('readable', mix_par$error[2]))
+  expect_identical(basename(mix_par$store)[2], 'missing.zarr')
 }
-#more cores than files is allowed, and a bad value is refused before any work
-# expect_true(all(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-#                                   cores = 8, verbose = FALSE)$status == 'ok'))
-# expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, cores = 0), 'cores')
-#one unreadable file among good ones is still recorded against the right row
-# mix_par = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
-#                                          file.path(batch_dir, 'missing.fits'),
-#                                          file.path(batch_dir, 'cube_one.fits')),
-#                             target = par_out, cores = 3, verbose = FALSE)
-# expect_identical(mix_par$status, c('ok', 'error', 'ok'))
-# expect_true(grepl('readable', mix_par$error[2]))
-# expect_identical(basename(mix_par$store)[2], 'missing.zarr')
 #the cluster a cores run makes belongs to that call alone, so whatever backend the
 #session has is neither used nor disturbed. A leftover registration would be a real
 #hazard rather than a tidy one, since the next %dopar% would then be handed processes
 #that have already exited. getDoParName is NULL before anything has been attached and
 #a string after, hence the collapsing rather than comparing the values directly
-# par_backend = function() paste(foreach::getDoParName(), collapse = '/')
-# before_name = par_backend()
-# before_workers = as.integer(foreach::getDoParWorkers())
-# Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-#                   cores = 2, verbose = FALSE)
-# expect_identical(par_backend(), before_name)
-# expect_identical(as.integer(foreach::getDoParWorkers()), before_workers)
-# #and a batch of its own still runs beside a cluster the caller registered
-# registered_run = local({
-#   entry = par_backend()
-#   on.exit({
-#     doParallel::stopImplicitCluster()
-#     if(identical(entry, 'doSEQ') || is.null(entry)) foreach::registerDoSEQ()
-#   })
-#   doParallel::registerDoParallel(cores = 2)
-#   par2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-#                            cores = 2, verbose = FALSE)
-#   #checked here rather than after the on.exit, since that is what this is about: the
-#   #cores call must not have replaced the cluster the caller registered
-#   workers = as.integer(foreach::getDoParWorkers())
-#   ser2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-#                            verbose = FALSE)
-#   return(list(par = all(par2$status == 'ok'), ser = all(ser2$status == 'ok'),
-#               workers = workers, name = par_backend()))
-# })
-# expect_true(registered_run$par)
-# expect_true(registered_run$ser)
-# #the caller's cluster is left with its own worker count, i.e. not replaced. The name
-# #depends on the platform, since cores gives fork workers unless they are unavailable
-# expect_identical(registered_run$workers, 2L)
-# expect_false(identical(registered_run$name, 'doSEQ'))
+par_backend = function() paste(foreach::getDoParName(), collapse = '/')
+before_name = par_backend()
+before_workers = as.integer(foreach::getDoParWorkers())
+if(cores_ok){
+  Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
+                    cores = 2, verbose = FALSE)
+  expect_identical(par_backend(), before_name)
+  expect_identical(as.integer(foreach::getDoParWorkers()), before_workers)
+}
+#and a batch of its own still runs beside a cluster the caller registered. This one
+#replaces the session's backend while it runs, which is a second reason to keep it behind
+#the switch: the restore below is best effort, and a CRAN incoming check is not the place
+#to find out it was not enough
+if(cores_ok){
+  registered_run = local({
+    entry = par_backend()
+    on.exit({
+      doParallel::stopImplicitCluster()
+      if(identical(entry, 'doSEQ') || is.null(entry)) foreach::registerDoSEQ()
+    })
+    doParallel::registerDoParallel(cores = 2)
+    par2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
+                             cores = 2, verbose = FALSE)
+    #checked here rather than after the on.exit, since that is what this is about: the
+    #cores call must not have replaced the cluster the caller registered
+    workers = as.integer(foreach::getDoParWorkers())
+    ser2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
+                             verbose = FALSE)
+    return(list(par = all(par2$status == 'ok'), ser = all(ser2$status == 'ok'),
+                workers = workers, name = par_backend()))
+  })
+  expect_true(registered_run$par)
+  expect_true(registered_run$ser)
+  #the caller's cluster is left with its own worker count, i.e. not replaced. The name
+  #depends on the platform, since cores gives fork workers unless they are unavailable
+  expect_identical(registered_run$workers, 2L)
+  expect_false(identical(registered_run$name, 'doSEQ'))
+}
 
 # --- Searching a directory of stores by position (Rfits_cutout_zarr_dir) -----------
 
@@ -1541,6 +1637,46 @@ expect_true(identical(Rfits:::.zarr_store_open(handle), handle))
 second_slice = pslice[75:125, 75:125]
 expect_true(identical(get0('store', envir = pslice$store, inherits = FALSE), handle))
 expect_equal(second_slice$imDat, first_slice$imDat)
+
+#ex 57b Rfits_zarr_index reads an existing index back rather than rebuilding it, which is
+#the other half of the index being worth having. The rows come out of an arrow scan, which
+#returns a plain data.frame, so the row builder has to cope with that as well as with the
+#data.table arrow::read_parquet returns when something in the session has asked for one
+idx_dir = file.path(subdir, 'index_grid')
+dir.create(idx_dir)
+for(n in 1:3){
+  Rfits_write_image_zarr(matrix(0, 50, 50), file.path(idx_dir, paste0('t', n, '.zarr')),
+                         extname = 'data1')
+}
+idx_path = file.path(subdir, 'index1')
+idx_built = Rfits_zarr_index(dir = idx_dir, index = idx_path, verbose = FALSE)
+expect_identical(nrow(idx_built), 3L)
+expect_true(file.exists(Rfits:::.zarr_index_local_path(idx_path)))
+#reading it back is the same rows, and the .parquet extension is supplied
+idx_back = Rfits_zarr_index(index = idx_path, verbose = FALSE)
+expect_identical(nrow(idx_back), 3L)
+expect_identical(sort(idx_back$cache_key), sort(idx_built$cache_key))
+expect_true(inherits(idx_back, 'data.table'))
+#a data.frame in place of a data.table, still from the scanned rows
+idx_flat = Rfits_zarr_index(index = idx_path, data.table = FALSE, verbose = FALSE)
+expect_true(is.data.frame(idx_flat))
+expect_false(inherits(idx_flat, 'data.table'))
+expect_identical(nrow(idx_flat), 3L)
+#what an index holds is reportable without reading its rows
+idx_info = Rfits_zarr_index_info(idx_path)
+expect_identical(class(idx_info), 'Rfits_zarr_index_info')
+expect_identical(idx_info$version, Rfits:::.zarr_index_version)
+expect_identical(idx_info$n_rows, 3L)
+expect_identical(idx_info$extnames, 'data1')
+expect_output(print(idx_info), 'Zarr index')
+#a newer index is refused rather than half read, since a search that quietly found nothing
+#in a file whose columns had moved would look exactly like tiles that did not overlap
+newer = Rfits:::.zarr_index_rows(list(
+  Rfits:::.zarr_index_meta_row('index_version', Rfits:::.zarr_index_version + 1L),
+  Rfits:::.zarr_index_blank_row()))
+newer_path = file.path(subdir, 'index_newer')
+Rfits:::.zarr_index_write(newer, Rfits:::.zarr_index_local_path(newer_path))
+expect_error(Rfits_zarr_index(index = newer_path, verbose = FALSE), 'newer version')
 
 #ex 58 header = FALSE gives the bare array, and extname may offer several candidates
 nohead = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,

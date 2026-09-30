@@ -20,15 +20,21 @@
 #or:
 #  shiny::runApp(system.file('shiny', 'Rfits_cutout_app', package = 'Rfits'))
 
-library(shiny)
-library(bslib)
-
-need = c('Rfits', 'plotly')
+#Checked before they are attached, because library() on a missing package reports
+#'there is no package called shiny', which says nothing about what to do next. arrow and
+#data.table are here rather than left to fail from inside a Rfits::: internal: the app
+#always reads its store list through the index, and the index is parquet rows held as a
+#data.table.
+need = c('shiny', 'bslib', 'Rfits', 'plotly', 'arrow', 'data.table')
 missing = need[!vapply(need, requireNamespace, logical(1), quietly = TRUE)]
 if(length(missing) > 0){
   stop('The Rfits cutout app needs: ', paste(missing, collapse = ', '),
        '. Please install them from CRAN.', call. = FALSE)
 }
+
+library(shiny)
+library(bslib)
+
 if(!requireNamespace('Rwcs', quietly = TRUE)){
   #Without Rwcs there is no WCS aware plot method, and no overlap or position test
   stop('The Rfits cutout app needs the Rwcs package to plot and to search by RA/Dec. ',
@@ -198,6 +204,85 @@ with_capture = function(expr){
       invokeRestart('muffleMessage')
     })
   return(list(value = val, msgs = msgs))
+}
+
+#One store's cutout, as a job a worker can run on its own. Everything it needs arrives in
+#the job, and every call is namespaced, so nothing has to be attached in the worker and
+#nothing has to be found in this file's environment.
+#
+#The environment is detached on purpose. A closure carries the environment it was created
+#in, which for a top level function here is the whole app environment -- the ui tag tree
+#included. Shipping that costs megabytes per job, and it is what makes a parallel cutout
+#slower than a serial one. With baseenv() behind it the body is all that travels.
+cutout_worker = local({
+  f = function(job, capture){
+    capture({
+      if(is.null(job$bucket)){
+        Rfits::Rfits_cutout_zarr_dir(dir = job$store, RA = job$RA, Dec = job$Dec,
+                                     box = job$box, box.unit = job$box_unit,
+                                     buffer = job$buffer, extname = job$extname,
+                                     header = TRUE, extract = TRUE, verbose = TRUE)
+      }else{
+        Rfits::Rfits_cutout_zarr_dir(bucket = job$bucket, prefix = job$store,
+                                     RA = job$RA, Dec = job$Dec, box = job$box,
+                                     box.unit = job$box_unit, buffer = job$buffer,
+                                     extname = job$extname, header = TRUE,
+                                     extract = TRUE, verbose = TRUE,
+                                     region = job$region, endpoint = job$endpoint,
+                                     access_key = job$access_key,
+                                     secret_key = job$secret_key,
+                                     session_token = job$session_token)
+      }
+    })
+  }
+  environment(f) = baseenv()
+  f
+})
+
+#The same treatment for the capture helper, which a worker needs in order to report a
+#store's failure as a line in the log rather than as a promise that rejected. It only calls
+#base functions, so detaching it is safe.
+with_capture_worker = local({
+  f = with_capture
+  environment(f) = baseenv()
+  f
+})
+
+#Whether cutouts are fetched off the session thread. Without both packages the loop runs
+#inline, which is slower but identical in what it produces, so nothing downstream branches
+#on this. Under testthat it is left alone: a sequential plan resolves a future during the
+#flush the tests already do, whereas a worker would not have come back by the time a test
+#asserts on state$res, and the plan is global state a test run should not take over.
+async_ok = requireNamespace('promises', quietly = TRUE) &&
+             requireNamespace('future', quietly = TRUE) &&
+             !identical(Sys.getenv('TESTTHAT'), 'true')
+
+#Registered once rather than per request, since a plan is session wide and building the
+#workers is the expensive part. A plan the user has already chosen is left alone. One core
+#is omitted, because the session thread still has to serve the page while the workers fetch
+if(async_ok && future::nbrOfWorkers() <= 1){
+  future::plan(future::multisession,
+               workers = min(8L, future::availableCores(omit = 1L)))
+}
+
+#An inset in the top left of a cutout saying where it was asked for. Drawn after the image
+#so it sits on top of it, on a light chip because the pixels underneath are usually dark
+#and the chip has to survive both. Coordinates are in user units so the box tracks the
+#axes whichever way a projection has turned them.
+draw_inset = function(txt){
+  if(is.null(txt) || !nzchar(txt)){
+    return(invisible(NULL))
+  }
+  u = par('usr')
+  left = min(u[1], u[2])
+  top = max(u[3], u[4])
+  cex = 0.75
+  w = strwidth(txt, cex = cex, units = 'user')
+  h = strheight(txt, cex = cex, units = 'user')
+  rect(left, top - h * 2.2, left + w + h * 1.4, top,
+       col = rgb(1, 1, 1, 0.72), border = NA)
+  text(left + h * 0.7, top - h * 1.1, txt, adj = c(0, 0.5), cex = cex)
+  return(invisible(NULL))
 }
 
 #A header filter, applied to the candidate stores only. Band and target are usually
@@ -429,12 +514,19 @@ table_tick_callback = "
                                        on: box.checked});
   });
   table.on('draw.dt', sync);
-  if(window.Shiny){
+  //This callback is re-run every time the widget renders, so the handler is installed
+  //once and pointed at whichever closure is current. addCustomMessageHandler refuses a
+  //second registration of the same name, and a handler left bound to the first render's
+  //closure would drive a table that no longer exists.
+  window.__rfTicksSet = function(next){ ticks = next; };
+  window.__rfTicksSync = sync;
+  if(window.Shiny && !window.__rfTicksBound){
+    window.__rfTicksBound = true;
     Shiny.addCustomMessageHandler('rf_set_ticks', function(msg){
       var on = [].concat(msg.i || []), next = {}, k;
       for(k = 0; k < on.length; k++){ next[on[k]] = true; }
-      ticks = next;
-      sync();
+      if(window.__rfTicksSet){ window.__rfTicksSet(next); }
+      if(window.__rfTicksSync){ window.__rfTicksSync(); }
     });
   }
 "
@@ -485,6 +577,13 @@ ui = page_navbar(
        shrink hands the overflow back to the table's own scrollX */
     .bslib-grid-item { min-width: 0; }
     .rf-cut-grid { display: grid; gap: 0.8rem; align-items: start; justify-content: start; }
+    /* A group heading spans the whole grid row, so the cutouts of one target start on a
+       fresh line under it rather than beside it */
+    .rf-group-head { grid-column: 1 / -1; font-size: 0.95rem;
+      border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+      padding-bottom: 0.25rem; margin-top: 0.4rem; }
+    .rf-group-n { color: var(--bs-secondary-color, #6c757d); font-weight: 400;
+      font-size: 0.85rem; }
     /* A DataTable asks to be as wide as its content, so it must be kept inside the width
        its column actually has: see the note on .bslib-grid-item above, which is the fix.
        The wrapper is then allowed to scroll, so the scrollbar belongs to the table rather
@@ -775,8 +874,21 @@ ui = page_navbar(
 
 server = function(input, output, session){
 
+  #pos_idx is the position each result came from, parallel to res, and pos_lab is the
+  #caption of each position. Both are written before res is assigned, so an observer that
+  #fires on res always finds the metadata that belongs to it rather than the last run's
+  #pos_idx is the position each result came from, parallel to res, and pos_lab is the
+  #caption of each position. Both are written before res is assigned, so an observer that
+  #fires on res always finds the metadata that belongs to it rather than the last run's
   state = reactiveValues(con = NULL, idx = NULL, rows = NULL, log = character(0),
-                         res = NULL, matches = NULL, sel = NULL, run = 0L)
+                         res = NULL, matches = NULL, sel = NULL, run = 0L,
+                         pos_idx = NULL, pos_lab = NULL)
+
+  #The progress bar of the run in flight. An environment rather than a slot on state
+  #because nothing renders it, and a reactive value that holds an R6 object is a
+  #dependency every reader of state would invalidate on
+  bar = new.env(parent = emptyenv())
+  bar$prog = NULL
 
   note = function(...){
     txt = paste0(..., collapse = '')
@@ -885,11 +997,15 @@ server = function(input, output, session){
     if(!is.finite(max_dirs) || max_dirs < 1){
       max_dirs = 1000
     }
+    #Clamped before the cast. A numericInput takes 1e10 and as.integer() turns that into
+    #NA, which then fails an assertion inside Rfits_zarr_index with a message that says
+    #nothing about this field
+    max_dirs = as.integer(min(max_dirs, 1e6))
     return(list(bucket = bucket, dir = dir, prefix = trimws(in_('prefix')),
                 index_name = index_name, index_prefix = index_prefix,
                 pattern = if(length(patterns) > 0) patterns else NULL,
                 extname = if(length(ext) > 0) ext else 'data1',
-                max_dirs = as.integer(max_dirs),
+                max_dirs = max_dirs,
                 creds = collect_creds()))
   }
 
@@ -959,6 +1075,13 @@ server = function(input, output, session){
     idx = isolate(state$idx)
     if(!is.null(idx) && isTRUE(idx$owned) && !is.null(idx$path)){
       unlink(idx$path)
+    }
+    #A cutout still in flight when the page closes leaves its bar behind, and closing one
+    #that has already been closed is the thing tryCatch is here for
+    p = bar$prog
+    bar$prog = NULL
+    if(!is.null(p)){
+      tryCatch(p$close(), error = function(e) NULL)
     }
   })
 
@@ -1048,10 +1171,11 @@ server = function(input, output, session){
     if(is.na(n) || n < 1) 24 else as.integer(min(n, 500))
   })
 
-  draw_cutout = function(item, opts){
+  draw_cutout = function(item, opts, inset = NULL){
     if(is.null(item) || is.null(item$imDat)){
       plot.new()
       text(0.5, 0.5, 'No pixel data was extracted for this cutout.', xpd = NA)
+      draw_inset(inset)
       return(invisible(NULL))
     }
     extra = list(qdiff = opts$qdiff, useRaster = opts$useraster, main = '')
@@ -1073,8 +1197,19 @@ server = function(input, output, session){
       sl = max(1L, min(as.integer(if(is.na(opts$slice)) 1 else opts$slice), nmax))
       extra$slice = if(ndim == 3) sl else c(sl, sl)
     }
-    do.call(plot, c(list(x = item), extra))
-    invisible(NULL)
+    #tryCatch because a bad stretch is a complaint from magmap rather than a broken cutout,
+    #and one red box per cell in a gallery of twelve is worse than the message it carries
+    drew = tryCatch({
+      do.call(plot, c(list(x = item), extra))
+      TRUE
+    }, error = function(e){
+      plot.new()
+      text(0.5, 0.5, conditionMessage(e), xpd = NA, cex = 0.8)
+      FALSE
+    })
+    #Drawn last so it is on top of the image whether the plot succeeded or not
+    draw_inset(inset)
+    invisible(drew)
   }
 
   #Compression keys a tile-compressed store carries in its header. A cutout inherits them
@@ -1118,7 +1253,15 @@ server = function(input, output, session){
       q = 75
     }
     q = max(1, min(100, round(q)))
-    return(list(fits_format = in_('fits_format', 'raw'), alg = in_('fits_alg', 'RICE'),
+    #The algorithm is matched against the list the selectInput offers rather than taken
+    #as typed. It ends up inside the '[compress ...]' directive cfitsio parses out of the
+    #output filename, and the tile sizes beside it are cleaned for the same reason; a
+    #request posted by hand is not bound by what the widget rendered.
+    alg = in_('fits_alg', 'RICE')
+    if(!(alg %in% c('RICE', 'GZIP', 'HCOMPRESS', 'PLIO'))){
+      alg = 'RICE'
+    }
+    return(list(fits_format = in_('fits_format', 'raw'), alg = alg,
                 tile = in_('fits_tile', ''), quant = num_('fits_quant'),
                 jpeg_quality = q))
   }
@@ -1498,7 +1641,12 @@ server = function(input, output, session){
       #The on screen plots are drawn into the browser's device, so they are re-rendered
       #here with the same arguments rather than captured from the page. A reactive cannot
       #be read outside a reactive context, and downloadHandler$content is not one, so the
-      #options are isolated once here rather than inside the per file loop
+      #options are isolated once here rather than inside the per file loop.
+      #
+      #The one argument not carried across is the gallery's position inset. That is a
+      #navigation aid for a page of similar cutouts, and burning text into the pixels
+      #would make a JPEG differ from the FITS beside it in the same bundle, which is data
+      #with no overlay on it. The file name carries the position instead
       opts = isolate(display_opts())
       o = isolate(dl_opts())
       jpeg_args = isolate(jpeg_args(o$jpeg_quality))
@@ -1544,6 +1692,8 @@ server = function(input, output, session){
     #targets that were never searched
     state$res = NULL
     state$matches = NULL
+    state$pos_idx = NULL
+    state$pos_lab = NULL
     pos = parse_positions(in_('positions'))
     bad = attr(pos, 'bad')
     if(length(bad) > 0){
@@ -1569,7 +1719,9 @@ server = function(input, output, session){
     if(!is.finite(max_stores) || max_stores < 1){
       max_stores = 25
     }
-    max_stores = as.integer(max_stores)
+    #Same clamp as max_dirs: past the integer range as.integer() gives NA, and the cap on
+    #candidates then dies on 'missing value where TRUE/FALSE needed'
+    max_stores = as.integer(min(max_stores, 1e5))
     kw_key = trimws(in_('kw_key'))
     note('Searching ', nrow(pos), ' position(s), box ', box, ' ', box_unit,
          if(buffer > 0) paste0(', buffer ', buffer, ' arcsec') else '')
@@ -1600,6 +1752,8 @@ server = function(input, output, session){
       note('No store in the index could overlap the requested position(s).')
       state$res = NULL
       state$matches = NULL
+      state$pos_idx = NULL
+      state$pos_lab = NULL
       return(NULL)
     }
     cand = cand[order(cand$label), , drop = FALSE]
@@ -1633,82 +1787,221 @@ server = function(input, output, session){
       cand = cand[seq_len(max_stores), , drop = FALSE]
     }
 
-    #Per store, rather than one call for the whole prefix. Over S3 a single call that
-    #searched the prefix would re-read every tile's metadata, which is the cost the index
-    #exists to remove, and giving it cache = would write what it learned back to the
-    #bucket. The candidate list already is the answer, so each store is opened directly.
+    run_cutouts(cand = cand, pos = pos, con = con, box = box, box_unit = box_unit,
+                buffer = buffer)
+    invisible(NULL)
+  }
+
+  #Fetch the cutouts of every candidate store and assemble the result. Split out of
+  #do_run so that the fetching can be asynchronous while everything that reads the
+  #controls stays where it was: the controls are read once, synchronously, and what the
+  #workers are handed is a list of plain values.
+  #
+  #Per store, rather than one call for the whole prefix. Over S3 a single call that
+  #searched the prefix would re-read every tile's metadata, which is the cost the index
+  #exists to remove, and giving it cache = would write what it learned back to the
+  #bucket. The candidate list already is the answer, so each store is opened directly.
+  run_cutouts = function(cand, pos, con, box, box_unit, buffer){
+    n = nrow(cand)
+    #Which run this call belongs to. Captured here rather than read back later, because by
+    #the time the workers report the user may have pressed Run again: a stale run must not
+    #be allowed to write its results over the one that replaced it, and without this the
+    #page would end up showing cutouts of positions that are no longer in the box
+    gen = isolate(state$run)
+    jobs = lapply(seq_len(n), function(i){
+      list(store = cand$store[i],
+           name = cand$name[i],
+           label = if(is.null(cand$label)) cand$store[i] else cand$label[i],
+           #The extension the index found this candidate under goes first. A release
+           #indexed under 'sci' is otherwise asked for the default 'data1', and the
+           #failure reads as a tile that does not overlap rather than as a wrong extension
+           extname = unique(c(cand$extname[i], con$extname)),
+           RA = pos[, 1], Dec = pos[, 2], box = box, box_unit = box_unit,
+           buffer = buffer, bucket = con$bucket,
+           region = con$creds$region, endpoint = con$creds$endpoint,
+           access_key = con$creds$access_key, secret_key = con$creds$secret_key,
+           session_token = con$creds$session_token)
+    })
+
+    #The caption of each requested position, in the order the positions were given. The
+    #gallery groups by this and every cutout is stamped with the one it belongs to, which
+    #is what makes a page of twenty similar tiles navigable
+    pos_lab = vapply(seq_len(nrow(pos)), function(k){
+      sprintf('RA %.4f   Dec %+.4f', pos[k, 1], pos[k, 2])
+    }, character(1))
+
+    #Filled by index rather than appended, so that results arriving out of order land
+    #where they belong and the assembly can read them positionally
+    results = vector(mode = 'list', length = n)
+    prog = Progress$new(session, min = 0, max = n)
+
+    #The running tally, in environments rather than as a set of <<- assignments: the per
+    #store collectors run inside their own local() frames, and a super-assignment from
+    #there would land in whichever frame it happened to be called from
+    counts_env = new.env(parent = emptyenv())
+    counts_env$done = 0L
+    counts_env$no_overlap = character(0)
+    counts_env$errored = character(0)
+    counts_env$stale = FALSE
+    scans_env = new.env(parent = emptyenv())
+    scans_env$scans = NULL
+
+    #Runs once the last store has come back, whichever order they came back in. Everything
+    #it reads is the collected results, so the assembly cannot see a half filled list
+    finish = function(){
+      prog$close()
+      bar$prog = NULL
+      assemble(results, jobs, pos_lab, scans_env, counts_env)
+    }
+
+    collect = function(i, one){
+      #A run the user has already replaced is dropped rather than collected. Its workers
+      #are still running and cannot be recalled, so this is the only place the result can
+      #be stopped from landing. Only this run's own bar is closed, and only once: bar$prog
+      #belongs to whichever run is current, so it must not be cleared from here
+      if(!identical(isolate(state$run), gen)){
+        if(!isTRUE(counts_env$stale)){
+          counts_env$stale = TRUE
+          tryCatch(prog$close(), error = function(e) NULL)
+        }
+        return(invisible(NULL))
+      }
+      results[[i]] <<- one
+      for(m in one$msgs) note(m)
+      counts_env$done = counts_env$done + 1L
+      r = one$value
+      if(is.null(r)){
+        counts_env$errored = c(counts_env$errored, cand$name[i])
+      }else if(length(r) == 0){
+        counts_env$no_overlap = c(counts_env$no_overlap, cand$name[i])
+      }
+      #Progress moves as stores land rather than as they are asked for, which is the only
+      #reading that means anything once they are in flight at the same time
+      prog$set(counts_env$done, message = 'Getting cutouts',
+               detail = paste0(counts_env$done, '/', n, '  ', cand$name[i]))
+      if(counts_env$done >= n){
+        finish()
+      }
+    }
+
+    #Held where the session cleanup can find it, so a run that never finished -- a worker
+    #that died, or the page closed mid request -- cannot leave a bar sitting at the top of
+    #the next one. The handler itself is registered once at server level rather than here,
+    #since one added per run would accumulate
+    bar$prog = prog
+
+    for(i in seq_len(n)){
+      local({
+        ii = i
+        job = jobs[[ii]]
+        if(async_ok){
+          #globals is listed rather than left to be detected. Detection walks the closure
+          #and would ship this file's whole environment, including the ui tag tree, with
+          #every single job
+          #
+          #seed = NULL because the read path below touches the RNG somewhere in zarr or
+          #the WCS code, and future warns about a worker doing that unless it is told
+          #whether the answer depends on it. It does not: a cutout of the same tile at the
+          #same position gives byte identical pixels whether it is fetched here or in this
+          #process, so the parallel safe seed future would otherwise set up per job buys
+          #nothing, and saying so is better than leaving the warning to be read as a
+          #result that might be wrong
+          promises::future_promise(
+            cutout_worker(job, with_capture_worker),
+            globals = list(job = job, cutout_worker = cutout_worker,
+                           with_capture_worker = with_capture_worker),
+            seed = NULL
+          )$then(function(v) collect(ii, v),
+                 #A rejected promise is a store that failed, not a run that failed: the
+                 #others are still worth showing, and the reason goes in the log where a
+                 #user can read it
+                 function(e) collect(ii, list(value = NULL, msgs = paste0(
+                   'ERROR: ', job$name, ': ', conditionMessage(e)))))
+        }else{
+          collect(ii, cutout_worker(job, with_capture))
+        }
+      })
+    }
+    invisible(NULL)
+  }
+
+  #Turn the collected per store results into one result list. Ordered by the position each
+  #cutout belongs to rather than by the store it came from, so that the tiles covering one
+  #target sit together on the page instead of being interleaved by directory name
+  assemble = function(results, jobs, pos_lab, scans_env, counts_env){
     out = list()
     names_out = character(0)
     shown = character(0)
-    scans = NULL
+    pos_idx = integer(0)
     matches = NULL
-    #Stores that were opened cleanly but hold nothing at the requested position. Without
-    #this a release that scanned two tiles and cut one looks like a lost result, because
-    #the second tile is a genuine non-overlap rather than a failure, and the only evidence
-    #of it is a verbose line buried in the log
-    no_overlap = character(0)
-    errored = character(0)
-    prog = Progress$new(session, min = 0, max = nrow(cand))
-    on.exit(prog$close(), add = TRUE)
-    for(i in seq_len(nrow(cand))){
-      prog$set(i, message = 'Getting cutouts',
-               detail = paste0(i, '/', nrow(cand), '  ', cand$name[i]))
-      one = with_capture({
-        if(is.null(con$bucket)){
-          Rfits::Rfits_cutout_zarr_dir(dir = cand$store[i], RA = pos[, 1], Dec = pos[, 2],
-                                       box = box, box.unit = box_unit,
-                                       buffer = buffer, extname = con$extname,
-                                       header = TRUE, extract = TRUE, verbose = TRUE)
-        }else{
-          Rfits::Rfits_cutout_zarr_dir(bucket = con$bucket, prefix = cand$store[i],
-                                       RA = pos[, 1], Dec = pos[, 2], box = box,
-                                       box.unit = box_unit, buffer = buffer,
-                                       extname = con$extname, header = TRUE,
-                                       extract = TRUE, verbose = TRUE,
-                                       region = con$creds$region,
-                                       endpoint = con$creds$endpoint,
-                                       access_key = con$creds$access_key,
-                                       secret_key = con$creds$secret_key,
-                                       session_token = con$creds$session_token)
-        }
-      })
-      for(m in one$msgs) note(m)
-      r = one$value
-      if(is.null(r)){
-        errored = c(errored, cand$name[i])
-        next
-      }
-      if(length(r) == 0){
-        no_overlap = c(no_overlap, cand$name[i])
-        next
-      }
+    scans = scans_env$scans
+    no_overlap = counts_env$no_overlap
+    errored = counts_env$errored
 
+    #One record per cutout rather than one per store, since the ordering key (the position
+    #it answers) is a property of the cutout and a store can answer several
+    rec = list()
+    for(i in seq_along(results)){
+      one = results[[i]]
+      if(is.null(one)){
+        next
+      }
+      r = one$value
+      if(is.null(r) || length(r) == 0){
+        next
+      }
       nm = names(r)
       if(is.null(nm)){
-        nm = paste0(cand$name[i], '_', seq_along(r))
+        nm = paste0(jobs[[i]]$name, '_', seq_along(r))
       }
-      #Rfits_cutout_zarr_dir already names each result after the store stub, suffixed with
-      #the position when several were asked for, so the names are used as they arrive
-      #rather than being prefixed a second time. Two stores in different sub directories
-      #can still share a stub, and make.unique at the end separates those
-      out[length(out) + seq_along(r)] = unname(r)
-      names_out = c(names_out, nm)
-      #carried alongside the bare store path because it is the form a user recognises:
-      #s3://bucket/prefix remotely, the directory locally. Built in the same loop so it
-      #stays aligned with the results by construction rather than by reconstruction
-      shown = c(shown, rep(if(is.null(cand$label)) cand$store[i] else cand$label[i],
-                           length(r)))
       s = attr(r, 'scan')
-      if(!is.null(s)) scans = rbind(scans, s)
+      if(!is.null(s)){
+        scans = rbind(scans, s)
+      }
       mm = attr(r, 'matches')
+      mm = if(is.null(mm)) NULL else as.data.frame(mm, stringsAsFactors = FALSE)
+      #The match row of each cutout is found by name, since that is the one thing the
+      #table and the result list share. A store whose table does not line up with its
+      #results is reported rather than allowed to abort the run: the cutouts already
+      #gathered are worth more than the one row that cannot be labelled
+      if(!is.null(mm) && nrow(mm) != length(nm)){
+        note('WARNING: ', jobs[[i]]$name, ' reported ', nrow(mm), ' match row(s) for ',
+             length(nm), ' cutout(s); its matches are not tabulated.')
+        mm = NULL
+      }
       if(!is.null(mm)){
-        mm = as.data.frame(mm, stringsAsFactors = FALSE)
-        mm$store = cand$store[i]
-        #Names are stamped here, while these rows are still in the same order as the
-        #results they describe. Sorting the assembled table afterwards and then naming it
-        #positionally would attach the wrong label to each row
+        mm$store = jobs[[i]]$store
         mm$name = nm
-        matches = rbind(matches, mm)
+      }
+      #Which position each element of r answers, taken from its own match row. Without a
+      #table the group is unknown and the cutout sorts last rather than being dropped
+      which_pos = if(is.null(mm)) rep(NA_integer_, length(nm)) else as.integer(mm$position)
+      for(j in seq_along(nm)){
+        rec[[length(rec) + 1L]] = list(item = r[[j]], name = nm[j],
+                                       label = jobs[[i]]$label,
+                                       store = jobs[[i]]$store, pos = which_pos[j],
+                                       mm = if(is.null(mm)) NULL else mm[j, , drop = FALSE])
+      }
+    }
+
+    #Position first so a group is contiguous, then store so the order within a group does
+    #not depend on which worker came back first. An ungroupable cutout gets an infinite
+    #key and so sorts last, rather than landing in the middle of a group it is not part of
+    if(length(rec) == 0){
+      ord = integer(0)
+    }else{
+      key_pos = vapply(rec, function(x) if(is.na(x$pos)) Inf else as.numeric(x$pos),
+                       numeric(1))
+      ord = order(key_pos, vapply(rec, function(x) x$label, character(1)))
+    }
+    for(j in ord){
+      x = rec[[j]]
+      out[length(out) + 1L] = list(x$item)
+      names_out = c(names_out, x$name)
+      shown = c(shown, x$label)
+      pos_idx = c(pos_idx, if(is.na(x$pos)) NA_integer_ else as.integer(x$pos))
+      if(!is.null(x$mm)){
+        matches = rbind(matches, x$mm)
       }
     }
     if(length(out) == 0){
@@ -1725,6 +2018,8 @@ server = function(input, output, session){
       }
       state$res = NULL
       state$matches = NULL
+      state$pos_idx = NULL
+      state$pos_lab = NULL
       return(NULL)
     }
     names(out) = make.unique(names_out, sep = '_')
@@ -1735,9 +2030,8 @@ server = function(input, output, session){
     attr(out, 'scan') = scans
     if(!is.null(matches)){
       #make.unique can rename a result when two stores share a stub, so the final names
-      #are copied across while the rows are still in the order they were appended (one
-      #match row per result, by construction of Rfits_cutout_zarr_dir), and only then is
-      #the table sorted for display
+      #are copied across while the rows are still in the order the results were
+      #appended (one match row per result), and only then is the table sorted for display
       if(nrow(matches) == length(out)){
         matches$name = names(out)
       }
@@ -1745,6 +2039,10 @@ server = function(input, output, session){
                         c('name', 'position', 'store', 'extname', 'RA', 'Dec', 'box_x',
                           'box_y', 'dim'), drop = FALSE]
     }
+    #Written before res, so the gallery that re-renders on res always finds the position
+    #metadata that belongs to this run rather than the one it is replacing
+    state$pos_idx = pos_idx
+    state$pos_lab = pos_lab
     state$res = out
     state$matches = matches
     note('Got ', length(out), ' cutout(s) from ',
@@ -1769,6 +2067,23 @@ server = function(input, output, session){
     do_run()
   })
 
+  #The caption of the position the i'th result answers, for the inset in its corner. The
+  #two vectors are read together and their lengths compared, because a gallery drawn from
+  #one run must not be captioned from the next one: res is cleared and rewritten by a run,
+  #and pos_idx with it, but not in the same instant
+  inset_of = function(i){
+    p = isolate(state$pos_idx)
+    lab = isolate(state$pos_lab)
+    if(is.null(p) || is.null(lab) || length(p) != length(isolate(state$res))){
+      return(NULL)
+    }
+    at = p[i]
+    if(is.na(at) || at < 1 || at > length(lab)){
+      return(NULL)
+    }
+    return(lab[at])
+  }
+
   #One plot output per result, ids made from the names of the Rfits_list. Registering
   #them inside an observer means they appear and disappear with the request that made
   #them, rather than leaving outputs pointed at cutouts that no longer exist
@@ -1780,7 +2095,7 @@ server = function(input, output, session){
       local({
         ii = i
         output[[paste0('cutplot_', ii)]] = renderPlot({
-          draw_cutout(state$res[[ii]], display_opts())
+          draw_cutout(state$res[[ii]], display_opts(), inset = inset_of(ii))
         })
       })
     })
@@ -1794,6 +2109,13 @@ server = function(input, output, session){
     n_tot = length(res)
     n = min(n_tot, max_show())
     w = cut_width()
+    #The positions this page is grouped by, and the label of each group. A header is
+    #emitted ahead of the first cutout of a group only, so twenty tiles of one target read
+    #as one heading and twenty cells rather than twenty headings. Nothing is grouped when
+    #the run left no position metadata behind, which is also the case for a single position
+    p_idx = state$pos_idx
+    p_lab = state$pos_lab
+    grouped = !is.null(p_idx) && !is.null(p_lab) && length(p_idx) == n_tot
     #Heights are read from the inputs rather than through display_opts(), which would
     #rebuild every plotOutput whenever any display option changed and throw away the
     #plots that were just drawn
@@ -1821,7 +2143,7 @@ server = function(input, output, session){
         }
         bits = c(bits, val)
       }
-      div(
+      cell = div(
         class = 'rf-cut-cell',
         div(class = 'rf-sel-row',
             #The initial value is read from the selection rather than hard wired to TRUE,
@@ -1849,6 +2171,27 @@ server = function(input, output, session){
         div(class = 'rf-cut', style = paste0('max-width: ', w, 'px;'),
             plotOutput(paste0('cutplot_', i), height = '100%'))
       )
+
+      #The heading of the group this cell opens. Emitted ahead of the first cell of a
+      #group only, and only when the run recorded which position each cutout answers; a
+      #single position needs no heading because the inset on every cutout already says it.
+      #grid-column: 1 / -1 so the heading takes a whole row rather than one column of the
+      #grid, which is what keeps the cells after it starting on a fresh line
+      if(!grouped || length(p_lab) < 2){
+        return(cell)
+      }
+      at = p_idx[i]
+      first = i == 1 || is.na(at) || at != p_idx[i - 1]
+      if(!first || is.na(at) || at > length(p_lab)){
+        return(cell)
+      }
+      n_in = sum(!is.na(p_idx) & p_idx == at)
+      tagList(
+        div(class = 'rf-group-head',
+            strong('Position ', at, ': '), p_lab[at],
+            span(class = 'rf-group-n', '  (', n_in, ' cutout',
+                 if(n_in != 1) 's', ')')),
+        cell)
     })
     tagList(
       #repeat(auto-fill, minmax(min(100%, w), 1fr)) so the column count follows the width
