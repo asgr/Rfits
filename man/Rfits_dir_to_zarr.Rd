@@ -94,10 +94,14 @@ files that fail.
 }
   \item{\dots}{
 Passed to \code{\link{Rfits_write_image_zarr}}, so that \option{data_type},
-\option{chunk_shape}, \option{compressor}, \option{clevel}, \option{shuffle} and
-\option{lossy} can be set for the whole batch. Passing \option{lossy} = TRUE
-quantises every file in it, which is how a large archive is converted to scaled
-integers; see \strong{Lossy compression} in \code{\link{Rfits_image_zarr}}.
+\option{chunk_shape}, \option{compressor}, \option{clevel}, \option{shuffle},
+\option{lossy} and \option{quantise} can be set for the whole batch. Passing
+\option{lossy} = TRUE quantises every file in it, which is how a large archive is
+converted to scaled integers; see \strong{Lossy compression} in
+\code{\link{Rfits_image_zarr}}. \option{quantise} = 'quick' is worth considering for a
+batch of large files, where the sample a single write would take is one more pass over
+every pixel; the cost is a wider type than a simple image strictly needs, and so a
+larger store, never a less accurate one.
 }
 }
 \details{
@@ -193,6 +197,24 @@ store = zarr_s3store$new(bucket = 'my-bucket',
                          session_token = '', read_only = TRUE)
 point = Rfits_point_zarr(store, extname = 'data1')
 plot(point[box = 500])
+
+#A lossy batch: every file is quantised to scaled integers, which is how a large
+#archive is shrunk towards the size of its Rice compressed FITS. quantise governs the
+#work spent choosing the integer type once the scale is fitted to each image: 'auto'
+#(the default) proves from a sample that no narrower type can fit, 'exact' counts every
+#pixel to be sure, and 'quick' never counts and takes the widest type at once. All three
+#agree on an ordinary image, so 'auto' is the one to leave alone; 'quick' is for a batch
+#of large files, where even the sample is one more pass over every pixel, and costs a
+#wider type, and so a larger store, rather than a less accurate one
+lossy = Rfits_dir_to_zarr(dir = 'path/to/images', target = 'path/to/lossy_zarr',
+                          lossy = TRUE, quantise = 'quick')
+lossy[, c('fits', 'store', 'data_type')]
+
+#A scale given for the batch is honoured exactly, which is how an archive already
+#quantised at a known step keeps it. A fixed step settles the type on its own, so
+#quantise is not consulted in this case
+fixed = Rfits_dir_to_zarr(dir = 'path/to/images', target = 'path/to/fixed_zarr',
+                          lossy = TRUE, bscale = 0.0026, bzero = 0)
 }
 }
 \concept{ Zarr }

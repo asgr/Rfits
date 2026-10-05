@@ -1310,6 +1310,40 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   return(is.character(data_type) && length(data_type) == 1 && grepl('^u?int', data_type))
 }
 
+#How many pixels the distinct count probe looks at, given the number of levels it is
+#trying to outrun. The sample has to be able to hold more distinct values than that
+#many levels, so it is sized above them rather than fixed: a sample shorter than the
+#levels it is compared against could never prove anything, however rich the data. The
+#extra tenth gives the proof room for a sample that happens to find a few duplicates
+.zarr_quant_probe_n = function(levels){
+  return(levels + max(1000L, as.integer(ceiling(levels/10))))
+}
+
+#A contiguous stride sample of vals. Distinct values do not cluster along a stride, so
+#this is as representative as a random sample here, and it leaves R's random number
+#generator untouched: a lossy write that reseeded the stream would change the
+#reproducible results of everything the caller does afterwards
+.zarr_quant_probe = function(vals, nsample){
+  n = length(vals)
+  if(nsample >= n){
+    return(vals)
+  }
+  return(vals[seq.int(1L, n, by = floor(n/nsample))])
+}
+
+#Can we be certain the whole data holds more distinct values than a type with this
+#many levels? A sample can never see more distinct values than the population holds,
+#so a sample that already holds more than the levels has settled it: the population
+#cannot be smaller. FALSE is not an answer, it means the sample could not prove it and
+#the exact count has to be taken instead
+.zarr_quant_probe_proven = function(vals, levels){
+  if(levels >= length(vals)){
+    return(FALSE)
+  }
+  probe = .zarr_quant_probe(vals, .zarr_quant_probe_n(levels))
+  return(length(unique(probe)) > levels)
+}
+
 #Quantise numeric data into integers for a lossy Zarr write, following the FITS
 #convention that a scaled image stores physical = BZERO + BSCALE * stored. The
 #pair is what goes into the header and what the reader uses to undo the scaling,
@@ -1324,11 +1358,29 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #a type offers, from the narrowest up, stopping at 16 bit: see the ladder below for
 #why going wider saves nothing.
 #
+#Nothing here reads every pixel unless it has to. The two counts that steer the choice,
+#whether the values are whole numbers and how many distinct values there are, are worked
+#out on first use and remembered rather than always paid for, and the distinct count is
+#usually proved rather than counted: a slice of the data that already holds more distinct
+#values than the widest type has levels settles the question for the whole image, since a
+#larger population cannot hold fewer. The type chosen never depends on the sampling,
+#because an inconclusive slice falls through to the exact count.
+#
+#quantise says how hard to work for that decision. 'auto' probes and counts only when
+#the probe is inconclusive; 'exact' always counts the whole array; 'quick' never counts
+#at all and takes the widest type straight away. All three agree on an ordinary image,
+#which holds more distinct values than any type has levels, so the search and the guess
+#land on the same type. They differ on data simple enough to fit a narrower type, where
+#'quick' writes the widest type without asking: a wider type has more levels and so a
+#finer step, so that costs file size rather than accuracy, never the other way round.
+#
 #The shift applied to BZERO matters: stored = (physical - BZERO)/BSCALE, so the
 #smallest value lands on the lowest usable integer when BZERO = min - BSCALE * lo.
 #Getting the sign wrong puts the whole array at the opposite end of the range and
 #then fails the span check.
-.zarr_quantise = function(data, bscale = NULL, bzero = NULL, data_type = NULL){
+.zarr_quantise = function(data, bscale = NULL, bzero = NULL, data_type = NULL,
+                          quantise = 'auto'){
+  assertChoice(quantise, c('auto', 'exact', 'quick'))
   if(!is.null(data_type)){
     if(is.character(data_type) && !(data_type %in% .zarr_quant_types)){
       if(.zarr_is_int_type(data_type)){
@@ -1388,17 +1440,39 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   scale_given = !(is.null(bscale) & is.null(bzero))
   fixed_bscale = if(is.null(bscale)) 1 else bscale
   fixed_bzero = if(is.null(bzero)) 0 else bzero
+  types = if(is.null(data_type)) .zarr_quant_types else data_type
+  ints = NULL
+  #The types the fitted ladder may climb, set once a branch has decided on them. NULL
+  #here means none has yet, which is what sends a non integral array into the fitted
+  #scale block below
+  auto_types = NULL
   #Whole numbers are already integers, so the identity stores them exactly and no
-  #scaling is needed at all
-  integral = all(.is_whole_number(vals))
+  #scaling is needed at all. Asked only by the branch that needs it: a caller who
+  #supplies a scale never reaches that branch, and scanning every pixel to answer a
+  #question nobody asks is most of what quantising a large image costs
+  integral = local({
+    answer = NULL
+    function(){
+      if(is.null(answer)){
+        answer <<- all(.is_whole_number(vals))
+      }
+      return(answer)
+    }
+  })
   #The number of levels the data actually uses. This is what decides the size of the
   #smallest type worth writing: a type with fewer levels than this cannot keep the
   #values apart, however the scale is chosen, so it would be a smaller file for data
-  #that has quietly become unable to say which pixels differed.
-  ndistinct = length(unique(vals))
-
-  types = if(is.null(data_type)) .zarr_quant_types else data_type
-  ints = NULL
+  #that has quietly become unable to say which pixels differed. Counting is slow on a
+  #large image, so it too is deferred to the comparison that needs it and cached after
+  ndistinct = local({
+    answer = NULL
+    function(){
+      if(is.null(answer)){
+        answer <<- length(unique(vals))
+      }
+      return(answer)
+    }
+  })
 
   #The integer the pixels become under one candidate scale, or NULL when the type
   #cannot hold them. Rounded in double and checked before narrowing, so the halves
@@ -1446,7 +1520,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
            sprintf('%.0f', min(needed)), ' to ', sprintf('%.0f', max(needed)),
            '. Give a wider data_type, or a scale of your own!', call. = FALSE)
     }
-  }else if(integral){
+  }else if(integral()){
     #Whole numbers need no scaling at all, so the smallest type that can hold them
     #exactly is taken. Exactness outranks a smaller file: the lossy alternative for
     #data this well behaved would only throw away detail that costs nothing to keep
@@ -1458,6 +1532,9 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
       chosen_type = type
       chosen_bscale = 1
       chosen_bzero = 0
+      #An identity write keeps whatever the caller named: the count of distinct values
+      #plays no part, because every whole number is already an integer
+      auto_types = types
       break
     }
     if(is.null(ints) && is.null(data_type)){
@@ -1466,7 +1543,8 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
       #nothing, since float64 is exact for whole numbers up to 2^53 and is what
       #lossy = FALSE already writes. An explicit data_type is not refused here,
       #because a caller who names a narrow type for wide integers clearly means to
-      #squeeze the data into it
+      #squeeze the data into it. This has to be a stop rather than a fall through to the
+      #fitted ladder below, which would happily squeeze whole numbers onto a scale
       stop('The data is all whole numbers but runs from ', sprintf('%.0f', min_val),
            ' to ', sprintf('%.0f', max_val), ', which no integer type Zarr can write ',
            'from R holds exactly. Store it with lossy = FALSE to keep float64, which ',
@@ -1481,24 +1559,44 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     #apart? Spreading the range over all of them gives step = range/(levels - 1), so a
     #type with fewer levels than the data has distinct values cannot separate them no
     #matter how it is shifted, and is skipped.
-    auto_types = intersect(types, .zarr_quant_auto_types)
-    if(length(auto_types) == 0){
-      #An explicit data_type outside the automatic set, which is the caller's choice
-      #and is used as is
-      auto_types = types
+    #Reached only by a non integral array, since the identity branch above has already
+    #set the ladder for the other case
+    if(is.null(auto_types)){
+      auto_types = intersect(types, .zarr_quant_auto_types)
+      if(length(auto_types) == 0){
+        #An explicit data_type outside the automatic set, which is the caller's choice
+        #and is used as is
+        auto_types = types
+      }
+    }
+
+    #Whether every type in play is certainly too narrow. 'auto' proves it by finding
+    #more distinct values in a slice of the data than the widest type has levels, since
+    #no larger population can hold fewer, and that lets the ladder be skipped without
+    #counting every pixel. Anything short of a proof falls through to the exact count
+    #below, so the type chosen never depends on the sampling. 'exact' settles it with the
+    #whole array instead, and 'quick' takes the widest type as if it had been proved
+    widest = auto_types[length(auto_types)]
+    wide = if(quantise == 'exact'){
+      FALSE
+    }else if(quantise == 'quick'){
+      TRUE
+    }else{
+      .zarr_quant_probe_proven(vals, as.numeric(.zarr_quant_hi[[widest]]) -
+                                     as.numeric(.zarr_quant_lo[[widest]]) + 1)
     }
 
     for(type in auto_types){
       lo = as.numeric(.zarr_quant_lo[[type]])
       hi = as.numeric(.zarr_quant_hi[[type]])
       levels = hi - lo + 1
-      if(ndistinct == 1){
+      if(min_val == max_val){
         #A constant array has no range to spread, so a calculated step would be zero
         #and the division nonsense. Putting every pixel on integer zero with the value
         #as the zero point reproduces it exactly, and zero is inside the usable span of
         #every type and is never a fill value
         cand = c(1, min_val)
-      }else if(levels < ndistinct){
+      }else if(isTRUE(wide) || levels < ndistinct()){
         #Fewer levels than the data has distinct values, so some of them must share an
         #integer however the range is scaled, and the next type up is smaller than the
         #dynamic range the data actually has
@@ -1544,10 +1642,17 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     }
     ints = quant
     ints[keep] = part
-    merged = ndistinct - length(unique(part))
-    if(merged > 0 && !is.null(data_type)){
-      message('Storing in ', chosen_type, ' merges ', merged, ' of the ', ndistinct,
-              ' distinct values in the data. A wider data_type would keep them apart.')
+    if(!is.null(data_type) && quantise != 'quick'){
+      #Only a caller who named a data_type can be told it was too narrow, and the count
+      #it is told against is the exact one. Checking that first means the ordinary case,
+      #where no type was named and nothing is reported, never pays for the count. 'quick'
+      #is left out because the report needs exactly the count it exists to avoid, so a
+      #caller who asked for speed is not made to wait for a diagnostic
+      merged = ndistinct() - length(unique(part))
+      if(merged > 0){
+        message('Storing in ', chosen_type, ' merges ', merged, ' of the ', ndistinct(),
+                ' distinct values in the data. A wider data_type would keep them apart.')
+      }
     }
   }
 
@@ -2040,7 +2145,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                                   overwrite_file=FALSE, data_type=NULL, chunk_shape=NULL,
                                   clevel=6L, compressor='blosc', shuffle=NULL,
                                   append=FALSE, update_root=TRUE, cores=NULL,
-                                  lossy=FALSE, bscale=NULL, bzero=NULL,
+                                  lossy=FALSE, bscale=NULL, bzero=NULL, quantise='auto',
                                   keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
@@ -2059,6 +2164,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   assertFlag(lossy)
   assertNumeric(bscale, len=1, null.ok=TRUE)
   assertNumeric(bzero, len=1, null.ok=TRUE)
+  assertChoice(quantise, c('auto', 'exact', 'quick'))
   assertIntegerish(clevel, len=1, lower=0, upper=9)
   assertIntegerish(cores, len=1, lower=1, null.ok=TRUE)
 
@@ -2073,6 +2179,14 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     stop('Cannot use both lossy and append! An appended increment has to be stored ',
          'with the scale of the array that already exists, so re write the whole ',
          'array with lossy = TRUE instead.', call. = FALSE)
+  }
+  #quantise only means something to the fit that a lossy write does from scratch, and an
+  #append is always given the scale the array already carries. Saying so beats accepting
+  #a choice that is then ignored
+  if(append & !identical(quantise, 'auto')){
+    stop('quantise is only used by a lossy write, and an appended increment is stored ',
+         'with the scale of the array it joins, so quantise cannot apply here!',
+         call. = FALSE)
   }
   #Resolved before anything is created, so a bad name warns rather than silently
   #recording a compressor that does not match the bytes
@@ -2184,7 +2298,8 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                 'no BSCALE or BZERO was supplied or already in the header.')
       }
     }
-    quant = .zarr_quantise(data, bscale=use_bscale, bzero=use_bzero, data_type=data_type)
+    quant = .zarr_quantise(data, bscale=use_bscale, bzero=use_bzero,
+                           data_type=data_type, quantise=quantise)
     data = quant$data
     #The keywords that carry the scale are rebuilt rather than left as they were,
     #since a scale fitted to these pixels did not exist until now

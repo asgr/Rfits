@@ -44,25 +44,25 @@ Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,head
 Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext=TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
   keyvalues, keycomments, keynames, comment, history)
 
 Rfits_append_image_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
@@ -167,6 +167,9 @@ Numeric scalar; the quantisation step to use with \option{lossy} = TRUE, in the 
   \item{bzero}{
 Numeric scalar; the zero point that goes with \option{bscale}. The default, \code{NULL}, behaves as \option{bscale} does. Giving one of the two keeps the FITS default (1 and 0) for the other.
 }
+  \item{quantise}{
+Character scalar; how much work a \option{lossy} write does to choose the integer type: one of \code{'auto'} (the default), \code{'exact'} or \code{'quick'}. It only has an effect when no integer type is pinned by \option{data_type} and no scale is pinned by \option{bscale}, \option{bzero} or the header. See \strong{Lossy compression} in Details.
+}
   \item{keyvalues}{
 Named list; keyword values to store, as produced by \code{\link{Rfits_read_header}}. Only needed for data which is not already an \option{Rfits_image} style object.
 }
@@ -201,6 +204,8 @@ A FITS archive can hold its pixels as scaled integers, declared with the \option
 This buys space the way Rice compression does, by giving up precision rather than length. A 356 by 356 float image of the kind in \code{inst/extdata} takes 460 KB as \code{float64} and 87 KB as \code{int16}, and the worst pixel is then within half a quantisation step of where it started. \option{max_error} in the return value reports that step's cost as it was actually measured on the data.
 
 \option{data_type} picks the integer type from \code{'uint8'}, \code{'int8'}, \code{'int16'}, \code{'uint16'} and \code{'int32'}; the other types are not quantisable and asking for one is an error. Left as \code{NULL} the type follows the dynamic range of the data. Whole numbers need no scaling at all, so the smallest type that can hold them exactly is used and no \option{BSCALE} or \option{BZERO} is written: a lossy write of a segmentation map is therefore still exact. Anything else is spread across every level a type offers, from the narrowest upwards, and the choice stops at 16 bit. Going wider than that costs exactly as much as the \code{float32} it would replace, since an ordinary image has far more distinct pixels than any integer type has levels, so a rule that chased perfect separation would answer \code{int32} every time and save nothing. Ask for \code{'int32'} through \option{data_type} when the wider span genuinely matters.
+
+\option{quantise} governs how much work a lossy write spends deciding whether the data fits a narrower type, which on a large image is the dominant cost of the quantisation. An image normally holds more distinct pixel values than any 16 bit type has levels, so the answer is almost always the widest type on offer. \code{'auto'} (the default) proves that from a sample, and counts every pixel only when the sample cannot settle it. \code{'exact'} always counts every pixel. \code{'quick'} never counts and takes the widest type at once. The three agree on an ordinary image, and part company only on data simple enough to fit a narrower type, such as a sparse or heavily binned image: \code{'auto'} and \code{'exact'} then find the narrower type, while \code{'quick'} writes the widest, which has more levels and so a finer step, making it a larger file that is no less accurate. Naming \option{data_type} settles the type outright and skips this choice, as does giving a \option{bscale}.
 
 The scale itself is decided before the type: a \option{bscale} or \option{bzero} given in the call wins, otherwise a scale already in the header is used, and only then is one fitted to the data. That order is what lets a scaled FITS image be converted without changing which physical value each stored integer means, and it is why re-writing an array that was read from a quantised store round trips exactly.
 
@@ -353,6 +358,15 @@ all(Rfits_read_image_zarr(lossy_file, extname = 'codes', header = FALSE) == code
 Rfits_write_image_zarr(temp_image, lossy_file, extname = 'fixed', lossy = TRUE,
                        bscale = 0.001, bzero = 5)
 Rfits_inspect_zarr(lossy_file, print = FALSE)$arrays$fixed
+
+#quantise sets how much work goes into that type choice: 'auto' (the default) proves
+#it from a sample, 'exact' counts every pixel to be sure, and 'quick' takes the widest
+#type without asking. On an ordinary image all three agree, so 'auto' is the one to
+#leave alone; 'quick' is for a large image where even the sample is unwelcome
+quick_file = file.path(tempdir(), 'image_quick.zarr')
+fast = Rfits_write_image_zarr(temp_image, quick_file, extname = 'image', lossy = TRUE,
+                              quantise = 'quick')
+fast$data_type
 
 #A pointer, which only reads what you ask of it
 point = Rfits_point_zarr(file_image_temp, extname = 'image')

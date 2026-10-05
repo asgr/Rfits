@@ -2016,6 +2016,81 @@ expect_identical(Rfits_read_image_zarr(file_lgl, extname = 'q', header = FALSE,
 expect_message(Rfits_read_image_zarr(file_appq, extname = 'q', force_logical = TRUE),
                'without scaling')
 
+#ex 58j2 the distinct count probe. A lossy write of a large image is dominated by
+#counting distinct values, and a slice holding more of them than the widest type has
+#levels settles the question for the whole image, since a larger population cannot hold
+#fewer. The proof can only ever be correct, and anything less falls through to the exact
+#count, so the type chosen never depends on the sampling
+probe_proven = Rfits:::.zarr_quant_probe_proven
+#rich data proves it, coarse data does not, and a population smaller than the levels
+#cannot outrun them however it is sampled
+expect_true(probe_proven(rnorm(200000), 65535))
+expect_false(probe_proven(round(runif(200000, 0, 20)), 65535))
+expect_false(probe_proven(rnorm(1000), 65535))
+#the sample is sized above the levels it is compared against, so it could hold them all
+expect_gt(Rfits:::.zarr_quant_probe_n(65535), 65535)
+#a rich image lands on uint16 with a fitted step, which the probe decided without
+#counting, and the loss still obeys the step it recorded
+data_rich = matrix(rnorm(400000), 2000, 200)
+file_rich = file.path(subdir, 'lossy_rich.zarr')
+w_rich = suppressMessages(Rfits_write_image_zarr(data_rich, file_rich, extname = 'q',
+                                                 lossy = TRUE))
+expect_equal(w_rich$data_type, 'uint16')
+expect_true(w_rich$quantised)
+read_rich = Rfits_read_image_zarr(file_rich, extname = 'q')
+expect_lt(max(abs(read_rich$imDat - data_rich)), w_rich$bscale/2 * 1.01)
+#whole numbers that no type holds exactly are still refused. The fitted ladder could
+#have squeezed them onto a scale silently, so the guard has to fire before it is reached
+expect_error(Rfits_write_image_zarr(round(matrix(runif(400, -3e9, 3e9), 20, 20)),
+                                    file.path(subdir, 'lossy_wide_err.zarr'), extname = 'q',
+                                    lossy = TRUE), 'holds exactly')
+#the probe takes a stride sample, so a lossy write leaves the caller's random number
+#stream exactly as it found it
+set.seed(2468)
+junk = rnorm(200000)
+before_rng = .Random.seed
+invisible(Rfits:::.zarr_quant_probe(junk, 72000))
+expect_identical(.Random.seed, before_rng)
+
+#ex 58j3 the quantise argument. 'auto', 'exact' and 'quick' agree on an ordinary image,
+#where every type is too narrow however the search is done, and separate on data simple
+#enough to fit a narrower type. There 'quick' writes the widest type without counting,
+#and a wider type has more levels and so a finer step, which costs file size rather than
+#accuracy
+quant_fn = Rfits:::.zarr_quantise
+rich = matrix(rnorm(200000), 1000, 200)
+expect_equal(quant_fn(rich, quantise = 'auto')$data_type, 'uint16')
+expect_equal(quant_fn(rich, quantise = 'exact')$data_type, 'uint16')
+expect_equal(quant_fn(rich, quantise = 'quick')$data_type, 'uint16')
+
+#a coarse image fits uint8, which the counting modes find and 'quick' does not
+coarse = matrix(sample(seq(0, 1, length.out = 50), 200000, replace = TRUE), 1000, 200)
+expect_equal(quant_fn(coarse, quantise = 'auto')$data_type, 'uint8')
+expect_equal(quant_fn(coarse, quantise = 'exact')$data_type, 'uint8')
+expect_equal(quant_fn(coarse, quantise = 'quick')$data_type, 'uint16')
+#uint16 has more levels than uint8, so its fitted step is finer and cannot be a worse
+#approximation, only a larger file
+expect_lt(quant_fn(coarse, quantise = 'quick')$max_error,
+          quant_fn(coarse, quantise = 'exact')$max_error)
+
+#whole numbers are exact whichever mode is asked for, since the identity branch is
+#settled before any counting happens
+whole = matrix(round(rnorm(200000) * 100), 1000, 200)
+for(mode in c('auto', 'exact', 'quick')){
+  expect_false(quant_fn(whole, quantise = mode)$quantised)
+}
+#an unknown mode is refused rather than silently treated as one of the real ones
+expect_error(quant_fn(rich, quantise = 'fast'), 'element of set')
+expect_error(Rfits_write_image_zarr(rich, file.path(subdir, 'q_badmode.zarr'), lossy = TRUE,
+                                    quantise = 'fast'), 'element of set')
+#quantise reaches the writer, and an append has no fit of its own so it is refused
+file_quick = file.path(subdir, 'lossy_quick.zarr')
+w_quick = suppressMessages(Rfits_write_image_zarr(rich, file_quick, extname = 'q',
+                                                   lossy = TRUE, quantise = 'quick'))
+expect_equal(w_quick$data_type, 'uint16')
+expect_error(Rfits_write_image_zarr(rich, file_quick, extname = 'q', quantise = 'quick',
+                                    append = TRUE), 'quantise cannot apply')
+
 #ex 59 the remote half of the search, offline. A store is found by listing prefixes
 #with a delimiter, so a directory of them costs one request per directory rather than
 #one per object, and the arrays inside are never enumerated. A fake client backed by
