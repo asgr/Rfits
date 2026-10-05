@@ -23,39 +23,47 @@ Image readers and writers that use Zarr for the storage back-end, rather than FI
 \usage{
 Rfits_read_image_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, physical = TRUE,
+  collapse = FALSE)
 
 Rfits_read_vector_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header=TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, physical = TRUE,
+  collapse = FALSE)
 
 Rfits_read_cube_zarr(filename = "temp.zarr", extname = "data1", ext = NULL, header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, physical = TRUE,
+  collapse = FALSE)
 
 Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,header =TRUE,
   xlo = NULL, xhi = NULL, ylo = NULL, yhi = NULL, zlo = NULL, zhi = NULL, tlo = NULL,
-  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, collapse = FALSE)
+  thi = NULL, remove_HIERARCH = FALSE, force_logical = FALSE, physical = TRUE,
+  collapse = FALSE)
 
 Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext=TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL,
+  keyvalues, keycomments, keynames, comment, history)
 
 Rfits_append_image_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
 
@@ -114,6 +122,9 @@ Logical scalar, should the leading 'HIERARCH' be removed for extended keyword na
   \item{force_logical}{
 Logical scalar; should an integer image be converted to a logical R image. All values not equal to 0L (including negative values) are TRUE, and all values equal to 0L are FALSE.
 }
+  \item{physical}{
+Logical scalar; should an array that carries \option{BSCALE} and \option{BZERO} be returned as physical values (TRUE, the default) or as the integers actually stored on disk (FALSE)? See \strong{Lossy compression} in Details. A \code{float32} or \code{float64} array without those keywords is returned unchanged either way.
+}
   \item{collapse}{
 Logical scalar; if the resulting image has trailing singleton dimensions should they be collapsed away (turning a cube into an image, or an array into a cube or image)?
 }
@@ -147,6 +158,15 @@ Logical scalar; if TRUE (default) the store level description is rebuilt after a
   \item{cores}{
 Integer scalar, or \code{NULL} for the default; the number of processes used to compress and write one array. See Details.
 }
+  \item{lossy}{
+Logical scalar; should the data be quantised into integers and stored with a \option{BSCALE} and \option{BZERO} pair that undoes the scaling? This is the lossy equivalent of FITS Rice compression, and halves a float64 archive at a cost set by the integer type chosen. See \strong{Lossy compression} in Details.
+}
+  \item{bscale}{
+Numeric scalar; the quantisation step to use with \option{lossy} = TRUE, in the FITS sense that a stored integer \code{i} means the physical value \code{bzero + bscale * i}. The default, \code{NULL}, takes a scale already in the header if there is a meaningful one, and otherwise calculates the finest step the chosen integer type can offer across the range of the data. Must be positive.
+}
+  \item{bzero}{
+Numeric scalar; the zero point that goes with \option{bscale}. The default, \code{NULL}, behaves as \option{bscale} does. Giving one of the two keeps the FITS default (1 and 0) for the other.
+}
   \item{keyvalues}{
 Named list; keyword values to store, as produced by \code{\link{Rfits_read_header}}. Only needed for data which is not already an \option{Rfits_image} style object.
 }
@@ -173,6 +193,26 @@ These functions mimic a FITS like data structure using Zarr. A Zarr store is a d
 The card images are authoritative; on read they are parsed in exactly the same way as the HDF5 back-end parses its stored header, so a file written with \code{Rfits_write_image_zarr} can be read back by any tool that understands Zarr attributes. The structured keyword lists are stored as well, so that non-R consumers can reach the metadata directly without having to parse FITS cards.
 
 Subsets are read by asking Zarr for only the requested chunk block, so cutting a small region out of a large cube does not require loading the whole array. Because missing data is represented by the array fill value, the types available in \option{data_type} each have their own missing value marker, and pixels which happen to equal that marker will read back as NA (a warning is issued when writing integer data that contains the marker).
+
+\strong{Lossy compression}
+
+A FITS archive can hold its pixels as scaled integers, declared with the \option{BSCALE} and \option{BZERO} keywords, and the same idea is available here by setting \option{lossy} = TRUE. The data is quantised into an integer type and the pair that undoes the scaling is written into the header, so the stored array is integers while every reader, Rfits or otherwise, recovers physical values. Nothing about the file is special except the keywords: \code{BZERO + BSCALE * stored} is the FITS convention, and a tool that follows it needs to know nothing else.
+
+This buys space the way Rice compression does, by giving up precision rather than length. A 356 by 356 float image of the kind in \code{inst/extdata} takes 460 KB as \code{float64} and 87 KB as \code{int16}, and the worst pixel is then within half a quantisation step of where it started. \option{max_error} in the return value reports that step's cost as it was actually measured on the data.
+
+\option{data_type} picks the integer type from \code{'uint8'}, \code{'int8'}, \code{'int16'}, \code{'uint16'} and \code{'int32'}; the other types are not quantisable and asking for one is an error. Left as \code{NULL} the type follows the dynamic range of the data. Whole numbers need no scaling at all, so the smallest type that can hold them exactly is used and no \option{BSCALE} or \option{BZERO} is written: a lossy write of a segmentation map is therefore still exact. Anything else is spread across every level a type offers, from the narrowest upwards, and the choice stops at 16 bit. Going wider than that costs exactly as much as the \code{float32} it would replace, since an ordinary image has far more distinct pixels than any integer type has levels, so a rule that chased perfect separation would answer \code{int32} every time and save nothing. Ask for \code{'int32'} through \option{data_type} when the wider span genuinely matters.
+
+The scale itself is decided before the type: a \option{bscale} or \option{bzero} given in the call wins, otherwise a scale already in the header is used, and only then is one fitted to the data. That order is what lets a scaled FITS image be converted without changing which physical value each stored integer means, and it is why re-writing an array that was read from a quantised store round trips exactly.
+
+\option{BSCALE} and \option{BZERO} are read from the FITS card images rather than the structured keywords, because the cards are the authoritative copy and the only one that survives intact. A Zarr attribute serialises numbers through JSON, which truncates a step of \code{1.5e-4} to \code{0.0002} and would destroy the data it describes; a FITS card keeps fourteen significant figures. \code{Rfits_inspect_zarr} reports the fact that an array is quantised without reporting the scale, so the two cannot disagree.
+
+Whether an array is scaled on read is recorded in the array's own \code{lossy} attribute as it is written, rather than inferred from its keywords. That distinction matters because a FITS reader applies \option{BSCALE} itself: \code{Rfits_read_image} of a scaled image returns physical values, and writing those here copies the keywords along with them, which would otherwise leave an array holding physical values under keywords that describe something else and scale them a second time. An array with no \code{lossy} attribute was written by an older Rfits, or by another tool. A float array is never scaled; an integer array that carries the Rfits technical mirror is left as raw, since that is how the version that wrote it read it; and an integer array from anywhere else is scaled by the FITS convention, which is the only reading available for it.
+
+Missing pixels survive exactly. Each integer type reserves one value as its fill, which Zarr converts back to NA on read, and the usable span excludes it, so no real pixel can be quantised onto the marker. Non finite pixels (NaN or Inf) have no integer to become and are reported: they arrive back as NA.
+
+\option{physical} = FALSE returns the stored integers instead, which is what any other Zarr consumer sees, and is the way to inspect what the quantisation actually cost. Subsets, cutouts and pointers are scaled too, so a cutout of a quantised cube is the same quantity as the region it came from. \option{force_logical} asks for the stored integers as flags and therefore wins over scaling, with a message saying so.
+
+An append cannot choose its own scale, because the increment has to land on the grid the array was already cut with, so \option{lossy} and \option{append} together are refused. Appending physical data to a quantised array is fine and does the right thing: the scale recorded on the array is applied to the increment, which is checked against the same scale the array was created with.
 
 \strong{Store self-description}
 
@@ -213,6 +253,8 @@ Writes require a store created with \option{read_only} = FALSE; that flag cannot
 
 Invisibly, a list with components \option{filename}, \option{extname}, \option{dim}, \option{data_type}, \option{chunk_shape}, \option{compressor} and \option{compression_level}. The last two are the values applied to the array as created, which is not necessarily what was asked for.
 
+With \option{lossy} = TRUE the list also carries \option{lossy}, \option{quantised}, \option{bscale}, \option{bzero} and \option{max_error}. \option{quantised} is FALSE when the data was whole numbers and needed no scaling, in which case no \option{BSCALE} or \option{BZERO} was written; \option{max_error} is the largest difference between a physical pixel and the value that comes back, measured on the finite pixels of the data as it was written.
+
 \code{Rfits_append_xxx_zarr} is \code{Rfits_write_image_zarr} called with \option{append} = TRUE. Its return value additionally carries \option{start_index}, \option{end_index} and \option{appended}, so the range that was written is known without reading the array back.
 
 \code{\link{Rfits_inspect_zarr}} summarises a store without reading any pixel data.
@@ -227,6 +269,7 @@ Subsetting an \option{Rfits_pointer_zarr} mirrors \code{\link{Rfits_image}} (and
 \item \option{box} sets the size of the cutout around a single location, with \option{box}[1] for x and \option{box}[2] for y (a scalar is used for both). With \option{i} and \option{j} omitted, the box is centred on the image.
 \item \option{type} = 'coord' treats \option{i} and \option{j} as RA and Dec rather than pixels, which needs \code{Rwcs} and requires both to be length 1.
 \item \option{collapse} drops a trailing dimension that the caller sliced down to a single value, turning a cube slice into an \option{Rfits_image} and so on.
+\item \option{physical} = FALSE gives the stored integers of a quantised array rather than the scaled values, as it does for \code{Rfits_read_image_zarr}.
 }
 
 Two FITS pointer features are deliberately not available here, because the Zarr reader has no equivalent: matrix indexing for random access (\code{p[cbind(x, y)]}), which is rejected with an error rather than silently returning the wrong shape, and \option{sparse} / \option{scale_sparse} subsampling.
@@ -280,6 +323,36 @@ dim(Rfits_read_image_zarr(file_image_temp, extname = 'stack')$imDat)
 Rfits_write_image_zarr(first, file_image_temp, extname = 'fast', compressor = 'lz4',
                        clevel = 3L)
 Rfits_inspect_zarr(file_image_temp, print = FALSE)$arrays$fast
+
+#Lossy storage: the pixels become int16 with a BSCALE/BZERO pair that undoes it,
+#which is roughly a fifth of the size of the float64 array and good to half a step
+lossy_file = file.path(tempdir(), 'image_lossy.zarr')
+saved = Rfits_write_image_zarr(temp_image, lossy_file, extname = 'image', lossy = TRUE)
+saved$data_type
+saved$max_error
+
+temp_image_lossy = Rfits_read_image_zarr(lossy_file, extname = 'image')
+max(abs(temp_image$imDat - temp_image_lossy$imDat), na.rm = TRUE)
+temp_image_lossy$keyvalues$BSCALE
+temp_image_lossy$keyvalues$BZERO
+
+#physical = FALSE shows the integers that are actually on disk, which is what any
+#other Zarr reader would see, and they reconstruct the values above exactly
+stored = Rfits_read_image_zarr(lossy_file, extname = 'image', header = FALSE,
+                               physical = FALSE)
+head(as.vector(stored))
+
+#Whole numbers need no scaling, so a lossy write of them stays exact
+codes = matrix(as.numeric(sample(0:12, 24, replace = TRUE)), 4, 6)
+exact = Rfits_write_image_zarr(codes, lossy_file, extname = 'codes', lossy = TRUE)
+exact$quantised
+all(Rfits_read_image_zarr(lossy_file, extname = 'codes', header = FALSE) == codes)
+
+#A scale of your own is honoured exactly, which is how a scaled FITS image keeps its
+#own quantisation when it is converted
+Rfits_write_image_zarr(temp_image, lossy_file, extname = 'fixed', lossy = TRUE,
+                       bscale = 0.001, bzero = 5)
+Rfits_inspect_zarr(lossy_file, print = FALSE)$arrays$fixed
 
 #A pointer, which only reads what you ask of it
 point = Rfits_point_zarr(file_image_temp, extname = 'image')

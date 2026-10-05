@@ -94,8 +94,10 @@ files that fail.
 }
   \item{\dots}{
 Passed to \code{\link{Rfits_write_image_zarr}}, so that \option{data_type},
-\option{chunk_shape}, \option{compressor}, \option{clevel} and \option{shuffle} can
-be set for the whole batch.
+\option{chunk_shape}, \option{compressor}, \option{clevel}, \option{shuffle} and
+\option{lossy} can be set for the whole batch. Passing \option{lossy} = TRUE
+quantises every file in it, which is how a large archive is converted to scaled
+integers; see \strong{Lossy compression} in \code{\link{Rfits_image_zarr}}.
 }
 }
 \details{

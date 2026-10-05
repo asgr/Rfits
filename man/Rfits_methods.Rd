@@ -218,7 +218,7 @@ Rfits_rotation(filename, ext=1, keypass=TRUE, ...)
 \method{[}{Rfits_pointer}(x, i, j, k, m, allow_write=x$allow_write) <- value
 \method{[}{Rfits_pointer_hdf5}(x, i, j, k, m, header=x$header)
 \method{[}{Rfits_pointer_zarr}(x, i, j, k, m, box=201, type='pix', header=x$header,
-  collapse=TRUE)
+  physical=TRUE, collapse=TRUE)
 
 \method{&}{Rfits_image}(e1, e2)
 \method{|}{Rfits_image}(e1, e2)
@@ -291,6 +291,9 @@ Logical, should a modified \code{Rfits} object be output with a fixed header, ma
 }
   \item{collapse}{
 Logical; should the array or cube be collapsed down dimensions if the 3rd/4th dimensions are 1L? If TRUE this means slices in cubes/arrays are converted to class Rfits_cube/Rfits_image as appropriate. Note the user needs to specify the dimension slice to be '1', so it is more specific than just relying on the dimension only having size 1. E.g. if ex is a 10x10x1 cube then ex[,,1,collapse=TRUE] would become a 10x10 image, but ex[,,,collapse=TRUE] would not, instead it would still return a 10x10x1 cube. This is really to stop users accidentally collapsing things, and deliberately forces active input (so a feature not a bug).
+}
+  \item{physical}{
+Logical; should a Zarr array that carries \code{BSCALE} and \code{BZERO} be returned as physical values (TRUE) or as the integers stored on disk (FALSE)? Only \code{\link[=Rfits_image_zarr]{Rfits_pointer_zarr}} objects have this argument; see \strong{Lossy compression} in \code{\link{Rfits_image_zarr}}.
 }
   \item{type}{
   For Rfits_image objects you can specify cutout locations either by pixel position (pix) or RA/Dec coordinates (coord). You will need \code{Rwcs} in the latter case and \option{i} and \option{j} must both be length 1.

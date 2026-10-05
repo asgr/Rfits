@@ -1687,6 +1687,335 @@ multi_ext = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
                        extname = c('nosuch', 'data1'))
 expect_identical(names(multi_ext), 'tile_2_2')
 
+# --- Lossy (scaled integer) Zarr writes ----------------------------------------
+
+#ex 58b the simplest lossy write: a float image stored as scaled integers, and read
+#back as physical values. BSCALE and BZERO are the FITS scaled integer keywords, so
+#the header alone has to be enough to undo the scaling. Note that the values arrive
+#as doubles rather than the original, which is the whole point
+file_lossy = file.path(subdir, 'lossy.zarr')
+set.seed(4917)
+data_flt = matrix(rnorm(400), 20, 20)
+w_lossy = suppressMessages(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q',
+                                                  lossy = TRUE))
+expect_equal(w_lossy$data_type, 'int16')
+expect_true(w_lossy$lossy)
+expect_true(w_lossy$quantised)
+expect_true(w_lossy$bscale > 0)
+
+read_lossy = Rfits_read_image_zarr(file_lossy, extname = 'q')
+expect_identical(typeof(read_lossy$imDat), 'double')
+expect_equal(dim(read_lossy$imDat), dim(data_flt))
+#the error is bounded by half the quantisation step, which is all a lossy write
+#promises. Tolerance is generous because the card text, not the in memory value, is
+#what the reader scales by
+half_step = w_lossy$bscale/2
+expect_lt(max(abs(read_lossy$imDat - data_flt)), half_step * 1.01)
+expect_true(any(grepl('^BSCALE', read_lossy$header)))
+expect_true(any(grepl('^BZERO', read_lossy$header)))
+expect_true(all(c('BSCALE', 'BZERO') %in% read_lossy$keynames))
+#the scale survives the card round trip at full precision, which a Zarr attribute
+#could not do (JSON truncates a number to about four decimal places)
+expect_equal(read_lossy$keyvalues$BSCALE, w_lossy$bscale, tolerance = 1e-13)
+expect_equal(read_lossy$keyvalues$BZERO, w_lossy$bzero, tolerance = 1e-13)
+expect_true(any(grepl('Rfits quantised to int16', read_lossy$history)))
+
+#physical = FALSE is the stored integers, and they reconstruct the physical values
+#exactly under the scale that was recorded
+raw_lossy = Rfits_read_image_zarr(file_lossy, extname = 'q', header = FALSE,
+                                  physical = FALSE)
+expect_identical(typeof(raw_lossy), 'integer')
+expect_equal(as.numeric(w_lossy$bzero + w_lossy$bscale * raw_lossy),
+             as.numeric(read_lossy$imDat))
+
+#the store says so without needing a header at all
+info_lossy = Rfits_inspect_zarr(file_lossy, print = FALSE)
+expect_true(info_lossy$arrays$q$lossy)
+expect_equal(info_lossy$arrays$q$data_type, 'int16')
+expect_output(Rfits_inspect_zarr(file_lossy), 'lossy scaling')
+
+#ex 58c a scale the caller gives is honoured exactly, and only the integer type is
+#chosen. This is what lets a scaled FITS image be converted without changing which
+#physical value each stored integer means
+file_scaled = file.path(subdir, 'lossy_scaled.zarr')
+w_scaled = suppressMessages(Rfits_write_image_zarr(data_flt, file_scaled, extname = 'q',
+                                                   lossy = TRUE, bscale = 0.001,
+                                                   bzero = 5))
+expect_identical(w_scaled$bscale, 0.001)
+expect_identical(w_scaled$bzero, 5)
+expect_equal(w_scaled$data_type, 'int16')
+read_scaled = Rfits_read_image_zarr(file_scaled, extname = 'q')
+expect_identical(read_scaled$keyvalues$BSCALE, 0.001)
+#with an exact step the round trip is just the manual quantisation, bit for bit
+manual = round((data_flt - 5)/0.001) * 0.001 + 5
+expect_equal(as.numeric(read_scaled$imDat), as.numeric(manual))
+#only one half given keeps the FITS default for the other
+w_half = suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_half.zarr'),
+                                                  extname = 'q', lossy = TRUE, bscale = 0.01))
+expect_identical(w_half$bscale, 0.01)
+expect_identical(w_half$bzero, 0)
+
+#ex 58d BSCALE and BZERO already on the object are reused rather than recalculated
+kv_scaled = keyvalues_2d
+kv_scaled$BSCALE = 1e-4
+kv_scaled$BZERO = 100
+file_reuse = file.path(subdir, 'lossy_reuse.zarr')
+w_reuse = suppressMessages(Rfits_write_image_zarr(data_flt, file_reuse, extname = 'q',
+                                                  lossy = TRUE, keyvalues = kv_scaled))
+expect_identical(w_reuse$bscale, 1e-4)
+expect_identical(w_reuse$bzero, 100)
+#the range is too wide for 16 bit at that step, so the caller's type ladder has to go up
+expect_equal(w_reuse$data_type, 'int32')
+read_reuse = Rfits_read_image_zarr(file_reuse, extname = 'q')
+expect_lt(max(abs(read_reuse$imDat - data_flt)), 1e-4/2 * 1.01)
+#the other keywords are untouched, and BITPIX follows the type that has a FITS code
+expect_equal(read_reuse$keyvalues$SIMPLE, TRUE)
+#the shape keywords are left as supplied, since rewriting them is not what a
+#quantisation is for
+expect_equal(read_reuse$keyvalues$NAXIS1, 4L)
+expect_equal(as.integer(read_reuse$keyvalues$BITPIX), 32L)
+#the default pair is not a scale, so it must not pin the write to an identity
+kv_default = keyvalues_2d
+kv_default$BSCALE = 1
+kv_default$BZERO = 0
+w_default = suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_def.zarr'),
+                                                     extname = 'q', lossy = TRUE,
+                                                     keyvalues = kv_default))
+expect_true(w_default$quantised)
+#an identity pair must not pin the write, so the step here is the one fitted to the
+#data rather than the BSCALE = 1 that was in the header
+expect_lt(w_default$bscale, 0.01)
+
+#ex 58e whole numbers need no scaling at all. The smallest type that holds them
+#exactly is taken, and no BSCALE or BZERO is written because the identity says nothing
+data_whl = matrix(as.numeric(sample(-50:50, 400, replace = TRUE)), 20, 20)
+file_whl = file.path(subdir, 'lossy_whole.zarr')
+w_whl = suppressMessages(Rfits_write_image_zarr(data_whl, file_whl, extname = 'q',
+                                                 lossy = TRUE, keyvalues = keyvalues_2d))
+expect_false(w_whl$quantised)
+expect_equal(w_whl$data_type, 'int8')
+read_whl = Rfits_read_image_zarr(file_whl, extname = 'q')
+expect_identical(typeof(read_whl$imDat), 'integer')
+expect_identical(as.integer(read_whl$imDat), as.integer(data_whl))
+expect_null(read_whl$keyvalues$BSCALE)
+expect_false(Rfits_inspect_zarr(file_whl, print = FALSE)$arrays$q$lossy)
+expect_true(any(grepl('integers without scaling', read_whl$history)))
+#int8 has no FITS BITPIX code, so the keyword is left as it was rather than given a
+#byte code that would misstate the sign
+#beyond 16 bit the identity ladder has to climb to int32, which is still exact and
+#still gains a FITS BITPIX code of its own
+data_wide = matrix(as.numeric(sample(c(-40000, 40000, -300, 12345), 400,
+                                     replace = TRUE)), 20, 20)
+w_big = suppressMessages(Rfits_write_image_zarr(data_wide, file.path(subdir, 'lossy_big.zarr'),
+                                                 extname = 'q', lossy = TRUE,
+                                                 keyvalues = keyvalues_2d))
+expect_equal(w_big$data_type, 'int32')
+expect_false(w_big$quantised)
+read_big = Rfits_read_image_zarr(file.path(subdir, 'lossy_big.zarr'), extname = 'q')
+expect_equal(as.integer(read_big$keyvalues$BITPIX), 32L)
+expect_identical(as.integer(read_big$imDat), as.integer(data_wide))
+
+#ex 58f missing and non finite pixels. The usable integer span excludes the fill
+#value by construction, so NA is the only thing that can occupy it and missing pixels
+#survive a lossy round trip exactly
+data_na = data_flt
+data_na[1:50] = NA
+file_na = file.path(subdir, 'lossy_na.zarr')
+suppressMessages(Rfits_write_image_zarr(data_na, file_na, extname = 'q', lossy = TRUE,
+                                         data_type = 'int16'))
+read_na = Rfits_read_image_zarr(file_na, extname = 'q')
+expect_identical(is.na(read_na$imDat), is.na(data_na))
+#NaN and Inf have no integer to become, so they are reported and arrive back as NA
+data_nf = data_flt
+data_nf[1:10] = NaN
+data_nf[11:15] = Inf
+expect_message(suppressWarnings(Rfits_write_image_zarr(data_nf, file.path(subdir, 'lossy_nf.zarr'),
+                                                        extname = 'q', lossy = TRUE,
+                                                        data_type = 'int16')),
+               'non finite')
+read_nf = Rfits_read_image_zarr(file.path(subdir, 'lossy_nf.zarr'), extname = 'q')
+expect_identical(sum(is.na(read_nf$imDat)), 15L)
+#an array that is entirely missing has nothing to scale
+expect_error(Rfits_write_image_zarr(matrix(NA_real_, 3, 3), file.path(subdir, 'lossy_allna.zarr'),
+                                    extname = 'q', lossy = TRUE), 'no finite pixels')
+#a constant array has no range to spread, so a calculated step would be zero
+w_const = suppressMessages(Rfits_write_image_zarr(matrix(3.7, 10, 10),
+                                                   file.path(subdir, 'lossy_const.zarr'),
+                                                   extname = 'q', lossy = TRUE,
+                                                   data_type = 'int8'))
+read_const = Rfits_read_image_zarr(file.path(subdir, 'lossy_const.zarr'), extname = 'q')
+expect_equal(as.numeric(read_const$imDat), rep(3.7, 100))
+
+#ex 58g a type that cannot resolve the dynamic range is stepped up, and one that
+#cannot hold the supplied scale is an error rather than a silent clip
+w_auto = suppressMessages(Rfits_write_image_zarr(matrix(as.numeric(1:4), 2, 2),
+                                                  file.path(subdir, 'lossy_small.zarr'),
+                                                  extname = 'q', lossy = TRUE))
+expect_equal(w_auto$data_type, 'uint8')
+expect_false(w_auto$quantised)
+expect_error(Rfits_write_image_zarr(matrix(as.numeric(1:100) * 100, 10, 10),
+                                    file.path(subdir, 'lossy_nofit.zarr'), extname = 'q',
+                                    lossy = TRUE, data_type = 'int8', bscale = 1, bzero = 0),
+             'cannot be stored')
+#non integer types are refused outright, since there is nothing to quantise into
+expect_error(suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_bad.zarr'),
+                                extname = 'q', lossy = TRUE, data_type = 'float32')),
+             'stores integers')
+expect_error(suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_bad2.zarr'),
+                                extname = 'q', lossy = TRUE, data_type = 'int64')),
+             'cannot store')
+expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
+                                    bscale = -1), 'finite positive')
+expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
+                                    bzero = Inf), 'finite number')
+#lossy and append cannot both mean what they say, since the scale belongs to the array
+expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
+                                    append = TRUE), 'Cannot use both lossy and append')
+
+#ex 58h appending to a quantised array. The increment is physical data, so it has to
+#be put through the scale the array was created with rather than coerced to its
+#storage type, which would write physical values as if they were integers
+file_appq = file.path(subdir, 'lossy_append.zarr')
+w_appq = suppressMessages(Rfits_write_image_zarr(data_flt, file_appq, extname = 'q',
+                                                  lossy = TRUE, bscale = 0.001, bzero = 5,
+                                                  keyvalues = kv_scaled))
+inc_app = matrix(rnorm(200), 10, 20)
+ap_app = Rfits_write_image_zarr(inc_app, file_appq, extname = 'q', append = TRUE)
+expect_equal(ap_app$dim, c(30L, 20L))
+read_appq = Rfits_read_image_zarr(file_appq, extname = 'q')
+expect_equal(read_appq$imDat[1:20, ], data_flt, tolerance = 1e-3)
+expect_equal(read_appq$imDat[21:30, ], inc_app, tolerance = 1e-3)
+#the scale of the array is not changed by an append
+expect_identical(read_appq$keyvalues$BSCALE, 0.001)
+expect_true(any(grepl('Rfits quantised to', read_appq$history)))
+
+#ex 58i subsetting and pointers read scaled values, since a cutout of a quantised
+#array that came back as integers would be a different quantity from the whole
+sub_q = Rfits_read_image_zarr(file_appq, extname = 'q', xlo = 3, xhi = 8, ylo = 4, yhi = 9)
+expect_identical(typeof(sub_q$imDat), 'double')
+expect_equal(sub_q$imDat, read_appq$imDat[3:8, 4:9])
+sub_qraw = Rfits_read_image_zarr(file_appq, extname = 'q', xlo = 3, xhi = 8, ylo = 4,
+                                 yhi = 9, header = FALSE, physical = FALSE)
+expect_identical(typeof(sub_qraw), 'integer')
+
+point_q = Rfits_point_zarr(file_appq, extname = 'q')
+got_q = point_q[3:8, 4:9]
+expect_identical(typeof(got_q$imDat), 'double')
+expect_equal(got_q$imDat, sub_q$imDat)
+expect_equal(got_q$keyvalues$BSCALE, 0.001)
+#physical = FALSE on a pointer gives the stored integers, as it does on the reader
+got_qraw = point_q[3:8, 4:9, physical = FALSE]
+expect_identical(typeof(got_qraw$imDat), 'integer')
+expect_equal(got_qraw$imDat, sub_qraw)
+
+#ex 58h2 appending to a quantised array that has no shape keywords of its own. A
+#bare lossy write records only the scale, so the append has to add NAXIS to a header
+#whose comments were never aligned with it. Rfits_keyvalues_to_header walks values
+#and comments by the same index, so a shape key with no matching comment means the
+#two lists have different lengths and the append fails outright
+file_bare = file.path(subdir, 'lossy_bare.zarr')
+suppressMessages(Rfits_write_image_zarr(data_flt, file_bare, extname = 'q', lossy = TRUE,
+                                         bscale = 0.001, bzero = 5))
+ap_bare = Rfits_write_image_zarr(inc_app, file_bare, extname = 'q', append = TRUE)
+expect_equal(ap_bare$dim, c(30L, 20L))
+read_bare = Rfits_read_image_zarr(file_bare, extname = 'q')
+expect_equal(read_bare$keyvalues$NAXIS1, 30L)
+expect_equal(read_bare$keyvalues$NAXIS2, 20L)
+expect_identical(read_bare$keyvalues$BSCALE, 0.001)
+expect_equal(read_bare$imDat[21:30, ], inc_app, tolerance = 1e-3)
+#the comments stay aligned with the values, which is what Rfits_keyvalues_to_header
+#requires and what the append left broken before
+expect_length(read_bare$keycomments, length(read_bare$keyvalues))
+expect_setequal(names(read_bare$keycomments), names(read_bare$keyvalues))
+
+#ex 58k whether an array is scaled on read is a recorded fact, not a guess from its
+#keywords. This matters because a FITS reader applies BSCALE itself, so
+#Rfits_read_image of a scaled image returns physical values already. Writing those
+#here copies the keywords along with them, and a reader that went by the keywords
+#alone would apply the scale a second time
+kv_pin = keyvalues_2d
+kv_pin$BSCALE = 2
+kv_pin$BZERO = 10
+file_copy = file.path(subdir, 'lossy_copyheader.zarr')
+suppressMessages(Rfits_write_image_zarr(data_flt, file_copy, extname = 'phys',
+                                         keyvalues = kv_pin))
+#A float array carrying a scale in its header is physical data, and is never scaled
+read_copy = Rfits_read_image_zarr(file_copy, extname = 'phys')
+expect_equal(as.numeric(read_copy$imDat), as.numeric(data_flt))
+expect_false(Rfits_inspect_zarr(file_copy, print = FALSE)$arrays$phys$lossy)
+
+#A quantised write of that same physical data reuses the pinned scale, so the stored
+#integers are the ones the source FITS file held and the round trip closes
+file_pin = file.path(subdir, 'lossy_pinned.zarr')
+w_pin = suppressMessages(Rfits_write_image_zarr(data_flt, file_pin, extname = 'q',
+                                                 lossy = TRUE, keyvalues = kv_pin))
+expect_identical(w_pin$bscale, 2)
+expect_identical(w_pin$bzero, 10)
+expect_equal(as.integer(Rfits_read_image_zarr(file_pin, extname = 'q', header = FALSE,
+                                              physical = FALSE)),
+             as.integer(round((data_flt - 10)/2)))
+expect_equal(Rfits_read_image_zarr(file_pin, extname = 'q', header = FALSE),
+             10 + 2 * round((data_flt - 10)/2))
+
+#ex 58l the three cases an array can arrive from. Hand built nodes stand in for
+#stores that Rfits did not write with quantisation in mind, and each has to be read
+#the way the tool that made it meant it to be
+kv_scale = list(SIMPLE = TRUE, BITPIX = 16L, NAXIS = 2L, NAXIS1 = 3L, NAXIS2 = 2L,
+               BSCALE = 2, BZERO = 10)
+cards_scale = as.character(Rfits_keyvalues_to_header(kv_scale))
+int_block = matrix(as.integer(0:5), 3, 2)
+
+#an older Rfits array: integers, a scale in the header, the technical mirror, but no
+#lossy attribute. That version never scaled on read, so neither does this one, or an
+#existing store would change meaning under its reader
+file_old = file.path(subdir, 'lossy_older.zarr')
+store_old = zarr::create_zarr(file_old)
+node_old = store_old$add_array('/', 'x',
+  zarr::define_array('int16', c(3L, 2L))$metadata())
+node_old$write(int_block)
+node_old$set_attribute('header', cards_scale)
+node_old$set_attribute('data_type', 'int16')
+node_old$save()
+expect_equal(Rfits_read_image_zarr(file_old, extname = 'x', header = FALSE), int_block)
+#and the store reports the same thing the reader does
+expect_false(Rfits_inspect_zarr(file_old, print = FALSE)$arrays$x$lossy)
+
+#a foreign array: integers and a scale, with nothing Rfits of its own to go by. The
+#FITS convention is the only available reading, so the scale is applied
+file_fg = file.path(subdir, 'lossy_foreign.zarr')
+store_fg = zarr::create_zarr(file_fg)
+node_fg = store_fg$add_array('/', 'x',
+  zarr::define_array('int16', c(3L, 2L))$metadata())
+node_fg$write(int_block)
+node_fg$set_attribute('header', cards_scale)
+node_fg$save()
+#scaled to physical values, keeping the shape of the array
+expect_equal(suppressWarnings(Rfits_read_image_zarr(file_fg, extname = 'x',
+                                                    header = FALSE)),
+             matrix(as.numeric(10 + 2 * as.numeric(int_block)), 3, 2))
+expect_true(Rfits_inspect_zarr(file_fg, print = FALSE)$arrays$x$lossy)
+#physical = FALSE is the raw stored integers whichever way the array is read
+expect_equal(Rfits_read_image_zarr(file_fg, extname = 'x', header = FALSE,
+                                   physical = FALSE), int_block)
+
+#an array of this version's own making carries the record explicitly
+expect_true(Rfits_inspect_zarr(file_pin, print = FALSE)$arrays$q$lossy)
+
+#ex 58j a quantised store converts from FITS in a batch, through the ... argument,
+#and logical data still lands in the smallest exact integer type
+file_lgl = file.path(subdir, 'lossy_lgl.zarr')
+data_lgl2 = matrix(sample(c(TRUE, NA, FALSE), 400, replace = TRUE), 20, 20)
+w_lgl = suppressMessages(Rfits_write_image_zarr(data_lgl2, file_lgl, extname = 'q',
+                                                 lossy = TRUE))
+expect_equal(w_lgl$data_type, 'uint8')
+expect_false(w_lgl$quantised)
+expect_identical(Rfits_read_image_zarr(file_lgl, extname = 'q', header = FALSE,
+                                       force_logical = TRUE), data_lgl2)
+#force_logical asks for the stored integers as flags, so it wins over scaling and
+#says so rather than returning logicals that look like physical values
+expect_message(Rfits_read_image_zarr(file_appq, extname = 'q', force_logical = TRUE),
+               'without scaling')
+
 #ex 59 the remote half of the search, offline. A store is found by listing prefixes
 #with a delimiter, so a directory of them costs one request per directory rather than
 #one per object, and the arrays inside are never enumerated. A fake client backed by

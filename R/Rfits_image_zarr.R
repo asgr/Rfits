@@ -482,7 +482,7 @@ Rfits_s3_store_new = function(bucket, prefix='', region=NULL, endpoint=NULL,
 Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, header=TRUE,
                                  xlo=NULL, xhi=NULL, ylo=NULL, yhi=NULL, zlo=NULL, zhi=NULL,
                                  tlo=NULL, thi=NULL, remove_HIERARCH=FALSE, force_logical=FALSE,
-                                 collapse=FALSE){
+                                 physical=TRUE, collapse=FALSE){
   .zarr_require()
 
   #A store object is neither a path nor a character, so it cannot be asserted or
@@ -508,6 +508,7 @@ Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL
   assertIntegerish(thi, null.ok=TRUE)
   assertFlag(remove_HIERARCH)
   assertFlag(force_logical)
+  assertFlag(physical)
   assertFlag(collapse)
 
   store = .zarr_store_open(filename_source)
@@ -615,6 +616,32 @@ Rfits_read_image_zarr = function(filename='temp.zarr', extname='data1', ext=NULL
       image = node$read(NULL)
       if(Ndim > 1){
         dim(image) = dim
+      }
+    }
+
+    #What Zarr hands back is the stored integers, and a quantised array is only
+    #meaningful once the FITS scaling has been undone. This therefore happens before
+    #the logical conversion, since scaling turns the image into doubles and there
+    #would be nothing left to recover as flags afterwards. An array with no scale
+    #keys is left exactly as it is, which is every store written before lossy
+    #support. Scaling promotes an integer image to double, and NA is propagated
+    #rather than scaled, so the fill values stay missing.
+    #
+    #Only an integer array can be a quantised one, so a float read (the common case)
+    #does not pay for reading and parsing the header cards at all.
+    #
+    #force_logical asks for the stored integers as flags, which is a different thing
+    #from the physical values, so the two cannot both be honoured. force_logical wins
+    #and says so, rather than returning logicals under a name implying the scaling
+    #had been undone.
+    scale = if(is.integer(image)) .zarr_read_scale(node) else NULL
+    if(!is.null(scale)){
+      if(force_logical){
+        message('This Zarr array carries BSCALE and BZERO, but force_logical = TRUE was ',
+                'asked for, so the stored integers are returned as logical values ',
+                'without scaling.')
+      }else if(physical){
+        image = scale$bzero + scale$bscale * image
       }
     }
 
@@ -760,12 +787,18 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 .zarr_root_keys = c('convention', 'schema_version', 'Rfits_version', 'created',
                     'total_images', 'images_array', 'images_shape', 'image_shape',
                     'chunk_shape', 'data_type', 'codec', 'compressor',
-                    'compression_level', 'shuffle', 'fill_value', 'fits_header',
+                    'compression_level', 'shuffle', 'fill_value', 'lossy', 'fits_header',
                     'key_count', 'supported_extensions', 'creation_info',
                     'append_history')
 
+#The per array mirror of the technical parameters, and the root level summary that
+#stands for the store as a whole. The two lists stay separate because the root adds
+#the store level keys that no array carries. 'lossy' says whether the pixels are a
+#scaled integer representation rather than the values themselves; it is recorded
+#separately from data_type because the scale lives in the FITS cards, which a Zarr
+#attribute cannot hold accurately.
 .zarr_array_keys = c('data_type', 'chunk_shape', 'codec', 'compressor',
-                     'compression_level', 'shuffle', 'fill_value')
+                     'compression_level', 'shuffle', 'fill_value', 'lossy')
 
 #The blosc cname values accepted by zarr (0.5.0). Note that 'blosc' is not one of
 #them, so the user facing default name maps to zarr's own default compressor.
@@ -945,11 +978,29 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #the dtype and fill value in the completed metadata rather than on readable
 #bindings (node$data_type is an R6 object that cannot be coerced to character),
 #so metadata is the only trustworthy source for them.
-.zarr_array_tech = function(node){
+#
+#lossy_asked is what the writer just did to the pixels, and is passed in rather
+#than guessed from the header, because a header copied from a scaled FITS file
+#describes the file the data came from and not this array. NULL means the array was
+#not written by Rfits just now, so the only evidence left is the existing attribute,
+#and failing that the FITS convention.
+.zarr_array_tech = function(node, lossy_asked = NULL){
   shape = as.vector(as.integer(node$shape))
   codec = .zarr_codec_of(node)
   meta = tryCatch(node$metadata, error = function(e) NULL)
   data_type = if(is.null(meta)) '' else as.character(meta$data_type)
+  if(is.null(lossy_asked)){
+    #Agrees with .zarr_read_scale(), so what a store reports about itself is what
+    #reading it will actually do
+    stored = tryCatch(node$attribute('lossy'), error = function(e) NULL)
+    if(is.logical(stored) && length(stored) == 1 && !is.na(stored)){
+      lossy = stored
+    }else{
+      lossy = !is.null(.zarr_read_scale(node))
+    }
+  }else{
+    lossy = lossy_asked
+  }
   return(list(
     shape = shape,
     image_shape = .zarr_trim_shape(shape),
@@ -960,6 +1011,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     clevel = if(is.null(codec)) NA_integer_ else codec$clevel,
     shuffle = if(is.null(codec)) '' else codec$shuffle,
     fill_value = .zarr_fill_text(if(is.null(meta)) NULL else meta$fill_value),
+    lossy = lossy,
     fits_header = is.character(tryCatch(node$attribute('header'), error = function(e) NULL)),
     key_count = length(tryCatch(node$attribute('keyvalues'), error = function(e) NULL))
   ))
@@ -975,7 +1027,8 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
               compressor = tech$compressor,
               compression_level = tech$clevel,
               shuffle = tech$shuffle,
-              fill_value = tech$fill_value)
+              fill_value = tech$fill_value,
+              lossy = tech$lossy)
   for(key in .zarr_array_keys){
     node$set_attribute(key, vals[[key]])
   }
@@ -998,6 +1051,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   levels = list()
   shuffles = list()
   fills = list()
+  lossy = list()
   fits_flags = list()
   key_counts = list()
 
@@ -1020,6 +1074,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     levels[[name]] = tech$clevel
     shuffles[[name]] = tech$shuffle
     fills[[name]] = tech$fill_value
+    lossy[[name]] = tech$lossy
     fits_flags[[name]] = tech$fits_header
     key_counts[[name]] = tech$key_count
     total = total + .zarr_element_count(tech$shape)
@@ -1044,6 +1099,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     compression_level = levels,
     shuffle = shuffles,
     fill_value = fills,
+    lossy = lossy,
     fits_header = fits_flags,
     key_count = key_counts,
     supported_extensions = list('fits'),
@@ -1206,6 +1262,477 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   return(list(data_type=data_type, data=data, fill_value=fill))
 }
 
+#The integer types a lossy write may store into, and the span of each that is
+#safe to quantise. Zarr reads back any pixel equal to the array's fill value as
+#NA, so the fill is excluded from the usable span, and NA is then the only thing
+#that can occupy it. That is what makes the missing pixels survive the round trip
+#exactly, and why the lowest (signed) or highest (unsigned) value is out of
+#bounds for real data. There is no int64 or uint32 here because the zarr package
+#cannot write either from R.
+.zarr_quant_types = c('uint8', 'int8', 'int16', 'uint16', 'int32')
+
+#The order the automatic choice climbs, from fewest levels to most. Capped at 16
+#bit: an ordinary image has more distinct pixels than any integer type has levels,
+#so an uncapped rule would answer int32 every time, which costs exactly as much as
+#the float32 array it replaces and makes the whole exercise pointless. Sixteen bit
+#is also the FITS convention for a scaled image, and halves a float64 archive.
+#Unsigned types come first at equal levels because they have a FITS BITPIX code
+#(8 and 16 with a BZERO offset), which is the standard way a byte or short image
+#declares its range. int32 stays available through data_type for a caller who
+#genuinely needs the wider span.
+.zarr_quant_auto_types = c('uint8', 'int16', 'uint16')
+
+#The subset of those the automatic choice is allowed to reach. Sixteen bit is the
+#FITS convention for a scaled image and halves a float64 archive; anything wider
+#costs as much as the float it would replace, so it is only used when asked for
+#through data_type, or when whole numbers genuinely need the span to stay exact.
+.zarr_quant_auto_types = c('int8', 'uint8', 'int16', 'uint16')
+
+.zarr_quant_fill = c(int8 = -128, uint8 = 255, int16 = -32768, uint16 = 65535,
+                     int32 = -2147483647)
+
+.zarr_quant_lo = c(int8 = -127, uint8 = 0, int16 = -32767, uint16 = 0,
+                   int32 = -2147483646)
+
+.zarr_quant_hi = c(int8 = 127, uint8 = 254, int16 = 32767, uint16 = 65534,
+                   int32 = 2147483647)
+
+#The FITS BITPIX code for a Zarr integer type, or NULL where FITS has none. FITS
+#has no signed byte and no unsigned short, so for those two BITPIX is left as the
+#caller had it rather than filled with a code that would misstate the sign. The
+#array's own data_type attribute is always the exact truth.
+.zarr_quant_bitpix = function(data_type){
+  return(switch(data_type, uint8 = 8L, int16 = 16L, int32 = 32L, NULL))
+}
+
+#Is a stored Zarr type one of the integer types that a quantisation can live in?
+.zarr_is_int_type = function(data_type){
+  return(is.character(data_type) && length(data_type) == 1 && grepl('^u?int', data_type))
+}
+
+#Quantise numeric data into integers for a lossy Zarr write, following the FITS
+#convention that a scaled image stores physical = BZERO + BSCALE * stored. The
+#pair is what goes into the header and what the reader uses to undo the scaling,
+#so a foreign tool can recover the data with nothing but the keywords.
+#
+#When a scale is supplied it is honoured exactly and only the type is chosen, which
+#is what lets an image read from a scaled FITS file go back out with the
+#quantisation it arrived with. When none is supplied the type and scale are fitted to
+#the dynamic range of the data. Whole numbers need no scaling at all, so the smallest
+#type that can hold them exactly is used and no keywords are written, which keeps a
+#lossy write of a segmentation map lossless. Anything else is spread over every level
+#a type offers, from the narrowest up, stopping at 16 bit: see the ladder below for
+#why going wider saves nothing.
+#
+#The shift applied to BZERO matters: stored = (physical - BZERO)/BSCALE, so the
+#smallest value lands on the lowest usable integer when BZERO = min - BSCALE * lo.
+#Getting the sign wrong puts the whole array at the opposite end of the range and
+#then fails the span check.
+.zarr_quantise = function(data, bscale = NULL, bzero = NULL, data_type = NULL){
+  if(!is.null(data_type)){
+    if(is.character(data_type) && !(data_type %in% .zarr_quant_types)){
+      if(.zarr_is_int_type(data_type)){
+        stop('lossy = TRUE cannot store "', data_type, '"; R cannot represent it. Use one of: ',
+             paste(.zarr_quant_types, collapse = ', '), '!', call. = FALSE)
+      }
+      stop('lossy = TRUE stores integers, so data_type must be one of: ',
+           paste(.zarr_quant_types, collapse = ', '), '!', call. = FALSE)
+    }
+  }
+  if(!is.null(bscale)){
+    assertNumeric(bscale, len=1)
+    if(!is.finite(bscale) | bscale <= 0){
+      stop('bscale must be a finite positive number when lossy = TRUE!', call. = FALSE)
+    }
+  }
+  if(!is.null(bzero)){
+    assertNumeric(bzero, len=1)
+    if(!is.finite(bzero)){
+      stop('bzero must be a finite number when lossy = TRUE!', call. = FALSE)
+    }
+  }
+
+  #Everything below works on a double copy that keeps the shape of the input, since
+  #the writer needs the dims to match the array it is about to create. Setting the
+  #storage mode preserves the dim attribute, where as.numeric() would drop it and a
+  #matrix would then be written as a vector. For logical data it also means
+  #FALSE/TRUE become 0/1 before anything else looks at them
+  if(bit64::is.integer64(data)){
+    #An integer64 holds its value in the bits of a double, so changing the storage
+    #mode reinterprets those bits rather than converting them. as.numeric() is the
+    #conversion, and it drops the dims, which are put back
+    quant = as.numeric(data)
+    dim(quant) = dim(data)
+  }else{
+    quant = data
+    storage.mode(quant) = 'double'
+  }
+
+  keep = is.finite(quant)
+  vals = quant[keep]
+  if(length(vals) == 0){
+    stop('There are no finite pixels to quantise, so lossy = TRUE has nothing to scale!',
+         call. = FALSE)
+  }
+  Nbad = sum(!keep & !is.na(quant))
+  if(Nbad > 0){
+    #NaN and Inf have no integer to become. The fill value is the only way to say
+    #'not a number' in an integer array, so they arrive back as NA.
+    message(Nbad, ' non finite pixels will become NA, since only the fill value of an ',
+            'integer array can hold them!')
+  }
+
+  min_val = min(vals)
+  max_val = max(vals)
+  #A scale with one half missing keeps the FITS default for the other half
+  scale_given = !(is.null(bscale) & is.null(bzero))
+  fixed_bscale = if(is.null(bscale)) 1 else bscale
+  fixed_bzero = if(is.null(bzero)) 0 else bzero
+  #Whole numbers are already integers, so the identity stores them exactly and no
+  #scaling is needed at all
+  integral = all(.is_whole_number(vals))
+  #The number of levels the data actually uses. This is what decides the size of the
+  #smallest type worth writing: a type with fewer levels than this cannot keep the
+  #values apart, however the scale is chosen, so it would be a smaller file for data
+  #that has quietly become unable to say which pixels differed.
+  ndistinct = length(unique(vals))
+
+  types = if(is.null(data_type)) .zarr_quant_types else data_type
+  ints = NULL
+
+  #The integer the pixels become under one candidate scale, or NULL when the type
+  #cannot hold them. Rounded in double and checked before narrowing, so the halves
+  #are decided before the type is chosen. The usable span excludes the fill value by
+  #construction, so no finite pixel can be quantised onto it, and NA survives the
+  #round trip exactly.
+  scale_try = function(vals_use, type, use_bscale, use_bzero){
+    lo = as.numeric(.zarr_quant_lo[[type]])
+    hi = as.numeric(.zarr_quant_hi[[type]])
+    part = round((vals_use - use_bzero)/use_bscale)
+    if(any(part < lo | part > hi)){
+      return(NULL)
+    }
+    return(part)
+  }
+
+  #Can this type hold the values as they are, with no scaling? Only used for whole
+  #numbers, and the test is on the doubles rather than by narrowing to R's 32 bit
+  #integer, because as.integer() turns anything past that range into NA_integer_ and
+  #an NA here would report a representable range as an unrepresentable one
+  span_fits = function(type){
+    return(min_val >= as.numeric(.zarr_quant_lo[[type]]) &&
+             max_val <= as.numeric(.zarr_quant_hi[[type]]))
+  }
+
+  if(scale_given){
+    #A scale the caller gave is honoured exactly, so only the type is chosen, and the
+    #first one whose span can hold the scaled integers is the smallest possible
+    for(type in types){
+      part = scale_try(quant[keep], type, fixed_bscale, fixed_bzero)
+      if(!is.null(part)){
+        ints = quant
+        ints[keep] = part
+        chosen_type = type
+        chosen_bscale = fixed_bscale
+        chosen_bzero = fixed_bzero
+        break
+      }
+    }
+    if(is.null(ints)){
+      needed = round((quant[keep] - fixed_bzero)/fixed_bscale)
+      stop('The data range cannot be stored in ', paste(types, collapse = ' / '),
+           ' with BSCALE = ', format(fixed_bscale, digits = 15), ' and BZERO = ',
+           format(fixed_bzero, digits = 15), '. The integers needed run from ',
+           sprintf('%.0f', min(needed)), ' to ', sprintf('%.0f', max(needed)),
+           '. Give a wider data_type, or a scale of your own!', call. = FALSE)
+    }
+  }else if(integral){
+    #Whole numbers need no scaling at all, so the smallest type that can hold them
+    #exactly is taken. Exactness outranks a smaller file: the lossy alternative for
+    #data this well behaved would only throw away detail that costs nothing to keep
+    for(type in types){
+      if(!span_fits(type)){
+        next
+      }
+      ints = quant
+      chosen_type = type
+      chosen_bscale = 1
+      chosen_bzero = 0
+      break
+    }
+    if(is.null(ints) && is.null(data_type)){
+      #Range beyond every type R can put into Zarr, and nobody asked for a particular
+      #type. Quantising whole numbers that no type holds would lose exact values for
+      #nothing, since float64 is exact for whole numbers up to 2^53 and is what
+      #lossy = FALSE already writes. An explicit data_type is not refused here,
+      #because a caller who names a narrow type for wide integers clearly means to
+      #squeeze the data into it
+      stop('The data is all whole numbers but runs from ', sprintf('%.0f', min_val),
+           ' to ', sprintf('%.0f', max_val), ', which no integer type Zarr can write ',
+           'from R holds exactly. Store it with lossy = FALSE to keep float64, which ',
+           'is exact for whole numbers this size.', call. = FALSE)
+    }
+  }
+
+  if(is.null(ints)){
+    #Not whole numbers (or whole numbers the caller has asked to squeeze), so the
+    #scale is fitted to the dynamic range of the data. The question the ladder answers
+    #is: what is the narrowest type with enough levels to keep every distinct value
+    #apart? Spreading the range over all of them gives step = range/(levels - 1), so a
+    #type with fewer levels than the data has distinct values cannot separate them no
+    #matter how it is shifted, and is skipped.
+    auto_types = intersect(types, .zarr_quant_auto_types)
+    if(length(auto_types) == 0){
+      #An explicit data_type outside the automatic set, which is the caller's choice
+      #and is used as is
+      auto_types = types
+    }
+
+    for(type in auto_types){
+      lo = as.numeric(.zarr_quant_lo[[type]])
+      hi = as.numeric(.zarr_quant_hi[[type]])
+      levels = hi - lo + 1
+      if(ndistinct == 1){
+        #A constant array has no range to spread, so a calculated step would be zero
+        #and the division nonsense. Putting every pixel on integer zero with the value
+        #as the zero point reproduces it exactly, and zero is inside the usable span of
+        #every type and is never a fill value
+        cand = c(1, min_val)
+      }else if(levels < ndistinct){
+        #Fewer levels than the data has distinct values, so some of them must share an
+        #integer however the range is scaled, and the next type up is smaller than the
+        #dynamic range the data actually has
+        next
+      }else{
+        use_bscale = (max_val - min_val)/(levels - 1)
+        cand = c(use_bscale, min_val - use_bscale * lo)
+      }
+      part = scale_try(quant[keep], type, cand[1], cand[2])
+      if(is.null(part)){
+        next
+      }
+      ints = quant
+      ints[keep] = part
+      chosen_type = type
+      chosen_bscale = cand[1]
+      chosen_bzero = cand[2]
+      break
+    }
+  }
+
+  if(is.null(ints)){
+    #Nothing in the ladder can hold every distinct value apart. For real image data
+    #that is the ordinary case rather than a failure, since an image has far more
+    #unique pixels than any 16 bit type has levels, which is exactly why the ladder
+    #stops there instead of chasing a type that would cost as much as the float array
+    #it replaces. So the widest type in play is taken and the write says nothing: the
+    #caller asked for a lossy file, and what the loss is sits in max_error and in the
+    #header. A whole number array reaching here means the caller named a type too
+    #narrow to hold it exactly, which is a choice being honoured, not an accident, so
+    #only that case is reported
+    chosen_type = auto_types[length(auto_types)]
+    lo = as.numeric(.zarr_quant_lo[[chosen_type]])
+    hi = as.numeric(.zarr_quant_hi[[chosen_type]])
+    chosen_bscale = (max_val - min_val)/(hi - lo)
+    chosen_bzero = min_val - chosen_bscale * lo
+    part = scale_try(quant[keep], chosen_type, chosen_bscale, chosen_bzero)
+    if(is.null(part)){
+      stop('The data range cannot be stored in ', paste(auto_types, collapse = ', '),
+           '. The values run from ', format(min_val, digits = 15), ' to ',
+           format(max_val, digits = 15), '. Give a wider data_type, or a scale of your ',
+           'own!', call. = FALSE)
+    }
+    ints = quant
+    ints[keep] = part
+    merged = ndistinct - length(unique(part))
+    if(merged > 0 && !is.null(data_type)){
+      message('Storing in ', chosen_type, ' merges ', merged, ' of the ', ndistinct,
+              ' distinct values in the data. A wider data_type would keep them apart.')
+    }
+  }
+
+  #The positions that were not finite (NA, NaN or Inf) have no integer to become, so
+  #they are set to NA_real_ before narrowing. Coercing Inf straight to integer works,
+  #but only by raising an 'NAs introduced' warning, which would look like a fault in
+  #the quantisation rather than the intended loss of those pixels. NA_real_ narrows
+  #to NA_integer_ quietly, and that is what Zarr writes as the fill value.
+  ints[!keep] = NA_real_
+  storage.mode(ints) = 'integer'
+  quantised = !(chosen_bscale == 1 & chosen_bzero == 0)
+  #What the quantisation actually cost, measured on the pixels that were finite
+  max_error = max(abs(as.numeric(vals) - (chosen_bzero + chosen_bscale * ints[keep])))
+
+  return(list(data = ints, data_type = chosen_type,
+              fill_value = as.integer(.zarr_quant_fill[[chosen_type]]),
+              bscale = chosen_bscale, bzero = chosen_bzero, quantised = quantised,
+              max_error = max_error))
+}
+
+#One HISTORY line describing how the array is quantised. Used both when an array
+#is created and when it grows, so the two say the same thing about the same scale.
+#HISTORY is the right place for it: the card round trip keeps the text intact, and
+#a note about how the file was made is not a keyword a reader has to reason about.
+.zarr_scale_history = function(data_type, quantised, max_error = NULL){
+  if(!isTRUE(quantised)){
+    return(paste('Rfits stored as', data_type, 'integers without scaling'))
+  }
+  line = paste('Rfits quantised to', data_type)
+  if(!is.null(max_error)){
+    line = paste0(line, ' (worst pixel error ', format(max_error, digits = 5), ')')
+  }
+  return(line)
+}
+
+#Fold a quantisation into the metadata stored with the array. BSCALE and BZERO are
+#the FITS scaled integer keywords, so the header alone is enough to undo the
+#scaling. BITPIX is only written where FITS has an exact code for the type in use,
+#and a HISTORY line records what happened either way.
+.zarr_quant_header = function(keyvalues, keycomments, comment, history, quant){
+  made_header = is.null(keyvalues)
+  if(made_header){
+    #A lossy array whose scale is not written down anywhere is unreadable, so the
+    #three keys that make it readable are created even when no metadata was asked
+    #for at all
+    keyvalues = list()
+    keycomments = NULL
+  }
+  if(is.null(keycomments) | length(keycomments) != length(keyvalues)){
+    aligned = as.list(rep('', length(keyvalues)))
+    names(aligned) = names(keyvalues)
+    if(!is.null(keycomments)){
+      matched = match(names(aligned), names(keycomments), nomatch=0)
+      aligned[matched > 0] = keycomments[matched[matched > 0]]
+    }
+    keycomments = aligned
+  }
+
+  bitpix = .zarr_quant_bitpix(quant$data_type)
+  if(!is.null(bitpix)){
+    if(is.null(keycomments$BITPIX)){
+      keycomments$BITPIX = 'number of bits per data pixel'
+    }
+    keyvalues$BITPIX = bitpix
+  }
+
+  if(quant$quantised){
+    keyvalues$BSCALE = quant$bscale
+    keycomments$BSCALE = 'lossy quantisation step'
+    keyvalues$BZERO = quant$bzero
+    keycomments$BZERO = 'lossy quantisation zero point'
+  }
+  history = c(history, .zarr_scale_history(quant$data_type, quant$quantised,
+                                           quant$max_error))
+
+  if(made_header & length(keyvalues) == 0){
+    #An array of whole numbers needs no scale of its own, and the caller asked for no
+    #metadata, so there is nothing to write down. Rfits_keyvalues_to_header also cannot
+    #take an empty list, since its loop runs 1:0. Returning NULL here keeps the array
+    #exactly as a plain integer write would have left it.
+    return(list(keyvalues = NULL, keycomments = NULL, history = history, header = NULL))
+  }
+
+  header = Rfits_keyvalues_to_header(keyvalues, keycomments, comment, history)
+  return(list(keyvalues = keyvalues, keycomments = keycomments, history = history,
+              header = header))
+}
+
+#Turn the raw BSCALE and BZERO of a header into a scale, as a list of bscale, bzero
+#and the quantised flag. A value that is absent, malformed or not a positive step
+#falls back to the FITS default, which is the identity, and an identity says nothing
+#has been scaled. That matters in both directions: a float image whose header
+#carries the default BSCALE = 1 and BZERO = 0 is not a quantised array, and treating
+#it as one would either leave it alone when it should be scaled or refuse a lossy
+#write that has no real scale to honour.
+.zarr_scale_read = function(bscale_raw, bzero_raw){
+  bscale = 1
+  bzero = 0
+  #Short circuit operators throughout. is.finite(NULL) is logical(0) rather than
+  #FALSE, so a single & would make the whole test length zero and if() would fail
+  #outright on an image whose header has no scale keys at all, which is the common
+  #case being handled here
+  if(is.numeric(bscale_raw) && length(bscale_raw) == 1 && is.finite(bscale_raw) &&
+     bscale_raw > 0){
+    bscale = as.numeric(bscale_raw)
+  }
+  if(is.numeric(bzero_raw) && length(bzero_raw) == 1 && is.finite(bzero_raw)){
+    bzero = as.numeric(bzero_raw)
+  }
+  return(list(bscale = bscale, bzero = bzero, quantised = !(bscale == 1 & bzero == 0)))
+}
+
+#The quantisation scale carried by an array. The card images are the authoritative
+#copy and the only one that survives at full precision: a BSCALE of 1.5e-4 stored
+#through a Zarr attribute comes back from JSON as 0.0002, which would destroy the
+#data, while a FITS card keeps fourteen significant figures. The structured keywords
+#are a fallback for an array that has no cards at all.
+.zarr_scale_of = function(node){
+  found = NULL
+  header = tryCatch(node$attribute('header'), error = function(e) NULL)
+  if(is.character(header) & length(header) > 0){
+    #When the cards are present but hold neither key the answer is the identity, and
+    #the structured keywords are NOT consulted, because they are a mirror of the same
+    #header and reading them would mean decoding the whole keyword list. That matters
+    #because this is called once per array while a store describes itself, where the
+    #cost of parsing every keyvalues attribute would be paid for nothing. The fallback
+    #only applies to an array that has no card images at all.
+    cards = header[grepl('^BSCALE *=', header) | grepl('^BZERO *=', header)]
+    if(length(cards) == 0){
+      return(.zarr_scale_read(NULL, NULL))
+    }
+    found = tryCatch(Rfits_header_to_keyvalues(cards), error = function(e) NULL)
+  }else{
+    found = .zarr_json_to_list(tryCatch(node$attribute('keyvalues'), error = function(e) NULL))
+  }
+  if(is.null(found)){
+    return(.zarr_scale_read(NULL, NULL))
+  }
+  return(.zarr_scale_read(found$BSCALE, found$BZERO))
+}
+
+#The scale to apply when reading this array, or NULL when the pixels are to be
+#returned as stored. Rfits records the answer in the array's own lossy attribute as
+#it writes it, and that is what this reports, because the header keywords alone
+#cannot tell the two cases apart.
+#
+#A FITS reader applies BSCALE and BZERO itself, so Rfits_read_image of a scaled image
+#hands back physical values already, even when the pixels arrive as integers. Writing
+#those to Zarr copies the header keywords along with them, which would leave an array
+#holding physical values under keywords that describe something else, and scaling it
+#again on read would apply the scale twice.
+#
+#An array with no lossy attribute was not written by a version of Rfits that knows
+#about quantisation, and the two ways that can happen need opposite answers. If the
+#array carries Rfits' own technical mirror it came from an older Rfits, which wrote
+#whatever it was given and never scaled anything on read, so it must go on not being
+#scaled or a store that already exists changes meaning under its reader. Otherwise the
+#array was written by some other tool, and the FITS convention is the only reading
+#available for it: integers on disk plus a scale in the header means the scale is
+#still to be applied. A float array is never scaled on a guess either way, since a
+#converter that copies headers onto physical floats is common and the keywords would
+#be lying.
+.zarr_read_scale = function(node){
+  stored_type = tryCatch(as.character(node$metadata$data_type), error = function(e) '')
+  if(!.zarr_is_int_type(stored_type)){
+    return(NULL)
+  }
+  lossy = tryCatch(node$attribute('lossy'), error = function(e) NULL)
+  if(is.logical(lossy) && length(lossy) == 1 && !is.na(lossy)){
+    #Written by Rfits, so the record is the truth and the keywords are not consulted
+    #a second time
+    if(!lossy){
+      return(NULL)
+    }
+  }else if(!is.null(tryCatch(node$attribute('data_type'), error = function(e) NULL))){
+    #An older Rfits array, which was read as raw integers when it was written
+    return(NULL)
+  }
+  scale = .zarr_scale_of(node)
+  if(!scale$quantised){
+    return(NULL)
+  }
+  return(scale)
+}
+
 #Grow an existing array along dimension 1 and write the new elements into the
 #space. The data is the increment, not the complete final array: an array that is
 #currently 4 x 6 grows to 7 x 6 when given 3 x 6. Dimension 1 is the slowest
@@ -1213,7 +1740,8 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #indices. low is never touched in the resize, because shrinking is out of scope
 #and zarr warns about chunk rounding for a non zero low.
 .zarr_append = function(store, extname, data, shape, typed, data_type_requested,
-                        codec_config, compressor_requested, update_root, filename_out){
+                        codec_config, compressor_requested, update_root, filename_out,
+                        scale_note = NULL){
   path = .zarr_name_to_path(extname)
   if(!(path %in% store$arrays)){
     stop('Cannot append to non-existent store extension: ', extname, call. = FALSE)
@@ -1304,7 +1832,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
   if(!is.null(meta)){
     .zarr_append_header(node, meta, existing_type = node$metadata$data_type,
                         new_shape = total_shape, grew = grew, start_index = start_index,
-                        end_index = end_index)
+                        end_index = end_index, scale_note = scale_note)
   }else{
     #A bare array has no FITS metadata to keep in step. Nothing is invented for it,
     #since a half populated header would be worse than none at all.
@@ -1347,8 +1875,12 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #and a HISTORY line records what happened. Keywords already in the header win,
 #since the alternative is silently rewriting the WCS of a whole extension; keys
 #supplied with the append are added only where they do not conflict.
+#The scale_note is the line describing a quantisation applied to the increment,
+#which is worth recording because the increment was not stored as it arrived. An
+#append that needed no scaling adds nothing, so the header keeps the note that
+#described it when it was created and does not gain a duplicate.
 .zarr_append_header = function(node, meta, existing_type, new_shape, grew, start_index,
-                               end_index){
+                               end_index, scale_note = NULL){
   keyvalues = meta$keyvalues
   keycomments = meta$keycomments
   comment = meta$comment
@@ -1381,10 +1913,27 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     }
   }
 
+  #Comments are realigned to the keywords before the cards are rebuilt. The shape
+  #keys above are written into keyvalues whether or not the header had them, and an
+  #array whose metadata never mentioned NAXIS (which is what a bare quantised write
+  #creates, since it only needs the scale) would otherwise end up with one more value
+  #than comment and fail inside Rfits_keyvalues_to_header
+  if(is.null(keycomments) | length(keycomments) != length(keyvalues) |
+     !identical(names(keycomments), names(keyvalues))){
+    aligned = as.list(rep('', length(keyvalues)))
+    names(aligned) = names(keyvalues)
+    matched = match(names(aligned), names(keycomments), nomatch=0)
+    aligned[matched > 0] = keycomments[matched[matched > 0]]
+    keycomments = aligned
+  }
+
   stamp = format(Sys.time(), '%Y-%m-%dT%H:%M:%SZ', tz = 'UTC')
   line = paste('Rfits appended', grew, 'elements to dimension 1 at',
                paste0('[', start_index, ',', end_index, ']'), 'on', stamp)
   history = c(history, line)
+  if(!is.null(scale_note)){
+    history = c(history, scale_note)
+  }
 
   header = Rfits_keyvalues_to_header(keyvalues, keycomments, comment, history)
   node$set_attribute('header', as.character(header))
@@ -1491,6 +2040,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                                   overwrite_file=FALSE, data_type=NULL, chunk_shape=NULL,
                                   clevel=6L, compressor='blosc', shuffle=NULL,
                                   append=FALSE, update_root=TRUE, cores=NULL,
+                                  lossy=FALSE, bscale=NULL, bzero=NULL,
                                   keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
@@ -1506,11 +2056,23 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   assertFlag(overwrite_file)
   assertFlag(append)
   assertFlag(update_root)
+  assertFlag(lossy)
+  assertNumeric(bscale, len=1, null.ok=TRUE)
+  assertNumeric(bzero, len=1, null.ok=TRUE)
   assertIntegerish(clevel, len=1, lower=0, upper=9)
   assertIntegerish(cores, len=1, lower=1, null.ok=TRUE)
 
   if(append & overwrite_file){
     stop('Cannot use both append and overwrite_file!', call. = FALSE)
+  }
+  #A lossy write replaces the array rather than extending it. An append could not
+  #use a quantisation chosen from the increment alone: the scale has to be the one
+  #the array was created with, and that is decided here so the branch below is not
+  #reached with a scale that has already been fitted to the wrong data
+  if(lossy & append){
+    stop('Cannot use both lossy and append! An appended increment has to be stored ',
+         'with the scale of the array that already exists, so re write the whole ',
+         'array with lossy = TRUE instead.', call. = FALSE)
   }
   #Resolved before anything is created, so a bad name warns rather than silently
   #recording a compressor that does not match the bytes
@@ -1599,7 +2161,45 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
 
   filename_out = if(filename_is_store) store_label else filename
 
-  typed = .zarr_data_type(data, data_type=data_type)
+  quant = NULL
+  if(lossy){
+    #A scale is only calculated from the pixels when the caller has not supplied one
+    #and the header does not already carry one. Re using the keywords of an image
+    #that arrived scaled keeps it on the quantisation it was written with, so a FITS
+    #to Zarr conversion cannot change which physical value each stored integer means
+    use_bscale = bscale
+    use_bzero = bzero
+    if(is.null(use_bscale) & is.null(use_bzero)){
+      existing_scale = .zarr_scale_read(keyvalues$BSCALE, keyvalues$BZERO)
+      #quantised is FALSE for the FITS default pair, so a header that merely carries
+      #BSCALE = 1 and BZERO = 0 cannot pin a lossy write to a scale that does nothing
+      if(existing_scale$quantised){
+        use_bscale = existing_scale$bscale
+        use_bzero = existing_scale$bzero
+      }else{
+        #Only worth saying when the scale had to be invented from these pixels. The
+        #keys that carry it are recorded in the array itself, which is where a later
+        #reader (or an append) will find them
+        message('Lossy quantisation scale calculated from these pixels; ',
+                'no BSCALE or BZERO was supplied or already in the header.')
+      }
+    }
+    quant = .zarr_quantise(data, bscale=use_bscale, bzero=use_bzero, data_type=data_type)
+    data = quant$data
+    #The keywords that carry the scale are rebuilt rather than left as they were,
+    #since a scale fitted to these pixels did not exist until now
+    meta_new = .zarr_quant_header(keyvalues, keycomments, comment, history, quant)
+    keyvalues = meta_new$keyvalues
+    keycomments = meta_new$keycomments
+    history = meta_new$history
+    header = meta_new$header
+  }
+
+  typed = if(is.null(quant)){
+    .zarr_data_type(data, data_type=data_type)
+  }else{
+    list(data_type=quant$data_type, data=quant$data, fill_value=quant$fill_value)
+  }
   data = typed$data
 
   path = .zarr_name_to_path(extname)
@@ -1608,6 +2208,40 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   #Appending grows the array that is already there, so it has to branch before
   #anything is deleted or created
   if(append){
+    #An array written with lossy = TRUE holds integers, and physical values are only
+    #recovered by scaling them. Coercing the increment to the stored type would write
+    #physical values as if they were already integers, so the scale the array was made
+    #with is applied to it here. That is also why lossy is refused above: the scale
+    #belongs to the array, and an append has no business choosing a new one
+    append_scale_note = NULL
+    if(path %in% store$arrays){
+      existing_node = tryCatch(store$get_node(path), error = function(e) NULL)
+      if(!is.null(existing_node)){
+        #The same decision the reader makes, so an increment can only ever be put on
+        #the grid that a read of the array will take it back off. An array carrying
+        #BSCALE in a copied header but not actually quantised returns NULL here, and
+        #the increment is then stored as it arrived, which is also what a read gives
+        existing_scale = .zarr_read_scale(existing_node)
+        if(!is.null(existing_scale)){
+          existing_type = tryCatch(as.character(existing_node$metadata$data_type),
+                                   error = function(e) '')
+          if(!(existing_type %in% .zarr_quant_types)){
+            stop('Cannot append: the existing array ', extname, ' carries BSCALE and BZERO ',
+                 'but is stored as "', existing_type, '", which Rfits cannot quantise into!',
+                 call. = FALSE)
+          }
+          quant = .zarr_quantise(data, bscale=existing_scale$bscale,
+                                 bzero=existing_scale$bzero, data_type=existing_type)
+          data = quant$data
+          typed = list(data_type=quant$data_type, data=quant$data,
+                       fill_value=quant$fill_value)
+          #The note says what happened to this increment, not what the array is, so
+          #that the append leaves a record of the quantisation it applied
+          append_scale_note = .zarr_scale_history(quant$data_type, quant$quantised,
+                                                  quant$max_error)
+        }
+      }
+    }
     #Appending has to resize the array before any of it can be written, and a resize is
     #a single metadata operation that the bands cannot be arranged around, so the
     #increment is written in one. Said out loud because a caller who sets cores batch
@@ -1622,7 +2256,8 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                                   codec_config = codec_config,
                                   compressor_requested = compressor_requested,
                                   update_root = update_root,
-                                  filename_out = filename_out)))
+                                  filename_out = filename_out,
+                                  scale_note = append_scale_note)))
   }
 
   if(exists_already){
@@ -1702,8 +2337,11 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   }
 
   #The technical parameters are recorded from the array that now exists, not from
-  #what was asked for, so a clamped or defaulted value cannot be misreported
-  tech = .zarr_array_tech(node)
+  #what was asked for, so a clamped or defaulted value cannot be misreported. The one
+  #thing only the writer knows is whether these pixels were quantised, since a header
+  #carried over from a scaled FITS file describes where the data came from rather than
+  #what is in this array, so that is passed in explicitly
+  tech = .zarr_array_tech(node, lossy_asked = !is.null(quant) && quant$quantised)
   .zarr_array_tech_set(node, tech)
   applied = .zarr_codec_of(node)
   if(!is.null(applied) & (applied$cname != codec_config$cname |
@@ -1724,7 +2362,12 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                         dim = shape, data_type = typed$data_type,
                         chunk_shape = chunk_shape,
                         compressor = if(is.null(applied)) codec_config$cname else applied$cname,
-                        compression_level = if(is.null(applied)) codec_config$clevel else applied$clevel)))
+                        compression_level = if(is.null(applied)) codec_config$clevel else applied$clevel,
+                        lossy = !is.null(quant),
+                        quantised = if(is.null(quant)) FALSE else quant$quantised,
+                        bscale = if(is.null(quant)) NULL else quant$bscale,
+                        bzero = if(is.null(quant)) NULL else quant$bzero,
+                        max_error = if(is.null(quant)) NULL else quant$max_error)))
 }
 
 Rfits_write_vector_zarr = Rfits_write_image_zarr
@@ -2112,6 +2755,7 @@ Rfits_inspect_zarr = function(filename, print = TRUE, ...){
       compression_level = tech$clevel,
       shuffle = tech$shuffle,
       fill_value = tech$fill_value,
+      lossy = tech$lossy,
       n_chunks = nchunks,
       chunk_bytes = chunk_bytes,
       avg_chunk_bytes = if(is.na(chunk_bytes) | is.na(nchunks) | nchunks == 0){
@@ -2214,6 +2858,11 @@ Rfits_inspect_zarr = function(filename, print = TRUE, ...){
           cat('  compression:         none recorded\n')
         }
         cat(sprintf('  fill value:          %s\n', a$fill_value))
+        cat(sprintf('  lossy scaling:       %s\n', if(isTRUE(a$lossy)){
+          'yes (BSCALE and BZERO in the header)'
+        }else{
+          'no'
+        }))
         if(!is.na(a$chunk_bytes)){
           cat(sprintf('  chunk bytes:         %.0f (avg %.0f)\n', a$chunk_bytes,
                       a$avg_chunk_bytes))
@@ -2376,9 +3025,10 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
 #back-end the pointer was made from. What gets read is still only the requested
 #region, which is the point of a pointer.
 `[.Rfits_pointer_zarr` = function(x, i=NULL, j=NULL, k=NULL, m=NULL, box=201, type='pix',
-                                  header=x$header, collapse=TRUE){
+                                  header=x$header, physical=TRUE, collapse=TRUE){
   assertChoice(type, c('pix', 'coord'))
   assertFlag(header)
+  assertFlag(physical)
   assertFlag(collapse)
 
   dim_x = x$dim
@@ -2508,7 +3158,8 @@ Rfits_point_zarr = function(filename='temp.zarr', extname='data1', ext=NULL, hea
   #caller actually sliced may be dropped
   data = Rfits_read_image_zarr(.zarr_pointer_source(x), extname=x$extname, ext=x$ext,
                                xlo=xlo, xhi=xhi, ylo=ylo, yhi=yhi, zlo=zlo, zhi=zhi,
-                               tlo=tlo, thi=thi, header=header, collapse=FALSE)
+                               tlo=tlo, thi=thi, header=header, physical=physical,
+                               collapse=FALSE)
 
   if(collapse){
     if(length(dim(data)) == 3L){
