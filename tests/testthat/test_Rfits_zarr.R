@@ -216,6 +216,62 @@ expect_identical(c3[[1]], c(1L, 2L))
 expect_identical(c3[[2]], c(1L, 10L))
 expect_identical(c3[[3]], c(1L, 5L))
 
+#ex 11d a whole array read is assembled chunk by chunk rather than handed to a single
+#node$read(), because zarr places each chunk with do.call('[<-') and duplicating the
+#target array once per chunk is what makes a large store read slowly. The two routes
+#must agree exactly, since this is only a change of how the same pixels get placed.
+#Each case here is a shape, a chunking and a dimension where the store is one chunk and
+#so the single read is kept
+chunk_agree = function(data, chunk_shape){
+  wrote = file.path(subdir, paste0('agree_', sample(1e8, 1), '.zarr'))
+  Rfits_write_image_zarr(data, wrote, chunk_shape = chunk_shape, clevel = 1)
+  node_w = Rfits:::.zarr_store_open(wrote)$get_node('/data1')
+  chunked = Rfits:::.zarr_read_chunked(node_w, as.integer(node_w$shape))
+  single = node_w$read(NULL)
+  #a single read drops the dimensions of a one dimensional store, and the chunked
+  #route keeps the vector it was born as, so only a multi dimensional store is reshaped
+  if(length(dim(data)) > 1){
+    dim(single) = dim(data)
+  }
+  return(list(chunked = chunked, single = single))
+}
+
+set.seed(8213)
+#ragged edges: 100 is not a multiple of 30, so the last chunk of each axis is short
+data_ragged = matrix(rnorm(100*100), 100, 100)
+data_ragged[sample(length(data_ragged), 50)] = NA
+agree_2d = chunk_agree(data_ragged, c(30L, 30L))
+expect_identical(agree_2d$chunked, agree_2d$single)
+#one axis split and the other a single chunk
+agree_band = chunk_agree(matrix(rnorm(80*20), 80, 20), c(16L, 20L))
+expect_identical(agree_band$chunked, agree_band$single)
+#a cube, chunked along all three axes
+data_cube = array(rnorm(60*40*7), c(60, 40, 7))
+data_cube[sample(length(data_cube), 100)] = NA
+agree_3d = chunk_agree(data_cube, c(16L, 16L, 3L))
+expect_identical(agree_3d$chunked, agree_3d$single)
+#integer data, which must stay integer and cannot be assembled as doubles
+data_int = matrix(sample(1:500, 200*120, replace = TRUE), 200, 120)
+data_int[5] = NA_integer_
+agree_int = chunk_agree(data_int, c(64L, 64L))
+expect_identical(agree_int$chunked, agree_int$single)
+expect_identical(typeof(agree_int$chunked), 'integer')
+#a one dimensional store, where Rfits prepends a dimension of 1 and the store's chunk
+#shape therefore arrives one short
+agree_1d = chunk_agree(rnorm(5000), 512L)
+expect_identical(agree_1d$chunked, agree_1d$single)
+expect_identical(typeof(agree_1d$chunked), 'double')
+
+#the helper declines rather than guessing, so this falls back to the single read
+file_decline = file.path(subdir, 'decline.zarr')
+Rfits_write_image_zarr(matrix(rnorm(100), 10, 10), file_decline, chunk_shape = c(10L, 10L),
+                       clevel = 1)
+node_decline = Rfits:::.zarr_store_open(file_decline)$get_node('/data1')
+#nothing to place when the whole array is one chunk
+expect_null(Rfits:::.zarr_read_chunked(node_decline, as.integer(node_decline$shape)))
+#the target is the type a chunk actually arrives as, which zarr takes from the dtype
+expect_identical(Rfits:::.zarr_chunk_target_type(node_decline), 'double')
+
 #Whether the cores paths are exercised at all. Launching workers needs both halves below.
 #NOT_CRAN is the opt-in devtools::test() and testthat::test_local() set, which is the
 #skip_on_cran() idiom, but it is not enough on its own: devtools::check() sets NOT_CRAN and
