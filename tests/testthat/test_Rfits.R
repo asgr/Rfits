@@ -781,3 +781,108 @@ expect_identical(card_value(list(NINF = -Inf), 'NINF'), '-Inf')
 expect_identical(Rfits_raw_to_keyvalues(hand_cards(list(INFC = '                 Inf')))$INFC, Inf)
 #the writer used to error here rather than write anything
 expect_true(is.na(write_then_read('NAK', NA_real_)))
+
+#ex 65 write and read character vector (list) columns. All elements of a column
+#are the same width, stored as the FITS rAw substring array (r = total field
+#width, w = substring width). Widths may differ between columns, and a scalar
+#character column still round trips alongside
+file_char_vec_table = tempfile()
+tb_char_vec = data.frame(
+  id = 1:3,
+  name = c('alpha', 'beta', 'gamma'),
+  vals_chr = I(list(c('aa', 'bb', 'cc'), c('dd', 'ee', 'ff'), c('gg', 'hh', 'ii'))),
+  vals_str = I(list(c('abcd', 'efgh'), c('ijkl', 'mnop'), c('qrst', 'uvwx')))
+)
+Rfits_write_table(tb_char_vec, file_char_vec_table)
+tb_char_vec_read = Rfits_read_table(file_char_vec_table)
+expect_identical(tb_char_vec$id, tb_char_vec_read$id)
+expect_identical(tb_char_vec$name, tb_char_vec_read$name)
+expect_identical(tb_char_vec$vals_chr, tb_char_vec_read$vals_chr)
+expect_identical(tb_char_vec$vals_str, tb_char_vec_read$vals_str)
+#the data.frame route gives the same list columns
+tb_char_vec_df = Rfits_read_table(file_char_vec_table, data.table=FALSE)
+expect_identical(tb_char_vec$vals_chr, I(tb_char_vec_df$vals_chr))
+#header=TRUE still builds meta_col: Arraysize is the string width, not the repeat
+tb_char_vec_hdr = Rfits_read_table(file_char_vec_table, header=TRUE)
+expect_identical(attributes(tb_char_vec_hdr)$meta_col$Arraysize, c(NA_integer_, 6L, 3L, 5L))
+#and the header=TRUE table writes straight back out
+file_char_vec_table2 = tempfile()
+Rfits_write_table(tb_char_vec_hdr, file_char_vec_table2)
+expect_identical(tb_char_vec$vals_str, Rfits_read_table(file_char_vec_table2)$vals_str)
+
+#ex 66 single character vectors. A width of 1 would give the same TFORM as a
+#scalar character column ('NA' means a string of length N), so the field is
+#padded to width 2 and still reads back as one character per element
+file_char_vec1 = tempfile()
+tb_char_vec1 = data.frame(
+  id = 1:3,
+  vals = I(list(c('a', 'b'), c('c', 'd'), c('e', 'f')))
+)
+Rfits_write_table(tb_char_vec1, file_char_vec1)
+tb_char_vec1_read = Rfits_read_table(file_char_vec1)
+expect_identical(tb_char_vec1$vals, tb_char_vec1_read$vals)
+
+#ex 67 NA elements become blank fields, which CFITSIO reads back as a single
+#space (its null-string value). The FITS A format has no null marker, so this
+#matches scalar character column behaviour
+file_char_vec_na = tempfile()
+tb_char_vec_na = data.frame(
+  id = 1:3,
+  vals = I(list(c('aa', NA), c(NA, 'bb'), c('cc', 'dd')))
+)
+Rfits_write_table(tb_char_vec_na, file_char_vec_na)
+tb_char_vec_na_read = Rfits_read_table(file_char_vec_na)
+expect_identical(tb_char_vec_na_read$vals,
+                 I(list(c('aa', ' '), c(' ', 'bb'), c('cc', 'dd'))))
+
+#ex 68 multi-byte strings: the field width is in bytes, so nothing is truncated
+file_char_vec_utf8 = tempfile()
+tb_char_vec_utf8 = data.frame(
+  id = 1:2,
+  vals = I(list(c('\u00e9\u00e9', 'ab'), c('cd', '\u00e8\u00e8')))
+)
+Rfits_write_table(tb_char_vec_utf8, file_char_vec_utf8)
+tb_char_vec_utf8_read = Rfits_read_table(file_char_vec_utf8)
+expect_identical(enc2utf8(unlist(tb_char_vec_utf8_read$vals)),
+                 enc2utf8(unlist(tb_char_vec_utf8$vals)))
+
+#ex 69 character vector column validation: non-character elements and
+#non-uniform widths are both errors, since one rAw field width serves the whole
+#column. (c('a',1) would coerce to character, so a numeric row is used instead)
+tb_char_mixed = data.frame(id = 1:2, vals = I(list(c('a', 'b'), 1:2)))
+expect_error(Rfits_write_table(tb_char_mixed, tempfile()), "unsupported element type")
+tb_char_widths = data.frame(id = 1:2, vals = I(list(c('a', 'bb'), c('cc', 'dd'))))
+expect_error(Rfits_write_table(tb_char_widths, tempfile()), "inconsistent string widths")
+
+#ex 70 explicit tforms for a character vector column, reading a row subset, and
+#collapsing to a matrix as for numeric vector columns
+file_char_vec_tform = tempfile()
+Rfits_write_table(tb_char_vec, file_char_vec_tform, tforms=c('1J', '6A', '9A3', '10A5'))
+expect_identical(tb_char_vec$vals_chr, Rfits_read_table(file_char_vec_tform)$vals_chr)
+expect_identical(tb_char_vec$vals_str[2:3],
+                 Rfits_read_table(file_char_vec_tform, startrow=2, nrow=2)$vals_str)
+expect_identical(do.call(rbind, tb_char_vec_read$vals_str),
+                 matrix(c('abcd', 'efgh', 'ijkl', 'mnop', 'qrst', 'uvwx'), nrow=3, byrow=TRUE))
+
+#ex 71 tforms='get' and tunits='get' reuse the stored header formats/units when
+#re-writing an Rfits_table. The header values come back as a list, so they must
+#be unlisted to a character vector, and 'get' is a length-1 sentinel that has to
+#pass the early argument check before being expanded to one entry per column
+file_get_src = tempfile()
+Rfits_write_table(tb_char_vec, file_get_src, tunits=c('u1', 'u2', 'u3', 'u4'))
+tb_get = Rfits_read_table(file_get_src, header=TRUE)
+file_get_dst = tempfile()
+Rfits_write_table(tb_get, file_get_dst, tforms='get', tunits='get')
+tb_get_read = Rfits_read_table(file_get_dst)
+expect_identical(tb_char_vec$vals_chr, tb_get_read$vals_chr)
+expect_identical(tb_char_vec$vals_str, tb_get_read$vals_str)
+hdr_get = Rfits_read_header(file_get_dst, ext=2)
+expect_identical(unlist(hdr_get$keyvalues[grep('TUNIT', hdr_get$keynames)], use.names=FALSE),
+                 c('u1', 'u2', 'u3', 'u4'))
+#a table written without units still round trips through tunits='get'
+file_get_nounit = tempfile()
+Rfits_write_table(tb_char_vec, file_get_nounit)
+tb_get_nounit = Rfits_read_table(file_get_nounit, header=TRUE)
+file_get_nounit2 = tempfile()
+Rfits_write_table(tb_get_nounit, file_get_nounit2, tforms='get', tunits='get')
+expect_identical(tb_char_vec$vals_chr, Rfits_read_table(file_get_nounit2)$vals_chr)

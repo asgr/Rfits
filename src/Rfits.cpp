@@ -349,6 +349,41 @@ static SEXP read_col_impl(fitsfile* fptr, int colref, int ext,
     Rcpp::warning("Requested range exceeds number of rows in table");
   }
     
+  // Handle vector string columns (TFORM 'rAw'). For TSTRING, get_coltype
+  // returns repeat = r (the total field width in bytes) and width = w (the
+  // substring width), so the number of strings per row is repeat / width.
+  // Scalar string columns are written as 'NA' (width = 1), so a width above 1
+  // is what marks a genuine vector of strings. Returns an R list of character
+  // vectors, one per row.
+  if ( typecode == TSTRING && width > 1 && repeat > width ) {
+    const long nstr = repeat / width;
+    // Same overflow guard as the numeric vector path below.
+    if (nrow > std::numeric_limits<long>::max() / nstr) {
+      Rcpp::stop("Column element count overflows: nrow (%ld) * strings per row (%ld)", nrow, nstr);
+    }
+    long total = nrow * nstr;
+
+    // One flat allocation; every string gets width + 1 bytes because
+    // fits_read_col NUL-terminates each string it returns. Left uninitialised
+    // deliberately, as for the scalar string path below.
+    const long stride = width + 1;
+    std::unique_ptr<char[]> storage(new char[static_cast<size_t>(total) * stride]);
+    std::vector<char *> flat(total);
+    for (long i = 0; i < total; i++) flat[i] = storage.get() + i * stride;
+
+    fits_invoke(read_col, fptr, TSTRING, colref, startrow, 1, total, nullptr, flat.data(), &anynull);
+
+    Rcpp::List out(nrow);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::StringVector v(nstr);
+      for (long j = 0; j < nstr; j++) {
+        v[j] = flat[i * nstr + j];
+      }
+      out[i] = v;
+    }
+    return out;
+  }
+
   // Handle vector columns (repeat > 1) for numeric types.
   // Returns an R list of vectors, one per row.
   if ( repeat > 1 && typecode != TSTRING ) {
@@ -761,6 +796,25 @@ void Cfits_write_col_vector(Rcpp::String filename, Rcpp::List data, long nrow, l
       std::memcpy(&flat[i * vec_len], &v[0], vec_len * sizeof(int64_t));
     }
     fits_invoke(write_col, fptr, typecode, colref, 1, 1, nrow * vec_len, flat.data());
+  } else if (typecode == TSTRING) {
+    // Flatten the list of character vectors into one pointer array, in row
+    // order. NA elements become empty strings: the FITS 'A' format has no
+    // null marker, and cfitsio blank-fills the field, which reads back as a
+    // single space (its null-string value). CHAR() on NA_STRING would hand
+    // cfitsio the literal text "NA".
+    const long total = nrow * vec_len;
+    std::vector<char *> flat(total);
+    for (long i = 0; i < nrow; i++) {
+      Rcpp::StringVector v = Rcpp::as<Rcpp::StringVector>(data[i]);
+      if ((long)v.size() != vec_len) {
+        Rcpp::stop("Vector column row %ld has length %ld, expected %ld", i + 1, (long)v.size(), vec_len);
+      }
+      for (long j = 0; j < vec_len; j++) {
+        SEXP s = v[j];
+        flat[i * vec_len + j] = (s == NA_STRING) ? const_cast<char *>("") : const_cast<char *>(CHAR(s));
+      }
+    }
+    fits_invoke(write_col, fptr, TSTRING, colref, 1, 1, total, flat.data());
   } else {
     Rcpp::stop("Unsupported typecode %d in Cfits_write_col_vector", typecode);
   }

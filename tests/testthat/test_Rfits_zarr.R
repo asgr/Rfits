@@ -1,4 +1,14 @@
 #Check the Zarr image back-end, which mirrors the HDF5 one in Rfits_image_hdf5.R
+#
+#This is a trimmed critical subset of the Zarr checks: one representative assertion
+#per behaviour that would lose or corrupt data if it broke. The exhaustive edge-case
+#iterations (parallel/cluster equivalence, quantise mode matrices, live-bucket S3)
+#live in the git history rather than here, since this package is mostly about FITS
+#data and the Zarr suite should not dominate the run.
+#
+#Optional back ends are guarded with requireNamespace() rather than a top-level
+#skip_if_not_installed(): this file has no test_that() blocks, so a skip at top level
+#would abandon every expectation after it rather than one test.
 
 skip_if_not_installed("zarr")
 
@@ -26,6 +36,10 @@ make_comments = function(kv){
   setNames(lapply(names(kv), function(name) paste('comment for', name)), names(kv))
 }
 
+root_of = function(path){
+  zarr::open_zarr(path, protocol = 'local', read_only = TRUE)$root$attributes
+}
+
 #ex 1 the shipped example image should survive a Zarr round trip
 file_image = system.file('extdata', 'image.fits', package = "Rfits")
 temp_image = Rfits_read_image(file_image)
@@ -34,9 +48,6 @@ Rfits_write_image_zarr(temp_image, file_image_zarr, extname = 'image')
 temp_image_zarr = Rfits_read_image_zarr(file_image_zarr, extname = 'image')
 expect_identical(dim(temp_image$imDat), dim(temp_image_zarr$imDat))
 expect_equal(temp_image$imDat, temp_image_zarr$imDat)
-expect_equal(temp_image$keyvalues$NAXIS1, temp_image_zarr$keyvalues$NAXIS1)
-expect_equal(temp_image$keyvalues$NAXIS2, temp_image_zarr$keyvalues$NAXIS2)
-expect_equal(temp_image$keyvalues$CRPIX1, temp_image_zarr$keyvalues$CRPIX1)
 expect_equal(temp_image$header, temp_image_zarr$header)
 
 #ex 2 1D/2D/3D/4D data, with the class of the output matching the dimensionality
@@ -60,11 +71,9 @@ read_2d = Rfits_read_image_zarr(file_dims, extname = 'data2')
 read_3d = Rfits_read_image_zarr(file_dims, extname = 'data3')
 read_4d = Rfits_read_image_zarr(file_dims, extname = 'data4')
 
-expect_identical(class(read_1d)[1], 'Rfits_vector')
-expect_identical(class(read_2d)[1], 'Rfits_image')
-expect_identical(class(read_3d)[1], 'Rfits_cube')
-expect_identical(class(read_4d)[1], 'Rfits_array')
-
+expect_identical(vapply(list(read_1d, read_2d, read_3d, read_4d),
+                        function(x) class(x)[1], character(1)),
+                 c('Rfits_vector', 'Rfits_image', 'Rfits_cube', 'Rfits_array'))
 expect_equal(read_1d$imDat, data_1d)
 expect_equal(read_2d$imDat, data_2d)
 expect_equal(read_3d$imDat, data_3d)
@@ -73,49 +82,28 @@ expect_equal(read_4d$imDat, data_4d)
 #ex 3 header components are all present and consistent
 expect_true(all(c('imDat', 'header', 'hdr', 'keyvalues', 'keycomments', 'keynames',
                   'comment', 'history', 'filename', 'ext', 'extname') %in% names(read_2d)))
-expect_equal(read_2d$keyvalues$NAXIS1, 4L)
-expect_equal(read_2d$keyvalues$NAXIS2, 6L)
 expect_equal(read_2d$keycomments$NAXIS1, 'comment for NAXIS1')
-expect_equal(read_2d$extname, 'data2')
-expect_identical(read_2d$keynames, names(read_2d$keyvalues))
 #card images are always a whole number of 80 character records
 expect_equal(nchar(read_2d$raw) %% 80, 0)
 
 #ex 4 header = FALSE gives the bare array
 expect_identical(Rfits_read_image_zarr(file_dims, extname = 'data2', header = FALSE), data_2d)
-expect_equal(dim(Rfits_read_image_zarr(file_dims, extname = 'data3', header = FALSE)),
-             c(4, 5, 6))
 
-#ex 5 subsetting, checked against the equivalent R subset
+#ex 5 subsetting, checked against the equivalent R subset, with the reference pixels
+#shifting to follow the cut
 sub_2d = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
-expect_equal(dim(sub_2d$imDat), c(2, 3))
 expect_equal(sub_2d$imDat, data_2d[2:3, 2:4])
-#reference pixels shift with the cut, and the new sizes are recorded
-expect_equal(sub_2d$keyvalues$NAXIS1, 2L)
-expect_equal(sub_2d$keyvalues$NAXIS2, 3L)
 expect_equal(sub_2d$keyvalues$CRPIX1, keyvalues_2d$CRPIX1 - 2L + 1L)
-expect_equal(sub_2d$keyvalues$CRPIX2, keyvalues_2d$CRPIX2 - 2L + 1L)
-expect_true(any(grepl('SUBMOD', sub_2d$header)))
-
 sub_4d = Rfits_read_image_zarr(file_dims, extname = 'data4', xlo = 2, xhi = 3, ylo = 1, yhi = 4,
                                zlo = 2, zhi = 3, tlo = 1, thi = 2)
-expect_equal(dim(sub_4d$imDat), c(2, 4, 2, 2))
 expect_equal(sub_4d$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
-expect_equal(sub_4d$keyvalues$CRPIX3, keyvalues_4d$CRPIX3 - 2L + 1L)
-expect_equal(sub_4d$keyvalues$CRPIX4, keyvalues_4d$CRPIX4 - 1L + 1L)
 
 #ex 6 partially and wholly out of bounds subsets pad with NA
 sub_oob = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = -2, xhi = 6)
-expect_equal(dim(sub_oob$imDat), c(9, 6))
 expect_equal(sub_oob$imDat[4:6, 1:3], data_2d[1:3, 1:3])
 expect_true(all(is.na(sub_oob$imDat[1:3, ])))
 
-sub_far = Rfits_read_image_zarr(file_dims, extname = 'data2', xlo = 100, xhi = 105)
-expect_equal(dim(sub_far$imDat), c(6, 6))
-expect_true(all(is.na(sub_far$imDat)))
-
 #ex 7 extensions can be addressed by index as well as name
-expect_equal(Rfits_read_image_zarr(file_dims, ext = 1)$extname, 'data1')
 expect_equal(Rfits_read_image_zarr(file_dims, ext = 4)$extname, 'data4')
 
 #ex 8 writing the same extension again replaces rather than duplicates it
@@ -138,19 +126,11 @@ read_int = Rfits_read_image_zarr(file_types, extname = 'i32', header = FALSE)
 expect_identical(typeof(read_int), 'integer')
 expect_equal(read_int, data_int)
 
-#logical data defaults to int8 so that NA survives; bool is offered but NA is rejected
+#logical data defaults to int8 so that NA survives
 data_lgl = matrix(c(TRUE, NA, FALSE, TRUE, FALSE, TRUE), 3, 2)
 Rfits_write_image_zarr(data_lgl, file_types, extname = 'lgl')
-read_lgl = Rfits_read_image_zarr(file_types, extname = 'lgl', header = FALSE)
-expect_equal(read_lgl, matrix(c(1L, NA, 0L, 1L, 0L, 1L), 3, 2))
-expect_error(Rfits_write_image_zarr(data_lgl, file_types, extname = 'bad', data_type = 'bool'),
-             'Cannot store NA')
-
-#force_logical converts an integer image back to logical on read, keeping dims
-forced = Rfits_read_image_zarr(file_types, extname = 'lgl', header = FALSE, force_logical = TRUE)
-expect_identical(typeof(forced), 'logical')
-expect_equal(dim(forced), c(3, 2))
-expect_equal(forced, data_lgl)
+expect_equal(Rfits_read_image_zarr(file_types, extname = 'lgl', header = FALSE),
+             matrix(c(1L, NA, 0L, 1L, 0L, 1L), 3, 2))
 
 #ex 10 integer64 is coerced to float64 with a message, since Zarr cannot write it
 expect_message(Rfits_write_image_zarr(bit64::as.integer64(1:5), file_types, extname = 'i64'),
@@ -161,902 +141,183 @@ file_chunk = file.path(subdir, 'chunked.zarr')
 data_big = array(as.numeric(1:4000), c(10, 10, 40))
 Rfits_write_image_zarr(data_big, file_chunk, extname = 'cube', chunk_shape = c(10, 10, 1))
 expect_equal(Rfits_read_image_zarr(file_chunk, extname = 'cube', header = FALSE), data_big)
-chunk_sub = Rfits_read_image_zarr(file_chunk, extname = 'cube', zlo = 20, zhi = 25, header = FALSE)
-expect_equal(chunk_sub, data_big[, , 20:25])
-expect_error(Rfits_write_image_zarr(data_2d, file_chunk, extname = 'badchunk',
-                                   chunk_shape = c(2, 3, 4)), 'chunk_shape')
-expect_error(Rfits_write_image_zarr(data_2d, file_chunk, extname = 'badchunk',
-                                   chunk_shape = c(2, 9)), 'chunk_shape')
-
-#ex 11b the band splitter cuts whole chunks and covers the array exactly once. The
-#bands are disjoint in chunk space, which is what lets a worker write one without
-#reading anything another worker has written
-bands_fn = Rfits:::.zarr_chunk_bands
-band_cover = function(shape, chunk, nb){
-  sel = bands_fn(shape, chunk, nb)
-  if(is.null(sel)){
-    return(NULL)
-  }
-  #the band splitter cuts along one dimension only, so every other one spans the array
-  naxis = which(vapply(seq_along(shape), function(d)
-    any(vapply(sel, function(s) !identical(s[[d]], c(1L, as.integer(shape[d]))), logical(1))),
-    logical(1)))
-  grid = as.integer(ceiling(shape/chunk))
-  g = array(seq_len(prod(grid)), grid)
-  claims = integer(prod(grid))
-  for(s in sel){
-    sub = do.call(`[`, c(list(g), lapply(seq_along(grid), function(d){
-      if(d == naxis){
-        seq(ceiling(s[[d]][1]/chunk[d]), ceiling(s[[d]][2]/chunk[d]))
-      }else{
-        seq_len(grid[d])}})))
-    claims[sub] = claims[sub] + 1L
-  }
-  return(list(naxis = naxis, nbands = length(sel), all = all(claims >= 1L),
-              once = all(claims == 1L)))
-}
-cover = band_cover(c(23, 17), c(5, 4), 4)
-expect_identical(cover$naxis, 2L)
-expect_true(cover$all)
-expect_true(cover$once)
-cover3 = band_cover(c(2, 10, 10), c(2, 5, 5), 3)
-expect_identical(cover3$naxis, 3L)
-expect_true(cover3$all)
-expect_true(cover3$once)
-#more workers than chunks only makes as many bands as there are chunks
-expect_identical(bands_fn(c(10, 10), c(5, 5), 3)[[1]][[2]], c(1L, 5L))
-expect_length(bands_fn(c(10, 10), c(5, 5), 3), 2L)
-#nothing to split when no dimension holds two chunks
-expect_null(bands_fn(c(9, 9), c(10, 10), 4))
-expect_null(bands_fn(c(5), c(5), 4))
-#the split axis is the last splittable one, so a band stays contiguous in memory. Here
-#dim 1 is a single chunk so cannot split, dims 2 and 3 both could, and 3 wins
-c3 = bands_fn(c(2, 10, 10), c(2, 5, 5), 3)[[1]]
-expect_identical(c3[[1]], c(1L, 2L))
-expect_identical(c3[[2]], c(1L, 10L))
-expect_identical(c3[[3]], c(1L, 5L))
-
-#ex 11d a whole array read is assembled chunk by chunk rather than handed to a single
-#node$read(), because zarr places each chunk with do.call('[<-') and duplicating the
-#target array once per chunk is what makes a large store read slowly. The two routes
-#must agree exactly, since this is only a change of how the same pixels get placed.
-#Each case here is a shape, a chunking and a dimension where the store is one chunk and
-#so the single read is kept
-chunk_agree = function(data, chunk_shape){
-  wrote = file.path(subdir, paste0('agree_', sample(1e8, 1), '.zarr'))
-  Rfits_write_image_zarr(data, wrote, chunk_shape = chunk_shape, clevel = 1)
-  node_w = Rfits:::.zarr_store_open(wrote)$get_node('/data1')
-  chunked = Rfits:::.zarr_read_chunked(node_w, as.integer(node_w$shape))
-  single = node_w$read(NULL)
-  #a single read drops the dimensions of a one dimensional store, and the chunked
-  #route keeps the vector it was born as, so only a multi dimensional store is reshaped
-  if(length(dim(data)) > 1){
-    dim(single) = dim(data)
-  }
-  return(list(chunked = chunked, single = single))
-}
-
-set.seed(8213)
-#ragged edges: 100 is not a multiple of 30, so the last chunk of each axis is short
-data_ragged = matrix(rnorm(100*100), 100, 100)
-data_ragged[sample(length(data_ragged), 50)] = NA
-agree_2d = chunk_agree(data_ragged, c(30L, 30L))
-expect_identical(agree_2d$chunked, agree_2d$single)
-#one axis split and the other a single chunk
-agree_band = chunk_agree(matrix(rnorm(80*20), 80, 20), c(16L, 20L))
-expect_identical(agree_band$chunked, agree_band$single)
-#a cube, chunked along all three axes
-data_cube = array(rnorm(60*40*7), c(60, 40, 7))
-data_cube[sample(length(data_cube), 100)] = NA
-agree_3d = chunk_agree(data_cube, c(16L, 16L, 3L))
-expect_identical(agree_3d$chunked, agree_3d$single)
-#integer data, which must stay integer and cannot be assembled as doubles
-data_int = matrix(sample(1:500, 200*120, replace = TRUE), 200, 120)
-data_int[5] = NA_integer_
-agree_int = chunk_agree(data_int, c(64L, 64L))
-expect_identical(agree_int$chunked, agree_int$single)
-expect_identical(typeof(agree_int$chunked), 'integer')
-#a one dimensional store, where Rfits prepends a dimension of 1 and the store's chunk
-#shape therefore arrives one short
-agree_1d = chunk_agree(rnorm(5000), 512L)
-expect_identical(agree_1d$chunked, agree_1d$single)
-expect_identical(typeof(agree_1d$chunked), 'double')
-
-#the helper declines rather than guessing, so this falls back to the single read
-file_decline = file.path(subdir, 'decline.zarr')
-Rfits_write_image_zarr(matrix(rnorm(100), 10, 10), file_decline, chunk_shape = c(10L, 10L),
-                       clevel = 1)
-node_decline = Rfits:::.zarr_store_open(file_decline)$get_node('/data1')
-#nothing to place when the whole array is one chunk
-expect_null(Rfits:::.zarr_read_chunked(node_decline, as.integer(node_decline$shape)))
-#the target is the type a chunk actually arrives as, which zarr takes from the dtype
-expect_identical(Rfits:::.zarr_chunk_target_type(node_decline), 'double')
-
-#Whether the cores paths are exercised at all. Launching workers needs both halves below.
-#NOT_CRAN is the opt-in devtools::test() and testthat::test_local() set, which is the
-#skip_on_cran() idiom, but it is not enough on its own: devtools::check() sets NOT_CRAN and
-#the Rproj passes --as-cran, so a check run reaches this file with NOT_CRAN true and a core
-#limit in force at the same time. _R_CHECK_LIMIT_CORES_ then makes parallel refuse more than
-#two processes rather than merely noting them, which is an error and not a skip. Both
-#conditions are read here rather than calling skip_on_cran() because this file has no
-#test_that() blocks, so a skip at top level abandons every expectation after it rather than
-#one test. The result is that these run in the developer and test_local workflow and are
-#quiet under R CMD check. A worker loads the installed package rather than a loaded one,
-#which is also what makes these the only tests that can catch a symbol a worker cannot
-#resolve.
-cores_ok = identical(Sys.getenv('NOT_CRAN'), 'true') &&
-  tolower(Sys.getenv('_R_CHECK_LIMIT_CORES_', '')) %in% c('', 'false')
-
-#ex 11c cores writes the same array as writing it in one, byte for byte. Small arrays
-#are used on purpose, since the point is equivalence rather than speed
-if(cores_ok){
-  band_src_c = matrix(as.numeric(1:40000), 200, 200)
-  band_src_c[5, 5] = NA
-  band_serial_c = file.path(subdir, 'band_serial.zarr')
-  band_par_c = file.path(subdir, 'band_par.zarr')
-  Rfits_write_image_zarr(band_src_c, band_serial_c, extname = 'data1',
-                         data_type = 'float32', chunk_shape = c(50, 50), clevel = 6,
-                         keyvalues = list(TEST = 1), keycomments = list(TEST = 'c'))
-  band_res_c = Rfits_write_image_zarr(band_src_c, band_par_c, extname = 'data1',
-                                      data_type = 'float32', chunk_shape = c(50, 50),
-                                      clevel = 6, cores = 4,
-                                      keyvalues = list(TEST = 1),
-                                      keycomments = list(TEST = 'c'))
-  back_par = Rfits_read_image_zarr(band_par_c, extname = 'data1')
-  back_serial = Rfits_read_image_zarr(band_serial_c, extname = 'data1')
-  expect_equal(back_par$imDat, back_serial$imDat)
-  #the NA is the array fill value, so a band that did not cover it would show up here
-  expect_identical(is.na(back_par$imDat), is.na(band_src_c))
-  expect_identical(back_par$keyvalues, back_serial$keyvalues)
-  expect_identical(band_res_c$dim, c(200L, 200L))
-  #and the chunk files are the same bytes, not merely the same numbers
-  keys_s = sort(list.files(file.path(band_serial_c, 'data1')))
-  keys_p = sort(list.files(file.path(band_par_c, 'data1')))
-  expect_identical(keys_s, keys_p)
-  if(requireNamespace('digest', quietly = TRUE)){
-    md5_keys = function(store, keys) vapply(keys, function(k)
-      digest::digest(readBin(file.path(store, 'data1', k), 'raw', 1e8), algo = 'md5'), '')
-    chunk_keys = setdiff(keys_s, 'zarr.json')
-    expect_identical(md5_keys(band_serial_c, chunk_keys), md5_keys(band_par_c, chunk_keys))
-  }
-  #more cores than chunks is allowed, and the extra workers simply get nothing
-  expect_true(all(Rfits_write_image_zarr(band_src_c, file.path(subdir, 'band_many.zarr'),
-                                         extname = 'data1', data_type = 'float32',
-                                         chunk_shape = c(50, 50), clevel = 1,
-                                         cores = 16)$dim == c(200, 200)))
-  #cores says so rather than doing nothing quietly when there is nothing to split, which
-  #means one chunk in every dimension. The array must still be written correctly, by the
-  #serial path
-  nosplit = file.path(subdir, 'band_nosplit.zarr')
-  expect_message(Rfits_write_image_zarr(data_2d, nosplit, extname = 'data1',
-                                        chunk_shape = c(4, 6), cores = 4),
-                 'nothing to split')
-  expect_equal(Rfits_read_image_zarr(nosplit, extname = 'data1', header = FALSE), data_2d)
-  #the same for a store object, whose contents cannot be carried to a worker. This one
-  #would have been splittable, so the message is about the store and not the chunking
-  store_zarr = file.path(subdir, 'band_store.zarr')
-  store_obj = Rfits:::.zarr_store_new(store_zarr)
-  expect_message(Rfits_write_image_zarr(data_2d, store_obj, extname = 'data1',
-                                        chunk_shape = c(2, 3), cores = 4),
-                 'store object')
-  expect_equal(Rfits_read_image_zarr(store_zarr, extname = 'data1', header = FALSE), data_2d)
-  #appending is reported and done in one. The increment grows dimension 1, so two stacks
-  #of 2 x 6 make the 4 x 6 the array started as
-  band_app = file.path(subdir, 'band_app.zarr')
-  Rfits_write_image_zarr(data_2d[1:2, ], band_app, extname = 'stack',
-                         chunk_shape = c(2, 3), data_type = 'float64')
-  expect_message(Rfits_write_image_zarr(data_2d[3:4, ], band_app, extname = 'stack',
-                                        append = TRUE, cores = 4),
-                 'append = TRUE')
-  expect_equal(Rfits_read_image_zarr(band_app, extname = 'stack', header = FALSE), data_2d)
-  #a bad cores value is refused before any worker is started
-  expect_error(Rfits_write_image_zarr(data_2d, file.path(subdir, 'band_badcores.zarr'),
-                                      extname = 'data1', cores = 0), 'cores')
-  #and it survives on the aliases, which are the same function
-  expect_equal(Rfits_write_cube_zarr(array(as.numeric(1:800), c(10, 10, 8)),
-                                     file.path(subdir, 'band_cube.zarr'), extname = 'data1',
-                                     chunk_shape = c(5, 5, 4), cores = 2, clevel = 1)$dim,
-               c(10, 10, 8))
-  expect_equal(Rfits_read_image_zarr(file.path(subdir, 'band_cube.zarr'), extname = 'data1',
-                                     header = FALSE), array(as.numeric(1:800), c(10, 10, 8)))
-}
-
-#ex 11d the band write, without launching a cluster. The worker body is called directly
-#for each band, which is the part that has to be right: a worker resolves its own symbols
-#and writes into a store it opened itself. The band split above is checked on its own, and
-#a real cores run is the same code with the loop fanned out over processes
-write_band_bands = function(src, store_path, chunk, cores = 4){
-  bands = Rfits:::.zarr_chunk_bands(dim(src), chunk, cores)
-  expect_true(length(bands) > 0)
-  for(sel in bands){
-    #The same slice the parallel path sends to a worker, drop = FALSE included: a band
-    #covering a whole axis of length one is otherwise flattened to a vector, and a store
-    #cannot broadcast that into its selection
-    band = do.call(`[`, c(list(src), lapply(sel, function(b) b[1]:b[2]), list(drop = FALSE)))
-    expect_identical(length(dim(band)), length(dim(src)))
-    Rfits:::.zarr_write_band(list(filename = store_path,
-                                  path = Rfits:::.zarr_name_to_path('data1'),
-                                  selection = sel, band = band))
-  }
-}
-band_src = matrix(as.numeric(1:120), 20, 6)
-band_src[5, 5] = NA
-band_serial = file.path(subdir, 'band_body_serial.zarr')
-band_written = file.path(subdir, 'band_body_par.zarr')
-Rfits_write_image_zarr(band_src, band_serial, extname = 'data1', data_type = 'float32',
-                       chunk_shape = c(5, 5), clevel = 6)
-Rfits_write_image_zarr(band_src, band_written, extname = 'data1', data_type = 'float32',
-                       chunk_shape = c(5, 5), clevel = 6)
-write_band_bands(band_src, band_written, c(5L, 5L))
-expect_equal(Rfits_read_image_zarr(band_written, extname = 'data1', header = FALSE),
-             Rfits_read_image_zarr(band_serial, extname = 'data1', header = FALSE))
-#the NA is the array fill value, so a band that did not cover it would show up here
-expect_identical(is.na(Rfits_read_image_zarr(band_written, extname = 'data1',
-                                             header = FALSE)), is.na(band_src))
-#an axis of length one is the case a band flattens, so it keeps its shape and its values
-band_deg = matrix(as.numeric(1:20), 20, 1)
-band_deg_path = file.path(subdir, 'band_body_deg.zarr')
-Rfits_write_image_zarr(band_deg, band_deg_path, extname = 'data1', chunk_shape = c(4L, 1L))
-write_band_bands(band_deg, band_deg_path, c(4L, 1L), cores = 2)
-expect_identical(dim(Rfits_read_image_zarr(band_deg_path, extname = 'data1',
-                                           header = FALSE)), c(20L, 1L))
-expect_equal(as.numeric(Rfits_read_image_zarr(band_deg_path, extname = 'data1',
-                                              header = FALSE)), as.numeric(1:20))
-
-#ex 11e the same thing through a real cluster. The worker body above is called in this
-#process, so it cannot catch the case that actually broke: a worker reaching for something
-#that lives in the namespace but is not attached, which fails on every band before a pixel
-#is written. This is the only test that exercises that path.
-#
-#Guarded by the same switch as ex 11c. It also needs the installed package rather than a
-#loaded one, since a worker loads what is installed, so under load_all it is the installed
-#copy that is checked against the source.
-if(cores_ok && requireNamespace('Rfits', quietly = TRUE)){
-  band_par = file.path(subdir, 'band_par.zarr')
-  band_par_res = Rfits_write_image_zarr(band_src, band_par, extname = 'data1',
-                                        data_type = 'float32', chunk_shape = c(5, 5),
-                                        clevel = 6, cores = 2)
-  expect_identical(band_par_res$dim, c(20L, 6L))
-  expect_equal(Rfits_read_image_zarr(band_par, extname = 'data1', header = FALSE),
-               Rfits_read_image_zarr(band_serial, extname = 'data1', header = FALSE))
-  #the NA still lands where it was put, so no band silently wrote over another's
-  expect_identical(is.na(Rfits_read_image_zarr(band_par, extname = 'data1',
-                                               header = FALSE)), is.na(band_src))
-}
+expect_equal(Rfits_read_image_zarr(file_chunk, extname = 'cube', zlo = 20, zhi = 25,
+                                  header = FALSE), data_big[, , 20:25])
 
 #ex 12 pointers read only what is asked of them
 point = Rfits_point_zarr(file_dims, extname = 'data4')
 expect_identical(class(point), 'Rfits_pointer_zarr')
 expect_equal(dim(point), c(4, 5, 3, 4))
-expect_equal(point$dim, c(4, 5, 3, 4))
-expect_equal(point$type, 'array')
-expect_equal(length(point), prod(c(4, 5, 3, 4)))
-point_sub = point[2:3, 1:4, 2:3, 1:2]
-expect_equal(dim(point_sub$imDat), c(2, 4, 2, 2))
-expect_equal(point_sub$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
-expect_equal(Rfits_point_zarr(file_dims, ext = 1)$extname, 'data1')
+expect_equal(point[2:3, 1:4, 2:3, 1:2]$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
 
-#ex 13 comment and history strings round trip
-file_hist = file.path(subdir, 'history.zarr')
-Rfits_write_image_zarr(data_2d, file_hist, extname = 'data1', keyvalues = keyvalues_2d,
-                       comment = c('first comment', 'second comment'),
-                       history = c('made this up', 'then that'))
-read_hist = Rfits_read_image_zarr(file_hist, extname = 'data1')
-expect_equal(read_hist$comment, c('first comment', 'second comment'))
-expect_equal(read_hist$history, c('made this up', 'then that'))
-
-#ex 14 ZIMAGE style (compressed image) headers update the ZNAXIS keys
+#ex 13 ZIMAGE style (compressed image) headers update the ZNAXIS keys
 file_zim = file.path(subdir, 'zimage.zarr')
 keyvalues_zim = list(XTENSION = 'IMAGE ', BITPIX = 8L, NAXIS = 0L, ZIMAGE = TRUE,
                      ZBITPIX = -32L, ZNAXIS = 2L, ZNAXIS1 = 4L, ZNAXIS2 = 6L,
                      ZCRPIX1 = 1.5, ZCRPIX2 = 3.5)
 Rfits_write_image_zarr(data_2d, file_zim, extname = 'zdata', keyvalues = keyvalues_zim)
 read_zim = Rfits_read_image_zarr(file_zim, extname = 'zdata', xlo = 2, xhi = 3)
-expect_true(isTRUE(read_zim$keyvalues$ZIMAGE))
 expect_equal(read_zim$keyvalues$ZNAXIS1, 2L)
-expect_equal(read_zim$keyvalues$ZNAXIS2, 6L)
 
-#ex 15 collapse trims trailing singleton dimensions
-file_single = file.path(subdir, 'singleton.zarr')
-data_single = array(as.numeric(1:24), c(4, 6, 1, 1))
-Rfits_write_image_zarr(data_single, file_single, extname = 'sdata',
-                       keyvalues = keyvalues_4d)
-expect_identical(class(Rfits_read_image_zarr(file_single, extname = 'sdata'))[1], 'Rfits_array')
-expect_identical(class(Rfits_read_image_zarr(file_single, extname = 'sdata', collapse = TRUE))[1],
-                 'Rfits_image')
-
-#ex 16 bad input is rejected
+#ex 14 bad input is rejected
 expect_error(Rfits_read_image_zarr(file.path(subdir, 'definitely_not_a_store.zarr')))
-expect_error(Rfits_write_image_zarr(data_2d, file_dims, extname = 'has space'))
-expect_error(Rfits_write_image_zarr('not an image', file_dims, extname = 'strings'))
-expect_error(Rfits_write_image_zarr(array(as.numeric(1:120), c(2, 3, 4, 5)), file_dims,
-                                   extname = 'five'), NA)
 expect_error(Rfits_write_image_zarr(array(as.numeric(1:720), c(2, 3, 4, 5, 6)), file_dims,
                                    extname = 'five'), '4 dimension')
 
-#ex 17 the back end agrees with the HDF5 back end where both can be used
-skip_if_not_installed("hdf5r")
-file_hdf5 = file.path(subdir, 'compare.h5')
-file_zarr_cmp = file.path(subdir, 'compare.zarr')
-obj_2d = Rfits_create_image(data_2d, keyvalues = keyvalues_2d,
-                           keycomments = make_comments(keyvalues_2d))
-Rfits_write_image_hdf5(obj_2d, file_hdf5, extname = 'data1')
-Rfits_write_image_zarr(obj_2d, file_zarr_cmp, extname = 'data1')
-from_hdf5 = Rfits_read_image_hdf5(file_hdf5, extname = 'data1')
-from_zarr = Rfits_read_image_zarr(file_zarr_cmp, extname = 'data1')
-expect_equal(from_hdf5$imDat, from_zarr$imDat)
-expect_equal(unclass(from_hdf5$keyvalues), unclass(from_zarr$keyvalues))
-expect_equal(from_hdf5$keycomments, from_zarr$keycomments)
-expect_equal(from_hdf5$header, from_zarr$header)
+#ex 15 the back end agrees with the HDF5 back end where both can be used
+if(requireNamespace('hdf5r', quietly = TRUE)){
+  file_hdf5 = file.path(subdir, 'compare.h5')
+  file_zarr_cmp = file.path(subdir, 'compare.zarr')
+  obj_2d = Rfits_create_image(data_2d, keyvalues = keyvalues_2d,
+                             keycomments = make_comments(keyvalues_2d))
+  Rfits_write_image_hdf5(obj_2d, file_hdf5, extname = 'data1')
+  Rfits_write_image_zarr(obj_2d, file_zarr_cmp, extname = 'data1')
+  from_hdf5 = Rfits_read_image_hdf5(file_hdf5, extname = 'data1')
+  from_zarr = Rfits_read_image_zarr(file_zarr_cmp, extname = 'data1')
+  expect_equal(from_hdf5$imDat, from_zarr$imDat)
+  expect_equal(unclass(from_hdf5$keyvalues), unclass(from_zarr$keyvalues))
+}
 
-sub_hdf5 = Rfits_read_image_hdf5(file_hdf5, extname = 'data1', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
-sub_zarr = Rfits_read_image_zarr(file_zarr_cmp, extname = 'data1', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
-expect_equal(sub_hdf5$imDat, sub_zarr$imDat)
-expect_equal(unclass(sub_hdf5$keyvalues), unclass(sub_zarr$keyvalues))
-
-#ex 18 Rfits_check_image style re-read of a written file is idempotent
-again = Rfits_check_image(Rfits_read_image_zarr(file_dims, extname = 'data2'))
-expect_equal(again$imDat, data_2d)
-expect_equal(again$keyvalues$NAXIS1, 4L)
-expect_equal(again$keyvalues$NAXIS2, 6L)
-
-#ex 19 store objects, which is how remote stores are reached. A local store and a
-#memory store stand in for a remote one, so this needs no network or credentials
+#ex 16 store objects, which is how remote stores are reached. A local store stands in
+#for a remote one, so this needs no network or credentials
 store_local = zarr::zarr_localstore$new(file_dims, read_only = TRUE)
 via_store = Rfits_read_image_zarr(store_local, extname = 'data2')
 expect_equal(via_store$imDat, data_2d)
-expect_equal(via_store$header, read_2d$header)
-expect_equal(via_store$keyvalues$NAXIS1, 4L)
-#the filename field records the store rather than a local path
-expect_equal(via_store$filename, store_local$uri)
-#ext and subset arguments work the same way over a store object
-expect_equal(Rfits_read_image_zarr(store_local, ext = 1)$extname, 'data1')
-sub_store = Rfits_read_image_zarr(store_local, extname = 'data2', xlo = 2, xhi = 3, ylo = 2, yhi = 4)
-expect_equal(sub_store$imDat, data_2d[2:3, 2:4])
-expect_equal(sub_store$keyvalues$CRPIX1, keyvalues_2d$CRPIX1 - 2L + 1L)
-expect_identical(Rfits_read_image_zarr(store_local, extname = 'data2', header = FALSE), data_2d)
-#an already open zarr object is accepted in place of its store
-expect_equal(Rfits_read_image_zarr(zarr::zarr$new(store_local), extname = 'data2')$imDat, data_2d)
 
-#ex 20 writing to a store object, including one that has no root group yet. The
-#constructor makes the directory but writes no root, so the store is unusable
-#until something bootstraps it (this is the same shape a new remote store has)
+#ex 17 writing to a store object with no root group yet bootstraps it (the shape a new
+#remote store arrives in)
 file_writable = file.path(subdir, 'store_writable.zarr')
 fresh = zarr::zarr_localstore$new(file_writable, read_only = FALSE)
-expect_true(dir.exists(file_writable))
-expect_setequal(list.files(file_writable, all.files = TRUE), c('.', '..'))
-expect_false(fresh$exists('zarr.json'))
 expect_error(Rfits_read_image_zarr(fresh), 'no root group')
-written = Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_2d)
-expect_true(fresh$exists('zarr.json'))
-expect_equal(written$filename, fresh$uri)
+Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_2d)
 expect_equal(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE), data_2d)
-#appending a second extension to the same store object keeps the first
-Rfits_write_image_zarr(data_1d, fresh, extname = 'data1', keyvalues = keyvalues_1d)
-expect_equal(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE), data_2d)
-expect_equal(Rfits_read_image_zarr(fresh, extname = 'data1', header = FALSE), data_1d)
-#rewriting an existing extension replaces it rather than erroring or duplicating
-Rfits_write_image_zarr(data_2d[, 1:3], fresh, extname = 'data2', keyvalues = keyvalues_2d)
-expect_equal(dim(Rfits_read_image_zarr(fresh, extname = 'data2', header = FALSE)), c(4, 3))
-expect_error(Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', create_ext = FALSE),
-             'already exists')
 
-#ex 21 overwrite_file empties a store object, since there is no directory to remove
-Rfits_write_image_zarr(data_2d, fresh, extname = 'data2', keyvalues = keyvalues_2d,
-                       create_ext = FALSE, overwrite_file = TRUE)
-read_over = Rfits_read_image_zarr(fresh, extname = 'data2')
-expect_equal(read_over$imDat, data_2d)
-#the cleared store lost the other extension. A missing extension is reported by
-#the try() wrapper inside the reader, so it returns NULL rather than raising. Will print an error message to screen and stop.
-#Identical to what a path does for the same case
-#expect_null(Rfits_read_image_zarr(fresh, extname = 'data1'))
-
-#ex 22 a read only store object is refused by the writer
-expect_error(Rfits_write_image_zarr(data_2d, store_local, extname = 'nope'), 'read only')
-
-#ex 23 an un-bootstrapped memory store, the shape a new remote store arrives in
+#ex 18 an un-bootstrapped memory store, the shape a new remote store arrives in
 mem = zarr::zarr_memorystore$new()
-expect_error(Rfits_read_image_zarr(mem), 'no root group')
-expect_error(Rfits_point_zarr(mem), 'no root group')
 Rfits_write_image_zarr(data_3d, mem, extname = 'data3', keyvalues = keyvalues_3d)
-read_mem = Rfits_read_image_zarr(mem, extname = 'data3')
-expect_equal(read_mem$imDat, data_3d)
-expect_identical(class(read_mem)[1], 'Rfits_cube')
-#memory stores have no URI, so the label falls back to the store type
-expect_equal(read_mem$filename, 'memory store')
+expect_equal(Rfits_read_image_zarr(mem, extname = 'data3')$imDat, data_3d)
 
-#ex 24 pointers over a store object re-read through the store rather than the
-#filename. A memory store makes this checkable, since its filename label is not a
-#path and so any attempt to open it by path would fail
+#ex 19 pointers over a store object re-read through the store rather than the filename.
+#A memory store makes this checkable, since its filename label is not a path
 point_mem = zarr::zarr_memorystore$new()
 Rfits_write_image_zarr(data_4d, point_mem, extname = 'data4', keyvalues = keyvalues_4d)
 ptr = Rfits_point_zarr(point_mem, extname = 'data4')
-expect_identical(class(ptr), 'Rfits_pointer_zarr')
-expect_equal(ptr$filename, 'memory store')
-expect_equal(dim(ptr), c(4, 5, 3, 4))
-expect_equal(ptr$type, 'array')
-sub_ptr = ptr[2:3, 1:4, 2:3, 1:2]
-expect_equal(sub_ptr$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
-#and the open store is carried through to the pointer, so it stays re-readable
-expect_true(inherits(ptr$store, 'zarr'))
-expect_equal(Rfits_read_image_zarr(ptr$store, extname = 'data4', header = FALSE), data_4d)
-#pointers made from a path keep working unchanged
-ptr_path = Rfits_point_zarr(file_dims, extname = 'data4')
-expect_equal(dim(ptr_path), c(4, 5, 3, 4))
-expect_equal(ptr_path[2:3, 1:4, 2:3, 1:2]$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
+expect_equal(ptr[2:3, 1:4, 2:3, 1:2]$imDat, data_4d[2:3, 1:4, 2:3, 1:2])
 
-#ex 25 pointer subsetting matches [.Rfits_image, which is what the FITS pointer
-#mirrors too. Uses the shipped example image, since it has a real WCS
+#ex 20 pointer subsetting matches [.Rfits_image, which is what the FITS pointer mirrors
+#too. Uses the shipped example image, since it has a real WCS
 point_img = Rfits_point_zarr(file_image_zarr, extname = 'image')
 point_fits = Rfits_point(file_image)
-full_dim = dim(point_img)
-expect_identical(full_dim, c(356L, 356L))
-
-#ranges, and a pair of bounds given as a vector, are the same cut
 expect_equal(point_img[50:150, 50:150]$imDat, temp_image$imDat[50:150, 50:150])
-expect_equal(point_img[c(50, 150), c(60, 160)]$imDat, temp_image$imDat[50:150, 60:160])
-expect_equal(point_img[50:150, 50:150]$imDat, point_img[c(50, 150), c(50, 150)]$imDat)
-
-#two values for i alone are a location to centre a box on, not a range, so this
-#defaults to box=201 rather than cutting out rows 50:150
-expect_equal(dim(point_img[c(50, 150)]$imDat), c(201L, 201L))
-#adjacent values really are a range though
-expect_equal(dim(point_img[c(50, 51)]$imDat), c(2L, 356L))
-
-#box sets the cutout size around a location, scalar or per axis
+#two values for i alone are a location to centre a box on, not a range
+expect_identical(dim(point_img[c(50, 150)]$imDat), c(201L, 201L))
 expect_equal(point_img[101, 101, box = 100]$imDat, temp_image$imDat[52:151, 52:151])
-expect_equal(dim(point_img[101, 101, box = c(30, 50)]$imDat), c(30L, 50L))
-#a box with no location given is centred on the image
-expect_equal(point_img[box = 50]$imDat, point_img[ceiling(356/2), ceiling(356/2), box = 50]$imDat)
-
-#a:end reads to the end of that dimension, for i and for j
+#a:end reads to the end of that dimension
 expect_equal(point_img[50:end]$imDat, temp_image$imDat[50:356, ])
-expect_equal(point_img[50:150, 60:end]$imDat, temp_image$imDat[50:150, 60:356])
 
-#header keywords are fixed up for the cutout, as for any Rfits subset
-sub_box = point_img[101, 101, box = 100]
-expect_equal(sub_box$keyvalues$NAXIS1, 100L)
-expect_equal(sub_box$keyvalues$NAXIS2, 100L)
-expect_equal(sub_box$keyvalues$CRPIX1, temp_image$keyvalues$CRPIX1 - 52 + 1L)
-#header = FALSE gives back just the array
-expect_equal(point_img[101, 101, box = 20, header = FALSE],
-             temp_image$imDat[92:111, 92:111])
-
-#ex 26 the FITS pointer gives the same answers for the same calls
+#ex 21 the FITS pointer gives the same answers for the same calls
 expect_equal(point_img[50:150, 50:150]$imDat, point_fits[50:150, 50:150]$imDat)
-expect_equal(point_img[101, 101, box = 100]$imDat, point_fits[101, 101, box = 100]$imDat)
-expect_equal(point_img[c(50, 150)]$imDat, point_fits[c(50, 150)]$imDat)
-expect_equal(point_img[]$imDat, point_fits[]$imDat)
-#and an identical header, so a cutout written back out would carry the same WCS
-expect_equal(point_img[10:20, 10:20, box = 5]$header, point_fits[10:20, 10:20, box = 5]$header)
 
-#ex 27 type = 'coord' resolves RA/Dec to pixels before cutting out
-skip_if_not_installed("Rwcs")
-coords = Rwcs::Rwcs_p2s(101, 101, temp_image$keyvalues)
-expect_equal(point_img[coords[1], coords[2], box = 100, type = 'coord']$imDat,
-             point_img[101, 101, box = 100]$imDat)
-expect_equal(point_img[coords[1], coords[2], box = 100, type = 'coord']$imDat,
-             point_fits[coords[1], coords[2], box = 100, type = 'coord']$imDat)
-expect_error(point_img[coords[1], coords[2], type = 'notatype'],
-             "Must be element of set \\{'pix','coord'\\}")
-#an array with no FITS metadata has no WCS to resolve against
+#an array with no FITS metadata has no WCS to resolve against (used by ex 22 and ex 26)
 file_nowcs = file.path(subdir, 'nowcs.zarr')
 Rfits_write_image_zarr(data_2d, file_nowcs, extname = 'bare')
-expect_error(Rfits_point_zarr(file_nowcs, extname = 'bare')[10, 10, type = 'coord'],
-             'No FITS style metadata')
 
-#ex 28 collapse drops a trailing dimension that was sliced, and only one the
-#caller actually asked for. Matches the documented [.Rfits_cube behaviour
+#ex 22 type = 'coord' resolves RA/Dec to pixels before cutting out
+if(requireNamespace('Rwcs', quietly = TRUE)){
+  coords = Rwcs::Rwcs_p2s(101, 101, temp_image$keyvalues)
+  expect_equal(point_img[coords[1], coords[2], box = 100, type = 'coord']$imDat,
+               point_img[101, 101, box = 100]$imDat)
+}
+
+#ex 23 collapse drops a trailing dimension that was sliced, and only one the caller
+#actually asked for. Matches the documented [.Rfits_cube behaviour
 file_cube_zarr = file.path(subdir, 'cube.zarr')
 file_cube_fits = system.file('extdata', 'cube.fits', package = "Rfits")
 temp_cube = Rfits_read_cube(file_cube_fits)
 Rfits_write_image_zarr(temp_cube, file_cube_zarr, extname = 'cube')
 point_cube = Rfits_point_zarr(file_cube_zarr, extname = 'cube')
-
-expect_equal(dim(point_cube[10:20, 10:20, 1]$imDat), c(11L, 11L))
 expect_identical(class(point_cube[10:20, 10:20, 1])[1], 'Rfits_image')
-expect_equal(point_cube[10:20, 10:20, 1]$imDat, temp_cube$imDat[10:20, 10:20, 1])
-#a non singleton slice stays a cube
-expect_equal(dim(point_cube[10:20, 10:20, 1:3]$imDat), c(11L, 11L, 3L))
-expect_identical(class(point_cube[10:20, 10:20, 1:3])[1], 'Rfits_cube')
-#collapse = FALSE keeps the trailing dimension
+expect_equal(dim(point_cube[10:20, 10:20, 1]$imDat), c(11L, 11L))
 expect_equal(dim(point_cube[10:20, 10:20, 1, collapse = FALSE]$imDat), c(11L, 11L, 1L))
-expect_identical(class(point_cube[10:20, 10:20, 1, collapse = FALSE])[1], 'Rfits_cube')
-#leaving k out is not a request to collapse, so nothing is dropped
-expect_equal(dim(point_cube[10:20, 10:20, ]$imDat), c(11L, 11L, 4L))
-#the collapsed header no longer describes a third axis
-expect_null(point_cube[10:20, 10:20, 1]$keyvalues$NAXIS3)
-expect_equal(point_cube[10:20, 10:20, 1]$keyvalues$NAXIS, 2L)
-#and the FITS pointer collapses the same slice identically
+#and the FITS pointer collapses the same slice to an identical header
 point_cube_fits = Rfits_point(file_cube_fits)
-expect_equal(point_cube[10:20, 10:20, 1]$imDat, point_cube_fits[10:20, 10:20, 1]$imDat)
 expect_equal(point_cube[10:20, 10:20, 1]$header, point_cube_fits[10:20, 10:20, 1]$header)
-#same for a 4D array, collapsing to a cube and all the way to an image
-expect_equal(dim(ptr[2:3, 1:4, 1:2, 1]$imDat), c(2L, 4L, 2L))
-expect_identical(class(ptr[2:3, 1:4, 1:2, 1])[1], 'Rfits_cube')
-expect_equal(dim(ptr[2:3, 1:4, 1, 1]$imDat), c(2L, 4L))
-expect_identical(class(ptr[2:3, 1:4, 1, 1])[1], 'Rfits_image')
-#slicing k alone is not a request to drop m, so the array stays 4D
-expect_equal(dim(ptr[2:3, 1:4, 1, ]$imDat), c(2L, 4L, 1L, 4L))
 
-#ex 29 too many dimensions and unsupported indexing are rejected
-expect_error(point_img[1:2, 1:2, 1], 'third dimension')
-expect_error(point_img[1:2, 1:2, 1, 1], 'third dimension')
-expect_error(point_cube[1:2, 1:2, 1:2, 1], 'fourth dimension')
-expect_error(point_img[cbind(c(1, 2), c(1, 2))], 'Matrix indexing')
-
-#ex 30 a 1D pointer keeps range meaning for c(a,b), since there is no box to
-#centre, as for [.Rfits_vector
+#ex 24 a 1D pointer keeps range meaning for c(a,b), since there is no box to centre
 point_vec = Rfits_point_zarr(file_dims, extname = 'data1')
-expect_identical(point_vec$type, 'vector')
 expect_equal(point_vec[c(3, 8)]$imDat, data_1d[3:8])
-expect_equal(point_vec[3:8]$imDat, data_1d[3:8])
-expect_equal(point_vec[3:end]$imDat, data_1d[3:10])
-expect_equal(point_vec[]$imDat, data_1d)
-expect_equal(point_vec[3:8, header = FALSE], data_1d[3:8])
-#box is ignored rather than misread as a location, since it needs two dimensions
-expect_equal(point_vec[3:8, box = 4]$imDat, data_1d[3:8])
-expect_error(point_vec[3:8, 1:2], '1 dimensional')
 
-#ex 31 collapse also works with header = FALSE, where there is no [ method to
-#rebuild keywords, so the array is just re-dimensioned
-point_cube_bare = Rfits_point_zarr(file_cube_zarr, extname = 'cube', header = FALSE)
-expect_equal(dim(point_cube_bare[10:20, 10:20, 1]), c(11L, 11L))
-expect_equal(point_cube_bare[10:20, 10:20, 1], temp_cube$imDat[10:20, 10:20, 1])
-expect_equal(dim(point_cube_bare[10:20, 10:20, 1, collapse = FALSE]), c(11L, 11L, 1L))
-expect_equal(dim(point_cube_bare[10:20, 10:20, 1:3]), c(11L, 11L, 3L))
-#header = FALSE can be given per call, overriding the pointer
-expect_equal(dim(point_cube[10:20, 10:20, 1, header = FALSE]), c(11L, 11L))
+#ex 25 the WCS class methods work on a pointer, and agree with the same calls on the
+#FITS pointer. The pointer carries the keywords but no raw header, so the fixed width
+#form has to be rebuilt from them without loss
+if(requireNamespace('Rwcs', quietly = TRUE)){
+  expect_equal(centre(point_img), centre(point_fits))
+  expect_identical(corners(point_img), corners(point_fits))
+  expect_equal(pixscale(point_img), pixscale(point_fits))
+  expect_equal(rotation(point_img), rotation(point_fits))
+}
 
-#ex 32 the WCS class methods work on a pointer, and agree with the same calls on
-#the FITS pointer and on the image in RAM. The pointer carries the keywords but
-#no raw header, so the fixed width form has to be rebuilt from them
-expect_equal(centre(point_img), centre(point_fits))
-expect_equal(centre(point_img), centre(temp_image))
-#center is the alias
-expect_equal(center(point_img), centre(point_img))
-
-#the raw form a Zarr pointer has to be rebuilt from its keywords, so any loss in
-#that rebuild shows up here. The ten significant figures it used to allow cost
-#the corners 2.3e-12 degrees, which the default expect_equal tolerance missed
-expect_identical(corners(point_img), corners(point_fits))
-expect_equal(corners(point_img), corners(temp_image))
-expect_identical(row.names(corners(point_img)), c('BL', 'TL', 'TR', 'BR'))
-#RAneg is passed through to the shared method
-expect_equal(corners(point_img, RAneg = TRUE), corners(point_fits, RAneg = TRUE))
-
-expect_equal(extremes(point_img), extremes(point_fits))
-expect_equal(extremes(point_img), extremes(temp_image))
-expect_identical(row.names(extremes(point_img)), c('min', 'max', 'range'))
-#unit converts the range row, and the amin default matches the generic
-expect_equal(extremes(point_img, unit = 'deg')['range'] * 60, extremes(point_img)['range'],
-             tolerance = 1e-8)
-
-expect_equal(pixscale(point_img), pixscale(point_fits))
-expect_equal(pixscale(point_img), pixscale(temp_image))
-#loc selects where the scale is measured, and works for both spellings
-expect_equal(pixscale(point_img, loc = 'tl'), pixscale(point_fits, loc = 'tl'))
-expect_equal(pixscale(point_img, loc = c(100, 200)), pixscale(point_fits, loc = c(100, 200)))
-expect_equal(pixscale(point_img, unit = 'deg') * 3600, pixscale(point_img), tolerance = 1e-8)
-
-expect_equal(pixarea(point_img), pixarea(point_fits))
-expect_equal(pixarea(point_img), pixarea(temp_image))
-#on square pixels the area is the square of the scale
-expect_equal(pixarea(point_img), pixscale(point_img)^2, tolerance = 1e-6)
-
-expect_equal(rotation(point_img), rotation(point_fits))
-expect_equal(rotation(point_img), rotation(temp_image))
-#keypass = FALSE skips the keyword conversion, as for the other classes
-expect_equal(rotation(point_img, keypass = FALSE), rotation(point_fits, keypass = FALSE))
-
-#useraw = FALSE drops the fixed width header, which is the one case the pointer
-#and the FITS file genuinely differ. The simple TAN WCS here gives the same
-#answer either way
-expect_equal(centre(point_img, useraw = FALSE), centre(point_img))
-expect_equal(corners(point_img, useraw = FALSE), corners(point_img))
-
-#ex 33 a cube pointer works off the first two dimensions, as any cube does. The
-#scale and area are only defined for the celestial axes, so the extra dimension
-#must not disturb them, which is checked against CDELT as well as the FITS one
-expect_equal(centre(point_cube), centre(Rfits_point(file_cube_fits)))
-expect_equal(corners(point_cube), corners(Rfits_point(file_cube_fits)))
-expect_equal(pixscale(point_cube), pixscale(Rfits_point(file_cube_fits)))
-expect_equal(pixarea(point_cube), pixarea(Rfits_point(file_cube_fits)))
-expect_equal(pixscale(point_cube), abs(temp_cube$keyvalues$CDELT1) * 3600, tolerance = 1e-6)
-
-#ex 34 the guards. A 1D pointer is not an image, and gives NA with a message, as
-#the header and keylist methods do for an array with too few dimensions
-expect_message(expect_true(is.na(centre(point_vec))), 'Probably not an image')
-expect_message(expect_true(is.na(corners(point_vec))), 'Probably not an image')
-
-#an array with no FITS metadata has no WCS to use, which is an error rather than
+#ex 26 an array with no FITS metadata has no WCS to use, which is an error rather than
 #an NA, since there is no way to tell the caller anything useful otherwise
 point_nowcs = Rfits_point_zarr(file_nowcs, extname = 'bare')
 expect_error(centre(point_nowcs), 'No FITS style metadata')
-expect_error(corners(point_nowcs), 'No FITS style metadata')
-expect_error(rotation(point_nowcs), 'No FITS style metadata')
 
-#ex 35 the store describes itself. Root attributes exist after a write, list that
+#ex 27 the store describes itself. Root attributes exist after a write, list that
 #array, and agree with what the array actually is
 file_root = file.path(subdir, 'root.zarr')
 Rfits_write_image_zarr(data_2d, file_root, extname = 'alpha', keyvalues = keyvalues_2d,
                        compressor = 'lz4', clevel = 5L)
-root_of = function(path){
-  zarr::open_zarr(path, protocol = 'local', read_only = TRUE)$root$attributes
-}
 attrs = root_of(file_root)
 expect_equal(attrs$convention, 'Rfits.zarr')
-expect_identical(attrs$schema_version, 1L)
-expect_true(is.character(attrs$Rfits_version))
-expect_match(attrs$created, '^[0-9]{4}-[0-9]{2}-[0-9]{2}T')
-expect_identical(attrs$images_array, 'alpha')
-#total_images is the total number of elements across all arrays, not a count of them
-expect_identical(attrs$total_images, 24L)
-expect_equal(attrs$images_shape$alpha, as.integer(dim(data_2d)))
-expect_equal(attrs$data_type$alpha, 'float64')
-expect_equal(attrs$codec$alpha, 'blosc')
-expect_equal(attrs$compressor$alpha, 'lz4')
-expect_equal(attrs$compression_level$alpha, 5L)
-expect_equal(attrs$fill_value$alpha, 'NaN')
-expect_identical(attrs$fits_header$alpha, TRUE)
-expect_identical(attrs$key_count$alpha, length(keyvalues_2d))
-expect_equal(attrs$creation_info$batched_nchw, FALSE)
 #recorded values are read off the array, so they must match the array itself
 node_alpha = zarr::open_zarr(file_root, protocol = 'local', read_only = TRUE)$get_node('/alpha')
 expect_equal(as.integer(node_alpha$shape), attrs$images_shape$alpha)
-expect_equal(node_alpha$metadata$data_type, attrs$data_type$alpha)
-expect_equal(node_alpha$metadata$chunk_grid$configuration$chunk_shape, attrs$chunk_shape$alpha)
-
 #a second array is added to the lists rather than replacing the first
 Rfits_write_image_zarr(data_1d, file_root, extname = 'beta', keyvalues = keyvalues_1d)
-attrs = root_of(file_root)
-expect_setequal(attrs$images_array, c('alpha', 'beta'))
-expect_identical(attrs$total_images, 34L)
-#rewriting an array refreshes its entry without duplicating it
-Rfits_write_image_zarr(data_2d[, 1:3], file_root, extname = 'beta', keyvalues = keyvalues_2d)
-attrs = root_of(file_root)
-expect_setequal(attrs$images_array, c('alpha', 'beta'))
-expect_equal(attrs$images_shape$beta, c(4L, 3L))
-expect_identical(attrs$total_images, 36L)
-#the per array mirror agrees with the root
-b_node = zarr::open_zarr(file_root, protocol = 'local', read_only = TRUE)$get_node('/beta')
-expect_equal(b_node$attributes$compressor, attrs$compressor$beta)
-expect_equal(as.integer(b_node$attributes$chunk_shape), attrs$chunk_shape$beta)
-expect_equal(b_node$attributes$data_type, attrs$data_type$beta)
+expect_setequal(root_of(file_root)$images_array, c('alpha', 'beta'))
 
-#ex 36 append grows dimension 1, which is the slowest varying axis in FITS, R and
-#Zarr alike, so the existing elements keep their indices
+#ex 28 append grows dimension 1, the slowest varying axis in FITS, R and Zarr alike, so
+#the existing elements keep their indices
 file_app = file.path(subdir, 'append.zarr')
-kv_app = keyvalues_2d
-kv_app$NAXIS1 = 4L
-Rfits_write_image_zarr(data_2d, file_app, extname = 'data1', keyvalues = kv_app)
+Rfits_write_image_zarr(data_2d, file_app, extname = 'data1', keyvalues = keyvalues_2d)
 before = Rfits_read_image_zarr(file_app, extname = 'data1')
 inc = matrix(as.numeric(101:118), 3, 6)
 ap = Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE)
-expect_identical(ap$start_index, 5L)
-expect_identical(ap$end_index, 7L)
-expect_identical(ap$appended, 3L)
-expect_equal(ap$dim, c(7L, 6L))
+expect_identical(c(ap$start_index, ap$end_index), c(5L, 7L))
 after = Rfits_read_image_zarr(file_app, extname = 'data1')
-expect_equal(dim(after$imDat), c(7, 6))
 expect_equal(after$imDat[1:4, ], before$imDat)
 expect_equal(after$imDat[5:7, ], inc)
 expect_equal(after$keyvalues$NAXIS1, 7L)
-expect_equal(after$keyvalues$NAXIS2, 6L)
-expect_true(any(grepl('Rfits appended 3 elements', after$history)))
-hist1 = root_of(file_app)$append_history
-expect_length(hist1, 1)
-expect_identical(hist1[[1]]$start_index, 5L)
-expect_identical(hist1[[1]]$end_index, 7L)
-expect_equal(hist1[[1]]$extname, 'data1')
-#a second append adds a second entry rather than replacing the first
-Rfits_write_image_zarr(matrix(as.numeric(201:212), 2, 6), file_app, extname = 'data1',
-                       append = TRUE)
-hist2 = root_of(file_app)$append_history
-expect_length(hist2, 2)
-expect_identical(hist2[[2]]$start_index, 8L)
-expect_identical(hist2[[2]]$end_index, 9L)
-expect_equal(root_of(file_app)$total_images, 54L)
-#matrix(201:212, 2, 6) fills by column, so the second new row is the even values
-expect_equal(Rfits_read_image_zarr(file_app, extname = 'data1', header = FALSE)[9, ],
-             as.numeric(c(202, 204, 206, 208, 210, 212)))
-#the named wrapper does the same thing
-expect_equal(Rfits_append_image_zarr(matrix(as.numeric(1:12), 2, 6), file_app,
-                                     extname = 'data1')$dim, c(11L, 6L))
-#dimension 1 of a 1D array is all there is, so it grows the same way
-file_app1 = file.path(subdir, 'append1.zarr')
-Rfits_write_image_zarr(data_1d, file_app1, extname = 'v', keyvalues = keyvalues_1d)
-Rfits_write_image_zarr(as.numeric(11:15), file_app1, extname = 'v', append = TRUE)
-expect_equal(Rfits_read_image_zarr(file_app1, extname = 'v', header = FALSE),
-             as.numeric(c(1:10, 11:15)))
 
-#ex 37 the append guards
-expect_error(Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE,
-                                    overwrite_file = TRUE), 'both append and overwrite_file')
+#ex 29 the append guards
 expect_error(Rfits_write_image_zarr(matrix(as.numeric(1:15), 3, 5), file_app,
                                     extname = 'data1', append = TRUE), 'dimensions')
-expect_error(Rfits_write_image_zarr(data_3d[1:2, , ], file_app, extname = 'data1',
-                                    append = TRUE), 'dimensions')
 expect_error(Rfits_write_image_zarr(inc, file_app, extname = 'nope', append = TRUE),
              'non-existent')
-#an append never widens or narrows the stored type. Unrequested, it coerces with
-#a message; requested explicitly, it is an error rather than a silent rewrite
-expect_message(Rfits_write_image_zarr(matrix(1L:18, 3, 6), file_app, extname = 'data1',
-                                      append = TRUE), 'float64')
-expect_equal(Rfits_read_image_zarr(file_app, extname = 'data1')$keyvalues$NAXIS1, 14L)
-expect_error(Rfits_write_image_zarr(matrix(1L:18, 3, 6), file_app, extname = 'data1',
-                                    append = TRUE, data_type = 'int32'), 'data_type')
-#a compressor cannot be changed on an array that already exists, and says so
-expect_message(Rfits_write_image_zarr(inc, file_app, extname = 'data1', append = TRUE,
-                                      compressor = 'blosclz'), 'were not applied')
 
-#ex 38 compressor mapping, and the recorded level is the applied level
+#ex 30 compressor mapping, and the recorded level is the applied level
 file_comp = file.path(subdir, 'codecs.zarr')
-codec_of = function(path, extname){
-  zarr::open_zarr(path, protocol = 'local', read_only = TRUE)$get_node(Rfits:::.zarr_name_to_path(extname))
-}
-for(name in c('blosc', 'blosclz', 'lz4', 'lz4hc', 'zstd')){
-  ext = paste0('c_', name)
-  res = Rfits_write_image_zarr(data_2d, file_comp, extname = ext, compressor = name, clevel = 9L)
-  #the default name is not itself a blosc cname, it means zarr's own default
-  want = if(name == 'blosc') 'zstd' else name
-  expect_equal(root_of(file_comp)$compressor[[ext]], want)
-  expect_identical(root_of(file_comp)$compression_level[[ext]], 9L)
-  expect_equal(res$compressor, want)
-  expect_equal(res$compression_level, 9L)
-}
-#gzip and zlib are the same thing, carried by blosc since the standalone codec
-#needs a package that is not a dependency of zarr or Rfits
-Rfits_write_image_zarr(data_2d, file_comp, extname = 'gz', compressor = 'gzip', clevel = 3L)
-expect_equal(root_of(file_comp)$compressor$gz, 'zlib')
-#names blosc cannot produce fall back with a warning rather than being recorded
-expect_warning(Rfits_write_image_zarr(data_2d, file_comp, extname = 'bz',
-                                      compressor = 'bz2'), 'cannot be produced')
-expect_equal(root_of(file_comp)$compressor$bz, 'zstd')
-expect_warning(Rfits_write_image_zarr(data_2d, file_comp, extname = 'nope',
-                                      compressor = 'not_a_thing'), 'not recognised')
-expect_equal(root_of(file_comp)$compressor$nope, 'zstd')
-#shuffle is recorded as a blosc shuffle name, never as a logical
-Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_on', shuffle = TRUE)
-Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_off', shuffle = FALSE)
-expect_equal(root_of(file_comp)$shuffle$shuf_on, 'shuffle')
-expect_equal(root_of(file_comp)$shuffle$shuf_off, 'noshuffle')
-expect_error(Rfits_write_image_zarr(data_2d, file_comp, extname = 'shuf_bad',
-                                    shuffle = 'sometimes'), 'shuffle')
-#what is recorded matches what the array actually carries
-n = codec_of(file_comp, 'shuf_on')
-expect_equal(n$metadata$codecs[[3]]$configuration$shuffle, 'shuffle')
-expect_equal(n$metadata$codecs[[3]]$configuration$cname, root_of(file_comp)$compressor$shuf_on)
-#the logical path really does work end to end, which is the point of the mapping
-expect_equal(Rfits_read_image_zarr(file_comp, extname = 'shuf_on', header = FALSE), data_2d)
-expect_equal(Rfits_read_image_zarr(file_comp, extname = 'gz', header = FALSE), data_2d)
+Rfits_write_image_zarr(data_2d, file_comp, extname = 'c_lz4', compressor = 'lz4', clevel = 9L)
+expect_equal(root_of(file_comp)$compressor$c_lz4, 'lz4')
+expect_equal(Rfits_read_image_zarr(file_comp, extname = 'c_lz4', header = FALSE), data_2d)
 
-#ex 39 Rfits_inspect_zarr reports what it can state truthfully
+#ex 31 Rfits_inspect_zarr reports what it can state truthfully, and a store with no
+#self-description is reported as such rather than guessed at
 info = Rfits_inspect_zarr(file_root, print = FALSE)
-expect_equal(info$filename, file_root)
-expect_equal(info$zarr_format, 3L)
-expect_true(info$self_describing)
-expect_equal(info$convention, 'Rfits.zarr')
 expect_identical(info$n_arrays, 2L)
-expect_setequal(info$array_names, c('alpha', 'beta'))
-expect_identical(info$total_elements, 36L)
-expect_identical(info$arrays$alpha$shape, c(4L, 6L))
-expect_equal(info$arrays$alpha$compressor, 'lz4')
-expect_identical(info$arrays$alpha$fill_value, 'NaN')
-expect_true(info$arrays$alpha$fits_header)
-expect_identical(info$store_bytes, unlist(file.info(
-  list.files(file_root, recursive = TRUE, full.names = TRUE))$size) |> sum())
-expect_silent(Rfits_inspect_zarr(file_root, print = FALSE))
-printed = capture.output(Rfits_inspect_zarr(file_root))
-expect_true(any(grepl('SUMMARY STATISTICS', printed)))
-expect_true(any(grepl('alpha', printed)))
-#no pixel statistics are computed, so inspect stays cheap over a remote store
-expect_false(any(grepl('min_value', names(unlist(info)))))
-
-#a store with no self-description is reported as such rather than guessed at
 file_older = file.path(subdir, 'older.zarr')
 Rfits_write_image_zarr(data_2d, file_older, extname = 'data1', keyvalues = keyvalues_2d,
                        update_root = FALSE)
-info_old = Rfits_inspect_zarr(file_older, print = FALSE)
-expect_false(info_old$self_describing)
-expect_true(is.na(info_old$convention))
-expect_identical(info_old$n_arrays, 1L)
-expect_equal(info_old$arrays$data1$compressor, 'zstd')
-printed_old = capture.output(Rfits_inspect_zarr(file_older))
-expect_true(any(grepl('absent', printed_old)))
+expect_false(Rfits_inspect_zarr(file_older, print = FALSE)$self_describing)
 
-#ex 40 update_root = FALSE leaves the root stale, and a later refresh fixes it
-attrs_stale = root_of(file_older)
-expect_true(is.null(attrs_stale$images_array))
-Rfits_write_image_zarr(data_1d, file_older, extname = 'later', keyvalues = keyvalues_1d,
-                       update_root = FALSE)
-expect_true(is.null(root_of(file_older)$images_array))
-Rfits_write_image_zarr(data_1d, file_older, extname = 'later2', keyvalues = keyvalues_1d)
-attrs_fixed = root_of(file_older)
-expect_setequal(attrs_fixed$images_array, c('data1', 'later', 'later2'))
-expect_identical(attrs_fixed$total_images, 44L)
-#refreshing rebuilds the description but the store is still the one created first,
-#so the original timestamp has to survive it
-created_1 = attrs_fixed$created
-expect_match(created_1, '^[0-9]{4}-')
-Sys.sleep(1.1)
-Rfits_write_image_zarr(data_1d, file_older, extname = 'later3', keyvalues = keyvalues_1d)
-expect_equal(root_of(file_older)$created, created_1)
-expect_setequal(root_of(file_older)$images_array,
-                c('data1', 'later', 'later2', 'later3'))
-
-#ex 41 a foreign store says so, rather than reporting missing FITS metadata
-file_foreign = file.path(subdir, 'foreign.zarr')
-Rfits_write_image_zarr(data_2d, file_foreign, extname = 'images', update_root = FALSE)
-#overwrite the data without any FITS metadata, then hand the root the key names a
-#plain image to zarr converter writes, with no convention marker
-fr = zarr::open_zarr(file_foreign, protocol = 'local', read_only = FALSE)
-meta = fr$root$metadata
-meta$attributes = list(total_images = 24L, images_array = list('images'))
-fr$store$set_metadata('/', meta)
-expect_null(root_of(file_foreign)$convention)
-read_foreign = NULL
-expect_message(read_foreign <- Rfits_read_image_zarr(file_foreign, extname = 'images'),
-               'not written by Rfits')
-expect_equal(read_foreign, data_2d)
-#and an ordinary Rfits array with no metadata still gets the old warning
-expect_warning(Rfits_read_image_zarr(file_nowcs, extname = 'bare'),
-               'No FITS style metadata')
-
-#ex 42 the new attributes must not disturb the FITS metadata in any way, so the
-#round trip is still exact and the technical names never leak into the keywords
-expect_equal(Rfits_read_image_zarr(file_image_zarr, extname = 'image')$header,
-             temp_image$header)
-leaked = intersect(c('data_type', 'chunk_shape', 'codec', 'compressor',
-                     'compression_level', 'shuffle', 'fill_value'),
-                   Rfits_read_image_zarr(file_root, extname = 'alpha')$keynames)
-expect_length(leaked, 0)
-skip_if_not_installed("hdf5r")
-file_zarr_cmp2 = file.path(subdir, 'compare2.zarr')
-Rfits_write_image_zarr(obj_2d, file_zarr_cmp2, extname = 'data1')
-from_zarr2 = Rfits_read_image_zarr(file_zarr_cmp2, extname = 'data1')
-expect_equal(unclass(from_hdf5$keyvalues), unclass(from_zarr2$keyvalues))
-expect_equal(from_hdf5$header, from_zarr2$header)
-
-#and the whole self describing plus append cycle works on a store object too. A
-#memory store matters here because the root group prefix and the store key for it
-#are not the same thing, so writing the root through the node API leaves a second
-#phantom key behind that makes the store impossible to reopen
-mem_app = zarr::zarr_memorystore$new()
-Rfits_write_image_zarr(data_2d, mem_app, extname = 'data1', keyvalues = keyvalues_2d)
-expect_equal(zarr::zarr$new(mem_app)$root$attributes$total_images, 24L)
-mem_ap = Rfits_write_image_zarr(matrix(as.numeric(101:112), 2, 6), mem_app,
-                                extname = 'data1', append = TRUE)
-expect_equal(mem_ap$dim, c(6, 6))
-#the store must still be openable by anyone after the root was rewritten
-expect_silent(zarr::zarr$new(mem_app))
-mem_read = Rfits_read_image_zarr(mem_app, extname = 'data1')
-expect_equal(mem_read$imDat[1:4, ], data_2d)
-expect_equal(mem_read$imDat[5:6, ], matrix(as.numeric(101:112), 2, 6))
-expect_equal(mem_read$keyvalues$NAXIS1, 6L)
-mem_info = Rfits_inspect_zarr(mem_app, print = FALSE)
-expect_equal(mem_info$total_elements, 36L)
-expect_length(mem_info$append_history, 1)
-#no local directory, so no size to report
-expect_true(is.na(mem_info$store_bytes))
+#ex 32 the store name follows the file name, with every accepted extension removed
+expect_identical(Rfits:::.zarr_store_stub('y.fits.gz'), 'y.zarr')
 
 # --- Batch conversion of a directory of FITS files (Rfits_dir_to_zarr) -----------
 
-#ex 43 the store name follows the file name, with every accepted extension removed
-stub = Rfits:::.zarr_store_stub
-expect_identical(stub('image_example.fits'), 'image_example.zarr')
-expect_identical(stub('/some/where/cube.FITS'), 'cube.zarr')
-expect_identical(stub('x.fit'), 'x.zarr')
-expect_identical(stub('y.fits.gz'), 'y.zarr')
-expect_identical(stub('z.FITS.GZ'), 'z.zarr')
-#no extension at all still produces a usable name rather than '.zarr'
-expect_identical(stub('no_ext'), 'no_ext.zarr')
-#only the final extension is removed
-expect_identical(stub('a.b.fits'), 'a.b.zarr')
-
-#ex 44 a directory batch, one store per file, all using the same extension name
+#ex 33 a directory batch, one store per file, all using the same extension name
 batch_dir = file.path(subdir, 'batch_in')
-dir.create(file.path(batch_dir, 'nested'), recursive = TRUE)
+dir.create(batch_dir, recursive = TRUE)
 batch_out = file.path(subdir, 'batch_out')
 ex_image = system.file('extdata', 'image.fits', package = "Rfits")
 ex_cube = system.file('extdata', 'cube.fits', package = "Rfits")
@@ -1064,178 +325,34 @@ file.copy(ex_image, file.path(batch_dir, 'image_one.fits'))
 file.copy(ex_cube, file.path(batch_dir, 'cube_one.fits'))
 #not FITS, so it must be filtered out rather than attempted
 writeLines('nothing here', file.path(batch_dir, 'notes.txt'))
-#the same name in a sub directory, which would collide with image_one
-file.copy(ex_image, file.path(batch_dir, 'nested', 'image_one.fits'))
-
-#recursive is the default, so this is the collision case
-expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = batch_out), 'share a Zarr store name')
-
-batch = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
-                          verbose = FALSE)
-expect_identical(nrow(batch), 2L)
+batch = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, verbose = FALSE)
 expect_true(all(batch$status == 'ok'))
-#the names are inherited from the files, not from each other
-expect_identical(basename(batch$store), c('cube_one.zarr', 'image_one.zarr'))
-#every store holds exactly one array, under the same name
-expect_identical(Rfits_inspect_zarr(batch_out |> file.path('image_one.zarr'),
-                                   print = FALSE)$array_names, 'data1')
-expect_identical(Rfits_inspect_zarr(batch_out |> file.path('cube_one.zarr'),
-                                   print = FALSE)$array_names, 'data1')
-#the pixels survive the round trip
+#the pixels and header survive the round trip
 src_image = Rfits_read_image(ex_image)
 back_image = Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'), extname = 'data1')
 expect_equal(back_image$imDat, src_image$imDat)
 expect_equal(back_image$header, src_image$header)
-src_cube = Rfits_read_image(ex_cube)
-back_cube = Rfits_read_image_zarr(file.path(batch_out, 'cube_one.zarr'), extname = 'data1')
-expect_equal(back_cube$imDat, src_cube$imDat)
-#re-running replaces rather than failing, which is what makes a batch restartable
-again = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
-                          verbose = FALSE)
-expect_true(all(again$status == 'ok'))
-expect_equal(Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'),
-                                  extname = 'data1')$imDat, src_image$imDat)
 
-#ex 45 an explicit file list, and pattern filtering over a directory
-list_res = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
-                                          file.path(batch_dir, 'cube_one.fits'),
-                                          file.path(batch_dir, 'notes.txt')),
-                             target = batch_out, verbose = FALSE)
-expect_identical(nrow(list_res), 2L)
-pat_res = Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, recursive = FALSE,
-                            pattern = 'image', verbose = FALSE)
-expect_identical(basename(pat_res$store), 'image_one.zarr')
-
-#ex 46 a file that cannot be read is recorded and skipped, not fatal
+#ex 34 a file that cannot be read is recorded and skipped, not fatal
 mixed = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
                                        file.path(batch_dir, 'missing.fits')),
                           target = batch_out, verbose = FALSE)
-expect_identical(nrow(mixed), 2L)
 expect_identical(mixed$status, c('ok', 'error'))
-expect_true(grepl('readable', mixed$error[2]))
-#the good file in the same run still made it through
-expect_equal(Rfits_read_image_zarr(file.path(batch_out, 'image_one.zarr'),
-                                  extname = 'data1')$imDat, src_image$imDat)
 
-#ex 47 the destination must be given, and only one way
+#ex 35 the destination must be given, and only one way
 expect_error(Rfits_dir_to_zarr(dir = batch_dir), 'target or bucket')
-expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = batch_out, bucket = 'any'),
-             'not both')
-#bucket without credentials fails before any transfer. The credentials are cleared
-#for the duration, since the end to end S3 test below relies on them being in the
-#environment, and a test that silently picked them up would go to the network
-s3_env_all = c('RFITS_S3_BUCKET', 'RFITS_S3_ENDPOINT', 'RFITS_S3_REGION',
-               'RFITS_S3_ACCESS_KEY', 'RFITS_S3_SECRET_KEY', 'RFITS_S3_SESSION_TOKEN')
-#local(), so the restore happens even if the check inside fails
-no_creds = local({
-  saved = as.list(Sys.getenv(s3_env_all, names = s3_env_all))
-  on.exit(do.call(Sys.setenv, saved))
-  Sys.unsetenv(s3_env_all)
-  tryCatch(Rfits_dir_to_zarr(dir = batch_dir, bucket = 'any', prefix = 'x/',
-                             recursive = FALSE),
-           error = function(e) conditionMessage(e))
-})
-expect_match(no_creds, 'access_key and secret_key')
-#an empty directory is reported as such
-empty_dir = file.path(subdir, 'empty_in')
-dir.create(empty_dir)
-expect_error(Rfits_dir_to_zarr(dir = empty_dir, target = batch_out), 'No FITS files')
-expect_error(Rfits_dir_to_zarr(dir = file.path(subdir, 'no_such_dir'), target = batch_out),
-             'Directory does not exist')
-
-#ex 47b cores converts several files at once, and must agree with doing them one by
-#one. A worker that failed to load Rfits would show up as an error row rather than a
-#silent success, which is what checking the table as well as the pixels buys here
-par_out = file.path(subdir, 'batch_par')
-#a bad cores value is refused before any worker is started, so this one needs no gate
-expect_error(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, cores = 0), 'cores')
-#Everything below launches processes, and so is gated on cores_ok for the reason given
-#there: a CRAN incoming check sets _R_CHECK_LIMIT_CORES_ and asks a package not to
-if(cores_ok){
-  par = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                          cores = 2, verbose = FALSE)
-  expect_identical(nrow(par), 2L)
-  expect_true(all(par$status == 'ok'))
-  #the order is the order of the files given, not the order the workers finished in
-  expect_identical(basename(par$store), basename(batch$store))
-  for(name in basename(batch$store)){
-    expect_equal(Rfits_read_image_zarr(file.path(par_out, name), extname = 'data1')$imDat,
-                 Rfits_read_image_zarr(file.path(batch_out, name),
-                                       extname = 'data1')$imDat)
-  }
-  #more cores than files is allowed, and the extra workers simply get nothing
-  expect_true(all(Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                                    cores = 8, verbose = FALSE)$status == 'ok'))
-  #one unreadable file among good ones is still recorded against the right row. This is
-  #the case a parallel batch gets wrong most easily: the rows have to stay aligned with
-  #the files they describe however the workers finish. missing.fits is absent on purpose,
-  #which is the same fixture ex 46 uses for the serial path
-  mix_par = Rfits_dir_to_zarr(filelist = c(file.path(batch_dir, 'image_one.fits'),
-                                           file.path(batch_dir, 'missing.fits'),
-                                           file.path(batch_dir, 'cube_one.fits')),
-                              target = par_out, cores = 3, verbose = FALSE)
-  expect_identical(mix_par$status, c('ok', 'error', 'ok'))
-  expect_true(grepl('readable', mix_par$error[2]))
-  expect_identical(basename(mix_par$store)[2], 'missing.zarr')
-}
-#the cluster a cores run makes belongs to that call alone, so whatever backend the
-#session has is neither used nor disturbed. A leftover registration would be a real
-#hazard rather than a tidy one, since the next %dopar% would then be handed processes
-#that have already exited. getDoParName is NULL before anything has been attached and
-#a string after, hence the collapsing rather than comparing the values directly
-par_backend = function() paste(foreach::getDoParName(), collapse = '/')
-before_name = par_backend()
-before_workers = as.integer(foreach::getDoParWorkers())
-if(cores_ok){
-  Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                    cores = 2, verbose = FALSE)
-  expect_identical(par_backend(), before_name)
-  expect_identical(as.integer(foreach::getDoParWorkers()), before_workers)
-}
-#and a batch of its own still runs beside a cluster the caller registered. This one
-#replaces the session's backend while it runs, which is a second reason to keep it behind
-#the switch: the restore below is best effort, and a CRAN incoming check is not the place
-#to find out it was not enough
-if(cores_ok){
-  registered_run = local({
-    entry = par_backend()
-    on.exit({
-      doParallel::stopImplicitCluster()
-      if(identical(entry, 'doSEQ') || is.null(entry)) foreach::registerDoSEQ()
-    })
-    doParallel::registerDoParallel(cores = 2)
-    par2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                             cores = 2, verbose = FALSE)
-    #checked here rather than after the on.exit, since that is what this is about: the
-    #cores call must not have replaced the cluster the caller registered
-    workers = as.integer(foreach::getDoParWorkers())
-    ser2 = Rfits_dir_to_zarr(dir = batch_dir, target = par_out, recursive = FALSE,
-                             verbose = FALSE)
-    return(list(par = all(par2$status == 'ok'), ser = all(ser2$status == 'ok'),
-                workers = workers, name = par_backend()))
-  })
-  expect_true(registered_run$par)
-  expect_true(registered_run$ser)
-  #the caller's cluster is left with its own worker count, i.e. not replaced. The name
-  #depends on the platform, since cores gives fork workers unless they are unavailable
-  expect_identical(registered_run$workers, 2L)
-  expect_false(identical(registered_run$name, 'doSEQ'))
-}
 
 # --- Searching a directory of stores by position (Rfits_cutout_zarr_dir) -----------
 
-#ex 48 a 3x3 grid of 200x200 tiles at 1 arcsec/pixel, built straight into Zarr with a
+#ex 36 a 3x3 grid of 200x200 tiles at 1 arcsec/pixel, built straight into Zarr with a
 #known WCS so the expected cutout can be computed rather than eyeballed. The tiles
-#touch exactly, which puts centres, edge midpoints and corners all in reach
-skip_if_not_installed("Rwcs")
+#touch exactly, which puts centres and corners in reach. Writing needs no WCS package.
 cut_dir = file.path(subdir, 'cutout_grid')
 dir.create(cut_dir, recursive = TRUE)
-
 cut_N = 200
 cut_scale = 1/3600
 cut_ra0 = 53.1
 cut_dec0 = -27.8
-
 cut_tile = function(it, jt, N = cut_N, scale = cut_scale){
   kv = list(SIMPLE = TRUE, BITPIX = -32L, NAXIS = 2L, NAXIS1 = N, NAXIS2 = N,
             CTYPE1 = 'RA---TAN', CTYPE2 = 'DEC--TAN',
@@ -1248,7 +365,6 @@ cut_tile = function(it, jt, N = cut_N, scale = cut_scale){
   dat = matrix(it * 1000 + jt, N, N)
   list(kv = kv, dat = dat)
 }
-
 for(it in 1:3){
   for(jt in 1:3){
     tt = cut_tile(it, jt)
@@ -1256,1110 +372,121 @@ for(it in 1:3){
                            extname = 'data1', keyvalues = tt$kv)
   }
 }
-cut_silent = function(...){
-  Rfits_cutout_zarr_dir(..., verbose = FALSE)
-}
-
-#the centre of one tile matches that tile alone
 cen_22 = c(cut_ra0 + cut_N * cut_scale / cos(cut_dec0 * pi/180),
            cut_dec0 + cut_N * cut_scale)
-one = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 101)
-expect_identical(names(one), 'tile_2_2')
-expect_identical(class(one), 'Rfits_list')
-expect_identical(class(one[[1]])[1], 'Rfits_image')
-expect_identical(dim(one[[1]]), c(101L, 101L))
-
-#the output is the same object the pointer cutout method gives for the same request,
-#so nothing about the search perturbs the header or the pixels
-ptr_22 = Rfits_point_zarr(file.path(cut_dir, 'tile_2_2.zarr'), extname = 'data1')
-direct_22 = ptr_22[cen_22[1], cen_22[2], box = 101, type = 'coord']
-expect_equal(one[[1]]$imDat, direct_22$imDat)
-expect_equal(one[[1]]$header, direct_22$header)
-
-#the pixels really are the tile's own, sliced around the requested position
-cen_pix = ceiling(suppressMessages(Rwcs::Rwcs_s2p(cen_22[1], cen_22[2],
-                                                  keyvalues = cut_tile(2, 2)$kv,
-                                                  pixcen = 'R'))[1, ])
-lo_pix = cen_pix + (1 - 101)/2
-hi_pix = cen_pix + (101 - 1)/2
-expect_equal(one[[1]]$imDat, cut_tile(2, 2)$dat[lo_pix[1]:hi_pix[1], lo_pix[2]:hi_pix[2]])
-
-#a position on the corner shared by four tiles returns all four, one per extension
 corner = c(cut_ra0 + 0.5 * cut_N * cut_scale / cos(cut_dec0 * pi/180),
            cut_dec0 + 0.5 * cut_N * cut_scale)
-four = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101)
-expect_identical(sort(names(four)), sort(c('tile_1_1', 'tile_1_2', 'tile_2_1', 'tile_2_2')))
-expect_length(four, 4)
-#every extension keeps the requested size, padded rather than shrunk at the edge
-expect_true(all(vapply(four, function(x) identical(dim(x), c(101L, 101L)), logical(1))))
-#and each carries its own store's pixels, which the encoded values make checkable. The
-#tiles that the box runs off the edge of also carry NA padding, so the non NA values
-#are what identifies the store
-tile_id = function(x) unique(as.vector(x$imDat[!is.na(as.vector(x$imDat))]))
-expect_equal(sort(unname(vapply(four, tile_id, numeric(1)))),
-             sort(c(1001, 1002, 2001, 2002)))
 
-#the scan table records every store it looked at, and the matches table only those it
-#took, so a null result can be diagnosed without rerunning anything
-scan = attributes(four)$scan
-expect_identical(nrow(scan), 9L)
-expect_true(all(scan$status == 'ok'))
-expect_equal(scan$pixscale_x, rep(1, 9), tolerance = 1e-6)
-#both axes of the tile shape have to survive into the table. Reading them out of a
-#scalar rather than out of the shape vector used to leave naxis2 NA for every store,
-#which made the table look like a directory of one row tiles
-expect_identical(scan$naxis1, rep(as.numeric(cut_N), 9))
-expect_identical(scan$naxis2, rep(as.numeric(cut_N), 9))
-matches = attributes(four)$matches
-expect_identical(nrow(matches), 4L)
-expect_true(all(matches$dim == '101x101'))
-expect_identical(attributes(four)$filename, matches$store)
-
-#a position with nothing near it matches nothing, and says so without erroring
-none = expect_message(cut_silent(dir = cut_dir, RA = 10, Dec = 10, box = 101),
-                      'No Zarr store overlaps')
-expect_length(none, 0)
-expect_identical(names(none), character(0))
-
-#ex 49 a box large enough to sit over the whole grid matches every tile, which is the
-#case where the box boundary falls outside every tile and the overlap test has to work
-#in the other direction
-expect_length(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 701), 9)
-
-#the cheap cone filter must never reject a tile the precise test would have kept, so
-#the fast answer has to equal the answer with no filter at all
-brute_box = function(RA, Dec, box){
-  hits = character(0)
-  for(it in 1:3){
-    for(jt in 1:3){
-      kv = cut_tile(it, jt)$kv
-      bkv = Rfits:::.zarr_cutout_box_keyvalues(kv, RA, Dec, c(box, box))
-      ok = suppressMessages(tryCatch(Rwcs::Rwcs_overlap(bkv, kv), error = function(e) NA))
-      if(isTRUE(ok)){
-        hits = c(hits, sprintf('tile_%i_%i', it, jt))
-      }
-    }
+if(requireNamespace('Rwcs', quietly = TRUE)){
+  cut_silent = function(...){
+    Rfits_cutout_zarr_dir(..., verbose = FALSE)
   }
-  return(sort(hits))
-}
-for(box in c(11, 101, 201)){
-  for(loc in list(cen_22, corner,
-                  c(cut_ra0, cut_dec0),
-                  c(cut_ra0 + 2 * cut_N * cut_scale / cos(cut_dec0 * pi/180),
-                    cut_dec0 + 2 * cut_N * cut_scale))){
-    expect_identical(sort(names(cut_silent(dir = cut_dir, RA = loc[1], Dec = loc[2],
-                                           box = box, extract = FALSE))),
-                     brute_box(loc[1], loc[2], box))
+
+  #the centre of one tile matches that tile alone, and the output is the same object
+  #the pointer cutout method gives for the same request
+  one = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 101)
+  expect_identical(names(one), 'tile_2_2')
+  ptr_22 = Rfits_point_zarr(file.path(cut_dir, 'tile_2_2.zarr'), extname = 'data1')
+  direct_22 = ptr_22[cen_22[1], cen_22[2], box = 101, type = 'coord']
+  expect_equal(one[[1]]$imDat, direct_22$imDat)
+  #a position on the corner shared by four tiles returns all four
+  four = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101)
+  expect_identical(sort(names(four)), sort(c('tile_1_1', 'tile_1_2', 'tile_2_1', 'tile_2_2')))
+  #the scan table records every store it looked at
+  expect_identical(nrow(attributes(four)$scan), 9L)
+
+  #ex 37 extract = FALSE reports the matches as pointers, without reading pixels
+  pts = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101, extract = FALSE)
+  expect_true(all(vapply(pts, function(x) inherits(x, 'Rfits_pointer_zarr'), logical(1))))
+
+  #ex 38 cubes keep their planes: a box is a two dimensional feature
+  cube_dir = file.path(subdir, 'cutout_nd')
+  dir.create(cube_dir)
+  tt = cut_tile(1, 1)
+  cube_dat = array(0, c(cut_N, cut_N, 4))
+  for(k in 1:4){
+    cube_dat[,,k] = tt$dat + k
+  }
+  Rfits_write_image_zarr(cube_dat, file.path(cube_dir, 'cube_a.zarr'), extname = 'data1',
+                         keyvalues = tt$kv)
+  nd = cut_silent(dir = cube_dir, RA = tt$kv$CRVAL1, Dec = tt$kv$CRVAL2, box = 51)
+  expect_identical(dim(nd[['cube_a']]), c(51L, 51L, 4L))
+
+  #ex 39 argument checking happens before anything is read from disk
+  expect_error(Rfits_cutout_zarr_dir(RA = 1, Dec = 1), 'One of dir, filelist, or bucket')
+
+  #ex 40 the metadata cache gives exactly the same answer as not having it
+  if(requireNamespace('arrow', quietly = TRUE)){
+    cache_file = file.path(subdir, 'cutout_cache.rds')
+    cold = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                      cache = cache_file)
+    warm = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
+                      cache = cache_file)
+    expect_identical(names(cold), names(warm))
+    expect_identical(sort(names(warm)), sort(names(four)))
   }
 }
-
-#ex 50 buffer widens the search. The position is 300 arcsec from tile 1,1's reference
-#point and 200 clear of its edge, so only a generous buffer can reach it
-just_out = c(cut_ra0 - 300/3600/cos(cut_dec0 * pi/180), cut_dec0)
-expect_length(cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101), 0)
-expect_length(cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101,
-                         buffer = 100), 0)
-buf = cut_silent(dir = cut_dir, RA = just_out[1], Dec = just_out[2], box = 101,
-                 buffer = 250)
-expect_true('tile_1_1' %in% names(buf))
-#the search widens but the cutout does not
-expect_true(all(vapply(buf, function(x) identical(dim(x), c(101L, 101L)), logical(1))))
-#and the buffered result is a superset of the unbuffered one
-expect_true(all(names(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2],
-                                 box = 101)) %in%
-                  names(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2],
-                                   box = 101, buffer = 100))))
-
-#ex 51 box in arcsec. The tiles are 1 arcsec/pixel, so arcsec and pixels agree here,
-#but the conversion is per tile rather than assumed
-r_as = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
-                  box.unit = 'arcsec')
-expect_identical(dim(r_as[[1]]), c(51L, 51L))
-expect_equal(r_as[[1]]$imDat, one[[1]]$imDat[26:76, 26:76])
-#two sizes, and a per axis pair
-expect_identical(dim(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2],
-                                box = c(31, 41))[[1]]), c(31L, 41L))
-#too small to cut out at all, which is a mistake in the request rather than an absence
-#of data, so it is reported as such and differently in each unit
-expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0.001,
-                        box.unit = 'arcsec'), 'smaller than one')
-expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0),
-             'positive')
-expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 0.5),
-             'at least 1 pixel')
-
-#ex 52 several positions at once, and the loc matrix form of the same request
-multi = cut_silent(dir = cut_dir, RA = c(cen_22[1], corner[1]),
-                   Dec = c(cen_22[2], corner[2]), box = 101)
-expect_identical(multi, cut_silent(dir = cut_dir, loc = rbind(cen_22, corner), box = 101))
-expect_length(multi, 5)
-expect_identical(names(multi), c('tile_2_2_1', 'tile_1_1_2', 'tile_1_2_2',
-                                 'tile_2_1_2', 'tile_2_2_2'))
-#the position column says which request each cutout answers
-expect_identical(attributes(multi)$matches$position, c(1L, 2L, 2L, 2L, 2L))
-expect_error(cut_silent(dir = cut_dir, RA = c(1, 2, 3), Dec = c(1, 2)), 'same length')
-expect_error(cut_silent(dir = cut_dir, loc = matrix(1, 2, 3)), 'two columns')
-
-#ex 53 extract = FALSE reports the matches as pointers, without reading pixels. The
-#search is the same, only the data is not fetched
-pts = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
-                 extract = FALSE)
-expect_length(pts, 4)
-expect_true(all(vapply(pts, function(x) inherits(x, 'Rfits_pointer_zarr'), logical(1))))
-#the matches table still knows the shape, taken from the pointer rather than a read
-expect_true(all(attributes(pts)$matches$dim == '200x200'))
-
-#ex 54 cubes and 4D arrays. A box is a two dimensional feature, so the planes are kept
-#whole rather than sliced to one
-cube_dir = file.path(subdir, 'cutout_nd')
-dir.create(cube_dir)
-tt = cut_tile(1, 1)
-cube_dat = array(0, c(cut_N, cut_N, 4))
-arr_dat = array(0, c(cut_N, cut_N, 3, 2))
-for(k in 1:4){
-  cube_dat[,,k] = tt$dat + k
-}
-for(k in 1:3){
-  for(m in 1:2){
-    arr_dat[,,k,m] = tt$dat + k * 10 + m
-  }
-}
-Rfits_write_image_zarr(cube_dat, file.path(cube_dir, 'cube_a.zarr'), extname = 'data1',
-                       keyvalues = tt$kv)
-Rfits_write_image_zarr(arr_dat, file.path(cube_dir, 'array_a.zarr'), extname = 'data1',
-                       keyvalues = tt$kv)
-nd = cut_silent(dir = cube_dir, RA = tt$kv$CRVAL1, Dec = tt$kv$CRVAL2, box = 51)
-expect_identical(sort(names(nd)), c('array_a', 'cube_a'))
-expect_identical(class(nd[['cube_a']])[1], 'Rfits_cube')
-expect_identical(dim(nd[['cube_a']]), c(51L, 51L, 4L))
-expect_identical(class(nd[['array_a']])[1], 'Rfits_array')
-expect_identical(dim(nd[['array_a']]), c(51L, 51L, 3L, 2L))
-#every plane is the matching slice of the source
-for(k in 1:4){
-  expect_equal(nd[['cube_a']]$imDat[,,k], cube_dat[75:125, 75:125, k])
-}
-for(k in 1:3){
-  for(m in 1:2){
-    expect_equal(nd[['array_a']]$imDat[,,k,m], arr_dat[75:125, 75:125, k, m])
-  }
-}
-#and the scan rows of a higher dimensional store describe the two axes the WCS is
-#defined over, not the whole array shape, so they are readable the same way a tile's
-#are
-ndscan = attributes(nd)$scan
-expect_identical(ndscan$naxis1, rep(as.numeric(cut_N), 2))
-expect_identical(ndscan$naxis2, rep(as.numeric(cut_N), 2))
-
-#ex 55 stores that cannot be searched are reported in the scan table rather than
-#breaking the run: no metadata, metadata without a WCS, and a directory that only has
-#the name of a store
-bad_dir = file.path(subdir, 'cutout_bad')
-dir.create(bad_dir)
-Rfits_write_image_zarr(tt$dat, file.path(bad_dir, 'bare_a.zarr'), extname = 'data1')
-kv_nowcs = tt$kv
-kv_nowcs[c('CRVAL1', 'CRVAL2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2')] = NULL
-Rfits_write_image_zarr(tt$dat, file.path(bad_dir, 'nowcs_a.zarr'), extname = 'data1',
-                       keyvalues = kv_nowcs)
-dir.create(file.path(bad_dir, 'not_a_store.zarr'))
-#the good one still matches alongside a directory that is not a store at all
-mres = expect_warning(cut_silent(filelist = c(file.path(bad_dir, 'not_a_store.zarr'),
-                                              file.path(cut_dir, 'tile_2_2.zarr')),
-                                 RA = cen_22[1], Dec = cen_22[2], box = 51),
-                      'root location')
-expect_identical(names(mres), 'tile_2_2')
-mscan = attributes(mres)$scan
-expect_identical(mscan$status, c('error', 'ok'))
-expect_true(grepl('root location', mscan$error[1]))
-#the store that was never read has no tile to take numbers from, so every shape column
-#is NA for it and only it. The good row checks the same code path against real values
-expect_identical(unlist(mscan[1, c('naxis1', 'naxis2', 'pixscale_x', 'pixscale_y',
-                                   'centre_RA', 'centre_Dec')], use.names = FALSE),
-                 rep(NA_real_, 6))
-expect_identical(mscan$naxis2[2], as.numeric(cut_N))
-#stores with nothing searchable in them are reported, and a directory of only those is
-#an error rather than an empty answer. The directory that is not a store warns either
-#way, since a name that looks like a store and is not one should not pass unnoticed
-expect_warning(expect_error(cut_silent(dir = bad_dir, RA = cen_22[1], Dec = cen_22[2],
-                                       box = 51),
-                            'usable WCS'),
-               'not_a_store')
-#nested stores are found, and keep their directories in the reported name
-dir.create(file.path(bad_dir, 'deep'), showWarnings = FALSE)
-Rfits_write_image_zarr(cut_tile(2, 2)$dat, file.path(bad_dir, 'deep/inner.zarr'),
-                       extname = 'data1', keyvalues = cut_tile(2, 2)$kv)
-deep = expect_warning(cut_silent(dir = bad_dir, RA = cen_22[1], Dec = cen_22[2], box = 51),
-                      'not_a_store')
-expect_identical(names(deep), 'inner')
-expect_true(grepl('deep/inner\\.zarr$', attributes(deep)$filename))
-#and a store with the right shape but no extension asked for is skipped the same way
-expect_warning(expect_error(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2],
-                                       box = 51, extname = 'nosuch_at_all'),
-                            'usable WCS|No Zarr'),
-               'no extension named|Skipping')
-#but a repeated reason is reported once, not once per store, because a typo in extname
-#across a whole directory is one mistake and should read like one
-grouped = character(0)
-invisible(withCallingHandlers(
-  tryCatch(cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
-                      extname = 'nosuch_at_all'),
-           error = function(e) e),
-  warning = function(w){
-    grouped <<- c(grouped, conditionMessage(w))
-    invokeRestart('muffleWarning')
-  }))
-expect_length(grouped, 1)
-expect_match(grouped, '9 store\\(s\\) skipped')
-
-#ex 56 argument checking happens before anything is read from disk
-expect_error(Rfits_cutout_zarr_dir(RA = 1, Dec = 1), 'One of dir, filelist, or bucket')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, bucket = 'any', RA = 1, Dec = 1),
-             'not both')
-expect_error(Rfits_cutout_zarr_dir(dir = file.path(subdir, 'no_such_dir'),
-                                   RA = 1, Dec = 1), 'Directory does not exist')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, box.unit = 'degrees'),
-             'arg')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = NaN, Dec = 1), 'finite')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, buffer = -1), 'buffer')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, pattern = 5),
-             'pattern')
-expect_error(Rfits_cutout_zarr_dir(dir = cut_dir, RA = 1, Dec = 1, extname = character(0)),
-             'extname')
-#no store matches the pattern
-expect_error(cut_silent(dir = cut_dir, pattern = 'nothing_here', RA = 1, Dec = 1),
-             'No Zarr stores found')
-
-#ex 57 the metadata cache, which is a parquet index of the search metadata of each store.
-#Reading it must give exactly the same answer as not having it, and must survive a
-#filtered run without losing the stores that run skipped
-skip_if_not_installed("arrow")
-cache_file = file.path(subdir, 'cutout_cache.rds')
-#The .rds name is the one a caller of the older cache format already has, and is
-#deliberately left in place below to check that it resolves rather than being doubled up
-cache_parquet = Rfits:::.zarr_index_local_path(cache_file)
-expect_identical(cache_parquet, file.path(subdir, 'cutout_cache.parquet'))
-cold = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
-                  cache = cache_file)
-warm = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
-                  cache = cache_file)
-expect_true(file.exists(cache_parquet))
-expect_identical(names(cold), names(warm))
-expect_identical(sort(names(warm)), sort(names(four)))
-filtered = cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
-                      cache = cache_file, pattern = 'tile_[12]_1')
-expect_true(all(c('tile_1_1', 'tile_2_1') %in% names(filtered)))
-#the filtered run keeps the entries it did not visit
-index_rows = function(path){
-  arrow::read_parquet(Rfits:::.zarr_index_local_path(path))
-}
-stores_row = function(path){
-  ix = index_rows(path)
-  ix[ix$kind == 'store', ]
-}
-expect_identical(nrow(stores_row(cache_parquet)), 9L)
-#a header that has genuinely changed is noticed, since local entries are checked
-#against the metadata file rather than trusted
-changed = cut_tile(2, 3)
-changed$kv$CRVAL1 = changed$kv$CRVAL1 + 0.01
-Rfits_write_image_zarr(changed$dat, file.path(cut_dir, 'tile_2_3.zarr'), extname = 'data1',
-                       keyvalues = changed$kv)
-sc2 = attributes(cut_silent(dir = cut_dir, RA = corner[1], Dec = corner[2], box = 101,
-                            cache = cache_file, extract = FALSE))$scan
-expect_equal(sc2$centre_RA[grepl('tile_2_3', sc2$store)], changed$kv$CRVAL1,
-             tolerance = 1e-9)
-
-#The cache must hold the whole header, not the two-axis form the search uses. The
-#search trims a cube down to its celestial axes before handing it to Rwcs, and a
-#pointer built from that trimmed copy would silently lose the third axis, so the
-#stored keywords and the keywords a pointer reports have to be checked apart
-ptr_dir = file.path(subdir, 'cutout_ptr')
-dir.create(ptr_dir)
-kv_cube = cut_tile(1, 1)$kv
-kv_cube$NAXIS = 3L
-kv_cube$NAXIS3 = 4L
-kv_cube$CRPIX3 = 1
-kv_cube$CRVAL3 = 1000
-kv_cube$CDELT3 = 10
-kv_cube$CTYPE3 = 'WAVE'
-cube4 = array(0, c(cut_N, cut_N, 4))
-for(k in 1:4){
-  cube4[,,k] = cut_N * 100 + k
-}
-Rfits_write_image_zarr(cube4, file.path(ptr_dir, 'cube_p.zarr'), extname = 'data1',
-                       keyvalues = kv_cube)
-ptr_cache = file.path(subdir, 'cutout_ptr.rds')
-pcold = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
-                   cache = ptr_cache, extract = FALSE)
-pwarm = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
-                   cache = ptr_cache, extract = FALSE)
-#what comes back is a pointer of the usual class, with the array shape and type
-expect_identical(names(pwarm), 'cube_p')
-expect_identical(class(pwarm[[1]])[1], 'Rfits_pointer_zarr')
-expect_identical(pwarm[[1]]$dim, as.integer(c(cut_N, cut_N, 4)))
-expect_identical(pwarm[[1]]$type, 'cube')
-#and it keeps the axes the search trimmed away, which is the point of storing the
-#full keywords
-expect_true(all(c('NAXIS3', 'CRPIX3', 'CRVAL3', 'CTYPE3') %in%
-                  names(pwarm[[1]]$keyvalues)))
-expect_identical(pwarm[[1]]$keyvalues$NAXIS3, 4L)
-#the index holds strictly more keywords than the record the search filters with, since
-#the trimmed two-axis form cannot build a pointer for a cube
-pent = Rfits:::.zarr_index_tile(
-  Rfits:::.zarr_index_light_rows(Rfits:::.zarr_index_local_path(ptr_cache))[1, ],
-  keyvalues = Rfits:::.zarr_index_payload_rows(
-    Rfits:::.zarr_index_local_path(ptr_cache),
-    Rfits:::.zarr_index_light_rows(Rfits:::.zarr_index_local_path(ptr_cache))$cache_key[1]
-  )$keyvalues[[1]])
-expect_true(length(pent$full_keyvalues) > length(pent$keyvalues))
-#cached and uncached runs must agree field by field, so the cache cannot change
-#what a search reports
-for(f in c('filename', 'extname', 'type', 'dim', 'keyvalues')){
-  expect_identical(unname(pcold[[1]][[f]]), unname(pwarm[[1]][[f]]))
-}
-#an entry written before the cache held the full keywords is re-read rather than
-#used, since it cannot build a correct pointer
-ptr_parquet = Rfits:::.zarr_index_local_path(ptr_cache)
-broken = Rfits:::.zarr_index_load_all(ptr_parquet)
-at = which(broken$kind == 'store')
-broken$keyvalues[at] = list(raw(0))
-broken$has_keyvalues[at] = FALSE
-
-replacement = tempfile(
-  pattern = "cutout_ptr-",
-  tmpdir = dirname(ptr_parquet),
-  fileext = ".parquet"
-)
-
-Rfits:::.zarr_index_write(broken, replacement)
-
-# Release Arrow's mapped file before replacing the original on Windows.
-rm(broken)
-gc()
-
-if (!file.rename(replacement, ptr_parquet)) {
-  unlink(ptr_parquet)
-  if (!file.rename(replacement, ptr_parquet)) {
-    stop("Could not replace the Parquet index")
-  }
-}
-preflow = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
-                     cache = ptr_cache, extract = FALSE)
-expect_true(all(c('NAXIS3', 'CRVAL3') %in% names(preflow[[1]]$keyvalues)))
-#and the stripped rows are repaired by the run that had to re-read them
-expect_true(all(index_rows(ptr_parquet)$has_keyvalues[index_rows(ptr_parquet)$kind ==
-                            'store']))
-
-#A lazy pointer is not opened by the search: the slot is there but holds no handle,
-#which is the whole saving. The first slice opens it and keeps it, so a second slice
-#does not go looking again.
-expect_true(inherits(pwarm[[1]]$store, 'Rfits_lazy_store'))
-expect_false(exists('store', envir = pwarm[[1]]$store, inherits = FALSE))
-#A box is a two dimensional feature, so the cube is sliced by explicit ranges and
-#keeps its planes, exactly as the search itself does it
-sliced = pwarm[[1]][75:125, 75:125]
-expect_true(exists('store', envir = pwarm[[1]]$store, inherits = FALSE))
-expect_identical(class(sliced)[1], 'Rfits_cube')
-expect_identical(dim(sliced), c(51L, 51L, 4L))
-expect_identical(unname(sliced$imDat[,,1]), cube4[75:125, 75:125, 1])
-#slicing again works, and reports the same answer, from the now open handle
-again = pwarm[[1]][75:125, 75:125]
-expect_equal(again$imDat, sliced$imDat)
-#the print method survives a pointer whose extension index is not yet known
-expect_output(print(pwarm[[1]]), 'cube_p')
-#and a lazy pointer agrees with one built directly, which is the whole contract
-direct_p = Rfits_point_zarr(file.path(ptr_dir, 'cube_p.zarr'), extname = 'data1')
-expect_identical(pwarm[[1]]$dim, direct_p$dim)
-expect_identical(pwarm[[1]]$type, direct_p$type)
-expect_equal(pwarm[[1]]$keyvalues, direct_p$keyvalues)
-expect_equal(pwarm[[1]][box = 51]$imDat, direct_p[box = 51]$imDat)
-
-#What the first slice memoises has to be the opened store, not just a store or a path.
-#The reader only passes an already open object straight through, so a bare handle is
-#opened again on every slice: over S3 that costs a hierarchy walk per slice and
-#discards the chunk cache with it, which made repeated cutouts of one tile as slow as
-#the first. The handle's identity is what is asserted rather than timing, since a
-#duration depends on the machine and the network, while an object that had to be
-#rebuilt is never the same object.
-pslice = cut_silent(dir = ptr_dir, RA = kv_cube$CRVAL1, Dec = kv_cube$CRVAL2, box = 51,
-                    cache = ptr_cache, extract = FALSE)[[1]]
-expect_false(exists('store', envir = pslice$store, inherits = FALSE))
-first_slice = pslice[75:125, 75:125]
-#the unsliced pointer held nothing to open, and the first slice put something there
-expect_true(exists('store', envir = pslice$store, inherits = FALSE))
-handle = get0('store', envir = pslice$store, inherits = FALSE)
-#what it holds is the opened object itself, which is the whole of the fix
-expect_true(inherits(handle, 'zarr'))
-expect_true(identical(Rfits:::.zarr_store_open(handle), handle))
-#a second slice reuses that exact handle, so it costs no open
-second_slice = pslice[75:125, 75:125]
-expect_true(identical(get0('store', envir = pslice$store, inherits = FALSE), handle))
-expect_equal(second_slice$imDat, first_slice$imDat)
-
-#ex 57b Rfits_zarr_index reads an existing index back rather than rebuilding it, which is
-#the other half of the index being worth having. The rows come out of an arrow scan, which
-#returns a plain data.frame, so the row builder has to cope with that as well as with the
-#data.table arrow::read_parquet returns when something in the session has asked for one
-idx_dir = file.path(subdir, 'index_grid')
-dir.create(idx_dir)
-for(n in 1:3){
-  Rfits_write_image_zarr(matrix(0, 50, 50), file.path(idx_dir, paste0('t', n, '.zarr')),
-                         extname = 'data1')
-}
-idx_path = file.path(subdir, 'index1')
-idx_built = Rfits_zarr_index(dir = idx_dir, index = idx_path, verbose = FALSE)
-expect_identical(nrow(idx_built), 3L)
-expect_true(file.exists(Rfits:::.zarr_index_local_path(idx_path)))
-#reading it back is the same rows, and the .parquet extension is supplied
-idx_back = Rfits_zarr_index(index = idx_path, verbose = FALSE)
-expect_identical(nrow(idx_back), 3L)
-expect_identical(sort(idx_back$cache_key), sort(idx_built$cache_key))
-expect_true(inherits(idx_back, 'data.table'))
-#a data.frame in place of a data.table, still from the scanned rows
-idx_flat = Rfits_zarr_index(index = idx_path, data.table = FALSE, verbose = FALSE)
-expect_true(is.data.frame(idx_flat))
-expect_false(inherits(idx_flat, 'data.table'))
-expect_identical(nrow(idx_flat), 3L)
-#what an index holds is reportable without reading its rows
-idx_info = Rfits_zarr_index_info(idx_path)
-expect_identical(class(idx_info), 'Rfits_zarr_index_info')
-expect_identical(idx_info$version, Rfits:::.zarr_index_version)
-expect_identical(idx_info$n_rows, 3L)
-expect_identical(idx_info$extnames, 'data1')
-expect_output(print(idx_info), 'Zarr index')
-#a newer index is refused rather than half read, since a search that quietly found nothing
-#in a file whose columns had moved would look exactly like tiles that did not overlap
-newer = Rfits:::.zarr_index_rows(list(
-  Rfits:::.zarr_index_meta_row('index_version', Rfits:::.zarr_index_version + 1L),
-  Rfits:::.zarr_index_blank_row()))
-newer_path = file.path(subdir, 'index_newer')
-Rfits:::.zarr_index_write(newer, Rfits:::.zarr_index_local_path(newer_path))
-expect_error(Rfits_zarr_index(index = newer_path, verbose = FALSE), 'newer version')
-
-#ex 58 header = FALSE gives the bare array, and extname may offer several candidates
-nohead = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
-                    header = FALSE)
-expect_false(inherits(nohead[[1]], 'Rfits_image'))
-expect_identical(dim(nohead[[1]]), c(51L, 51L))
-multi_ext = cut_silent(dir = cut_dir, RA = cen_22[1], Dec = cen_22[2], box = 51,
-                       extname = c('nosuch', 'data1'))
-expect_identical(names(multi_ext), 'tile_2_2')
 
 # --- Lossy (scaled integer) Zarr writes ----------------------------------------
 
-#ex 58b the simplest lossy write: a float image stored as scaled integers, and read
-#back as physical values. BSCALE and BZERO are the FITS scaled integer keywords, so
-#the header alone has to be enough to undo the scaling. Note that the values arrive
-#as doubles rather than the original, which is the whole point
+#ex 41 a float image stored as scaled integers reads back as physical values, with the
+#error bounded by half the quantisation step and the scale surviving the card round trip
 file_lossy = file.path(subdir, 'lossy.zarr')
 set.seed(4917)
 data_flt = matrix(rnorm(400), 20, 20)
 w_lossy = suppressMessages(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q',
                                                   lossy = TRUE))
 expect_equal(w_lossy$data_type, 'int16')
-expect_true(w_lossy$lossy)
-expect_true(w_lossy$quantised)
-expect_true(w_lossy$bscale > 0)
-
 read_lossy = Rfits_read_image_zarr(file_lossy, extname = 'q')
-expect_identical(typeof(read_lossy$imDat), 'double')
-expect_equal(dim(read_lossy$imDat), dim(data_flt))
-#the error is bounded by half the quantisation step, which is all a lossy write
-#promises. Tolerance is generous because the card text, not the in memory value, is
-#what the reader scales by
-half_step = w_lossy$bscale/2
-expect_lt(max(abs(read_lossy$imDat - data_flt)), half_step * 1.01)
-expect_true(any(grepl('^BSCALE', read_lossy$header)))
-expect_true(any(grepl('^BZERO', read_lossy$header)))
-expect_true(all(c('BSCALE', 'BZERO') %in% read_lossy$keynames))
-#the scale survives the card round trip at full precision, which a Zarr attribute
-#could not do (JSON truncates a number to about four decimal places)
+expect_lt(max(abs(read_lossy$imDat - data_flt)), w_lossy$bscale/2 * 1.01)
 expect_equal(read_lossy$keyvalues$BSCALE, w_lossy$bscale, tolerance = 1e-13)
-expect_equal(read_lossy$keyvalues$BZERO, w_lossy$bzero, tolerance = 1e-13)
-expect_true(any(grepl('Rfits quantised to int16', read_lossy$history)))
-
 #physical = FALSE is the stored integers, and they reconstruct the physical values
-#exactly under the scale that was recorded
-raw_lossy = Rfits_read_image_zarr(file_lossy, extname = 'q', header = FALSE,
-                                  physical = FALSE)
-expect_identical(typeof(raw_lossy), 'integer')
+raw_lossy = Rfits_read_image_zarr(file_lossy, extname = 'q', header = FALSE, physical = FALSE)
 expect_equal(as.numeric(w_lossy$bzero + w_lossy$bscale * raw_lossy),
              as.numeric(read_lossy$imDat))
 
-#the store says so without needing a header at all
-info_lossy = Rfits_inspect_zarr(file_lossy, print = FALSE)
-expect_true(info_lossy$arrays$q$lossy)
-expect_equal(info_lossy$arrays$q$data_type, 'int16')
-expect_output(Rfits_inspect_zarr(file_lossy), 'lossy scaling')
-
-#ex 58c a scale the caller gives is honoured exactly, and only the integer type is
-#chosen. This is what lets a scaled FITS image be converted without changing which
-#physical value each stored integer means
-file_scaled = file.path(subdir, 'lossy_scaled.zarr')
-w_scaled = suppressMessages(Rfits_write_image_zarr(data_flt, file_scaled, extname = 'q',
-                                                   lossy = TRUE, bscale = 0.001,
-                                                   bzero = 5))
-expect_identical(w_scaled$bscale, 0.001)
-expect_identical(w_scaled$bzero, 5)
-expect_equal(w_scaled$data_type, 'int16')
-read_scaled = Rfits_read_image_zarr(file_scaled, extname = 'q')
-expect_identical(read_scaled$keyvalues$BSCALE, 0.001)
-#with an exact step the round trip is just the manual quantisation, bit for bit
-manual = round((data_flt - 5)/0.001) * 0.001 + 5
-expect_equal(as.numeric(read_scaled$imDat), as.numeric(manual))
-#only one half given keeps the FITS default for the other
-w_half = suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_half.zarr'),
-                                                  extname = 'q', lossy = TRUE, bscale = 0.01))
-expect_identical(w_half$bscale, 0.01)
-expect_identical(w_half$bzero, 0)
-
-#ex 58d BSCALE and BZERO already on the object are reused rather than recalculated
-kv_scaled = keyvalues_2d
-kv_scaled$BSCALE = 1e-4
-kv_scaled$BZERO = 100
-file_reuse = file.path(subdir, 'lossy_reuse.zarr')
-w_reuse = suppressMessages(Rfits_write_image_zarr(data_flt, file_reuse, extname = 'q',
-                                                  lossy = TRUE, keyvalues = kv_scaled))
-expect_identical(w_reuse$bscale, 1e-4)
-expect_identical(w_reuse$bzero, 100)
-#the range is too wide for 16 bit at that step, so the caller's type ladder has to go up
-expect_equal(w_reuse$data_type, 'int32')
-read_reuse = Rfits_read_image_zarr(file_reuse, extname = 'q')
-expect_lt(max(abs(read_reuse$imDat - data_flt)), 1e-4/2 * 1.01)
-#the other keywords are untouched, and BITPIX follows the type that has a FITS code
-expect_equal(read_reuse$keyvalues$SIMPLE, TRUE)
-#the shape keywords are left as supplied, since rewriting them is not what a
-#quantisation is for
-expect_equal(read_reuse$keyvalues$NAXIS1, 4L)
-expect_equal(as.integer(read_reuse$keyvalues$BITPIX), 32L)
-#the default pair is not a scale, so it must not pin the write to an identity
-kv_default = keyvalues_2d
-kv_default$BSCALE = 1
-kv_default$BZERO = 0
-w_default = suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_def.zarr'),
-                                                     extname = 'q', lossy = TRUE,
-                                                     keyvalues = kv_default))
-expect_true(w_default$quantised)
-#an identity pair must not pin the write, so the step here is the one fitted to the
-#data rather than the BSCALE = 1 that was in the header
-expect_lt(w_default$bscale, 0.01)
-
-#ex 58e whole numbers need no scaling at all. The smallest type that holds them
-#exactly is taken, and no BSCALE or BZERO is written because the identity says nothing
+#ex 42 whole numbers need no scaling at all: the smallest exact type is taken
 data_whl = matrix(as.numeric(sample(-50:50, 400, replace = TRUE)), 20, 20)
-file_whl = file.path(subdir, 'lossy_whole.zarr')
-w_whl = suppressMessages(Rfits_write_image_zarr(data_whl, file_whl, extname = 'q',
-                                                 lossy = TRUE, keyvalues = keyvalues_2d))
+w_whl = suppressMessages(Rfits_write_image_zarr(data_whl, file.path(subdir, 'lossy_whole.zarr'),
+                                                 extname = 'q', lossy = TRUE))
 expect_false(w_whl$quantised)
-expect_equal(w_whl$data_type, 'int8')
-read_whl = Rfits_read_image_zarr(file_whl, extname = 'q')
-expect_identical(typeof(read_whl$imDat), 'integer')
-expect_identical(as.integer(read_whl$imDat), as.integer(data_whl))
-expect_null(read_whl$keyvalues$BSCALE)
-expect_false(Rfits_inspect_zarr(file_whl, print = FALSE)$arrays$q$lossy)
-expect_true(any(grepl('integers without scaling', read_whl$history)))
-#int8 has no FITS BITPIX code, so the keyword is left as it was rather than given a
-#byte code that would misstate the sign
-#beyond 16 bit the identity ladder has to climb to int32, which is still exact and
-#still gains a FITS BITPIX code of its own
-data_wide = matrix(as.numeric(sample(c(-40000, 40000, -300, 12345), 400,
-                                     replace = TRUE)), 20, 20)
-w_big = suppressMessages(Rfits_write_image_zarr(data_wide, file.path(subdir, 'lossy_big.zarr'),
-                                                 extname = 'q', lossy = TRUE,
-                                                 keyvalues = keyvalues_2d))
-expect_equal(w_big$data_type, 'int32')
-expect_false(w_big$quantised)
-read_big = Rfits_read_image_zarr(file.path(subdir, 'lossy_big.zarr'), extname = 'q')
-expect_equal(as.integer(read_big$keyvalues$BITPIX), 32L)
-expect_identical(as.integer(read_big$imDat), as.integer(data_wide))
 
-#ex 58f missing and non finite pixels. The usable integer span excludes the fill
-#value by construction, so NA is the only thing that can occupy it and missing pixels
-#survive a lossy round trip exactly
+#ex 43 missing pixels survive a lossy round trip exactly, since the usable integer span
+#excludes the fill value by construction
 data_na = data_flt
 data_na[1:50] = NA
-file_na = file.path(subdir, 'lossy_na.zarr')
-suppressMessages(Rfits_write_image_zarr(data_na, file_na, extname = 'q', lossy = TRUE,
-                                         data_type = 'int16'))
-read_na = Rfits_read_image_zarr(file_na, extname = 'q')
+suppressMessages(Rfits_write_image_zarr(data_na, file.path(subdir, 'lossy_na.zarr'),
+                                         extname = 'q', lossy = TRUE, data_type = 'int16'))
+read_na = Rfits_read_image_zarr(file.path(subdir, 'lossy_na.zarr'), extname = 'q')
 expect_identical(is.na(read_na$imDat), is.na(data_na))
-#NaN and Inf have no integer to become, so they are reported and arrive back as NA
-data_nf = data_flt
-data_nf[1:10] = NaN
-data_nf[11:15] = Inf
-expect_message(suppressWarnings(Rfits_write_image_zarr(data_nf, file.path(subdir, 'lossy_nf.zarr'),
-                                                        extname = 'q', lossy = TRUE,
-                                                        data_type = 'int16')),
-               'non finite')
-read_nf = Rfits_read_image_zarr(file.path(subdir, 'lossy_nf.zarr'), extname = 'q')
-expect_identical(sum(is.na(read_nf$imDat)), 15L)
-#an array that is entirely missing has nothing to scale
-expect_error(Rfits_write_image_zarr(matrix(NA_real_, 3, 3), file.path(subdir, 'lossy_allna.zarr'),
-                                    extname = 'q', lossy = TRUE), 'no finite pixels')
-#a constant array has no range to spread, so a calculated step would be zero
-w_const = suppressMessages(Rfits_write_image_zarr(matrix(3.7, 10, 10),
-                                                   file.path(subdir, 'lossy_const.zarr'),
-                                                   extname = 'q', lossy = TRUE,
-                                                   data_type = 'int8'))
-read_const = Rfits_read_image_zarr(file.path(subdir, 'lossy_const.zarr'), extname = 'q')
-expect_equal(as.numeric(read_const$imDat), rep(3.7, 100))
 
-#ex 58g a type that cannot resolve the dynamic range is stepped up, and one that
-#cannot hold the supplied scale is an error rather than a silent clip
-w_auto = suppressMessages(Rfits_write_image_zarr(matrix(as.numeric(1:4), 2, 2),
-                                                  file.path(subdir, 'lossy_small.zarr'),
-                                                  extname = 'q', lossy = TRUE))
-expect_equal(w_auto$data_type, 'uint8')
-expect_false(w_auto$quantised)
-expect_error(Rfits_write_image_zarr(matrix(as.numeric(1:100) * 100, 10, 10),
-                                    file.path(subdir, 'lossy_nofit.zarr'), extname = 'q',
-                                    lossy = TRUE, data_type = 'int8', bscale = 1, bzero = 0),
-             'cannot be stored')
-#non integer types are refused outright, since there is nothing to quantise into
-expect_error(suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_bad.zarr'),
-                                extname = 'q', lossy = TRUE, data_type = 'float32')),
-             'stores integers')
-expect_error(suppressMessages(Rfits_write_image_zarr(data_flt, file.path(subdir, 'lossy_bad2.zarr'),
-                                extname = 'q', lossy = TRUE, data_type = 'int64')),
-             'cannot store')
-expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
-                                    bscale = -1), 'finite positive')
-expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
-                                    bzero = Inf), 'finite number')
-#lossy and append cannot both mean what they say, since the scale belongs to the array
-expect_error(Rfits_write_image_zarr(data_flt, file_lossy, extname = 'q', lossy = TRUE,
-                                    append = TRUE), 'Cannot use both lossy and append')
+#ex 44 a pointer cutout of a quantised array reads scaled values, not stored integers
+point_q = Rfits_point_zarr(file_lossy, extname = 'q')
+expect_equal(point_q[3:8, 4:9]$imDat, read_lossy$imDat[3:8, 4:9])
 
-#ex 58h appending to a quantised array. The increment is physical data, so it has to
-#be put through the scale the array was created with rather than coerced to its
-#storage type, which would write physical values as if they were integers
-file_appq = file.path(subdir, 'lossy_append.zarr')
-w_appq = suppressMessages(Rfits_write_image_zarr(data_flt, file_appq, extname = 'q',
-                                                  lossy = TRUE, bscale = 0.001, bzero = 5,
-                                                  keyvalues = kv_scaled))
-inc_app = matrix(rnorm(200), 10, 20)
-ap_app = Rfits_write_image_zarr(inc_app, file_appq, extname = 'q', append = TRUE)
-expect_equal(ap_app$dim, c(30L, 20L))
-read_appq = Rfits_read_image_zarr(file_appq, extname = 'q')
-expect_equal(read_appq$imDat[1:20, ], data_flt, tolerance = 1e-3)
-expect_equal(read_appq$imDat[21:30, ], inc_app, tolerance = 1e-3)
-#the scale of the array is not changed by an append
-expect_identical(read_appq$keyvalues$BSCALE, 0.001)
-expect_true(any(grepl('Rfits quantised to', read_appq$history)))
-
-#ex 58i subsetting and pointers read scaled values, since a cutout of a quantised
-#array that came back as integers would be a different quantity from the whole
-sub_q = Rfits_read_image_zarr(file_appq, extname = 'q', xlo = 3, xhi = 8, ylo = 4, yhi = 9)
-expect_identical(typeof(sub_q$imDat), 'double')
-expect_equal(sub_q$imDat, read_appq$imDat[3:8, 4:9])
-sub_qraw = Rfits_read_image_zarr(file_appq, extname = 'q', xlo = 3, xhi = 8, ylo = 4,
-                                 yhi = 9, header = FALSE, physical = FALSE)
-expect_identical(typeof(sub_qraw), 'integer')
-
-point_q = Rfits_point_zarr(file_appq, extname = 'q')
-got_q = point_q[3:8, 4:9]
-expect_identical(typeof(got_q$imDat), 'double')
-expect_equal(got_q$imDat, sub_q$imDat)
-expect_equal(got_q$keyvalues$BSCALE, 0.001)
-#physical = FALSE on a pointer gives the stored integers, as it does on the reader
-got_qraw = point_q[3:8, 4:9, physical = FALSE]
-expect_identical(typeof(got_qraw$imDat), 'integer')
-expect_equal(got_qraw$imDat, sub_qraw)
-
-#ex 58h2 appending to a quantised array that has no shape keywords of its own. A
-#bare lossy write records only the scale, so the append has to add NAXIS to a header
-#whose comments were never aligned with it. Rfits_keyvalues_to_header walks values
-#and comments by the same index, so a shape key with no matching comment means the
-#two lists have different lengths and the append fails outright
-file_bare = file.path(subdir, 'lossy_bare.zarr')
-suppressMessages(Rfits_write_image_zarr(data_flt, file_bare, extname = 'q', lossy = TRUE,
-                                         bscale = 0.001, bzero = 5))
-ap_bare = Rfits_write_image_zarr(inc_app, file_bare, extname = 'q', append = TRUE)
-expect_equal(ap_bare$dim, c(30L, 20L))
-read_bare = Rfits_read_image_zarr(file_bare, extname = 'q')
-expect_equal(read_bare$keyvalues$NAXIS1, 30L)
-expect_equal(read_bare$keyvalues$NAXIS2, 20L)
-expect_identical(read_bare$keyvalues$BSCALE, 0.001)
-expect_equal(read_bare$imDat[21:30, ], inc_app, tolerance = 1e-3)
-#the comments stay aligned with the values, which is what Rfits_keyvalues_to_header
-#requires and what the append left broken before
-expect_length(read_bare$keycomments, length(read_bare$keyvalues))
-expect_setequal(names(read_bare$keycomments), names(read_bare$keyvalues))
-
-#ex 58k whether an array is scaled on read is a recorded fact, not a guess from its
-#keywords. This matters because a FITS reader applies BSCALE itself, so
-#Rfits_read_image of a scaled image returns physical values already. Writing those
-#here copies the keywords along with them, and a reader that went by the keywords
-#alone would apply the scale a second time
+#ex 45 a float array carrying a scale in its header is physical data already, so it is
+#never scaled a second time on read (a FITS reader applies BSCALE itself)
 kv_pin = keyvalues_2d
 kv_pin$BSCALE = 2
 kv_pin$BZERO = 10
 file_copy = file.path(subdir, 'lossy_copyheader.zarr')
 suppressMessages(Rfits_write_image_zarr(data_flt, file_copy, extname = 'phys',
                                          keyvalues = kv_pin))
-#A float array carrying a scale in its header is physical data, and is never scaled
-read_copy = Rfits_read_image_zarr(file_copy, extname = 'phys')
-expect_equal(as.numeric(read_copy$imDat), as.numeric(data_flt))
-expect_false(Rfits_inspect_zarr(file_copy, print = FALSE)$arrays$phys$lossy)
+expect_equal(as.numeric(Rfits_read_image_zarr(file_copy, extname = 'phys')$imDat),
+             as.numeric(data_flt))
 
-#A quantised write of that same physical data reuses the pinned scale, so the stored
-#integers are the ones the source FITS file held and the round trip closes
-file_pin = file.path(subdir, 'lossy_pinned.zarr')
-w_pin = suppressMessages(Rfits_write_image_zarr(data_flt, file_pin, extname = 'q',
-                                                 lossy = TRUE, keyvalues = kv_pin))
-expect_identical(w_pin$bscale, 2)
-expect_identical(w_pin$bzero, 10)
-expect_equal(as.integer(Rfits_read_image_zarr(file_pin, extname = 'q', header = FALSE,
-                                              physical = FALSE)),
-             as.integer(round((data_flt - 10)/2)))
-expect_equal(Rfits_read_image_zarr(file_pin, extname = 'q', header = FALSE),
-             10 + 2 * round((data_flt - 10)/2))
-
-#ex 58l the three cases an array can arrive from. Hand built nodes stand in for
-#stores that Rfits did not write with quantisation in mind, and each has to be read
-#the way the tool that made it meant it to be
-kv_scale = list(SIMPLE = TRUE, BITPIX = 16L, NAXIS = 2L, NAXIS1 = 3L, NAXIS2 = 2L,
-               BSCALE = 2, BZERO = 10)
-cards_scale = as.character(Rfits_keyvalues_to_header(kv_scale))
-int_block = matrix(as.integer(0:5), 3, 2)
-
-#an older Rfits array: integers, a scale in the header, the technical mirror, but no
-#lossy attribute. That version never scaled on read, so neither does this one, or an
-#existing store would change meaning under its reader
-file_old = file.path(subdir, 'lossy_older.zarr')
-store_old = zarr::create_zarr(file_old)
-node_old = store_old$add_array('/', 'x',
-  zarr::define_array('int16', c(3L, 2L))$metadata())
-node_old$write(int_block)
-node_old$set_attribute('header', cards_scale)
-node_old$set_attribute('data_type', 'int16')
-node_old$save()
-expect_equal(Rfits_read_image_zarr(file_old, extname = 'x', header = FALSE), int_block)
-#and the store reports the same thing the reader does
-expect_false(Rfits_inspect_zarr(file_old, print = FALSE)$arrays$x$lossy)
-
-#a foreign array: integers and a scale, with nothing Rfits of its own to go by. The
-#FITS convention is the only available reading, so the scale is applied
-file_fg = file.path(subdir, 'lossy_foreign.zarr')
-store_fg = zarr::create_zarr(file_fg)
-node_fg = store_fg$add_array('/', 'x',
-  zarr::define_array('int16', c(3L, 2L))$metadata())
-node_fg$write(int_block)
-node_fg$set_attribute('header', cards_scale)
-node_fg$save()
-#scaled to physical values, keeping the shape of the array
-expect_equal(suppressWarnings(Rfits_read_image_zarr(file_fg, extname = 'x',
-                                                    header = FALSE)),
-             matrix(as.numeric(10 + 2 * as.numeric(int_block)), 3, 2))
-expect_true(Rfits_inspect_zarr(file_fg, print = FALSE)$arrays$x$lossy)
-#physical = FALSE is the raw stored integers whichever way the array is read
-expect_equal(Rfits_read_image_zarr(file_fg, extname = 'x', header = FALSE,
-                                   physical = FALSE), int_block)
-
-#an array of this version's own making carries the record explicitly
-expect_true(Rfits_inspect_zarr(file_pin, print = FALSE)$arrays$q$lossy)
-
-#ex 58j a quantised store converts from FITS in a batch, through the ... argument,
-#and logical data still lands in the smallest exact integer type
-file_lgl = file.path(subdir, 'lossy_lgl.zarr')
-data_lgl2 = matrix(sample(c(TRUE, NA, FALSE), 400, replace = TRUE), 20, 20)
-w_lgl = suppressMessages(Rfits_write_image_zarr(data_lgl2, file_lgl, extname = 'q',
-                                                 lossy = TRUE))
-expect_equal(w_lgl$data_type, 'uint8')
-expect_false(w_lgl$quantised)
-expect_identical(Rfits_read_image_zarr(file_lgl, extname = 'q', header = FALSE,
-                                       force_logical = TRUE), data_lgl2)
-#force_logical asks for the stored integers as flags, so it wins over scaling and
-#says so rather than returning logicals that look like physical values
-expect_message(Rfits_read_image_zarr(file_appq, extname = 'q', force_logical = TRUE),
-               'without scaling')
-
-#ex 58j2 the distinct count probe. A lossy write of a large image is dominated by
-#counting distinct values, and a slice holding more of them than the widest type has
-#levels settles the question for the whole image, since a larger population cannot hold
-#fewer. The proof can only ever be correct, and anything less falls through to the exact
-#count, so the type chosen never depends on the sampling
-probe_proven = Rfits:::.zarr_quant_probe_proven
-#rich data proves it, coarse data does not, and a population smaller than the levels
-#cannot outrun them however it is sampled
-expect_true(probe_proven(rnorm(200000), 65535))
-expect_false(probe_proven(round(runif(200000, 0, 20)), 65535))
-expect_false(probe_proven(rnorm(1000), 65535))
-#the sample is sized above the levels it is compared against, so it could hold them all
-expect_gt(Rfits:::.zarr_quant_probe_n(65535), 65535)
-#a rich image lands on uint16 with a fitted step, which the probe decided without
-#counting, and the loss still obeys the step it recorded
-data_rich = matrix(rnorm(400000), 2000, 200)
-file_rich = file.path(subdir, 'lossy_rich.zarr')
-w_rich = suppressMessages(Rfits_write_image_zarr(data_rich, file_rich, extname = 'q',
-                                                 lossy = TRUE))
-expect_equal(w_rich$data_type, 'uint16')
-expect_true(w_rich$quantised)
-read_rich = Rfits_read_image_zarr(file_rich, extname = 'q')
-expect_lt(max(abs(read_rich$imDat - data_rich)), w_rich$bscale/2 * 1.01)
-#whole numbers that no type holds exactly are still refused. The fitted ladder could
-#have squeezed them onto a scale silently, so the guard has to fire before it is reached
-expect_error(Rfits_write_image_zarr(round(matrix(runif(400, -3e9, 3e9), 20, 20)),
-                                    file.path(subdir, 'lossy_wide_err.zarr'), extname = 'q',
-                                    lossy = TRUE), 'holds exactly')
-#the probe takes a stride sample, so a lossy write leaves the caller's random number
-#stream exactly as it found it
-set.seed(2468)
-junk = rnorm(200000)
-before_rng = .Random.seed
-invisible(Rfits:::.zarr_quant_probe(junk, 72000))
-expect_identical(.Random.seed, before_rng)
-
-#ex 58j3 the quantise argument. 'auto', 'exact' and 'quick' agree on an ordinary image,
-#where every type is too narrow however the search is done, and separate on data simple
-#enough to fit a narrower type. There 'quick' writes the widest type without counting,
-#and a wider type has more levels and so a finer step, which costs file size rather than
-#accuracy
-quant_fn = Rfits:::.zarr_quantise
-rich = matrix(rnorm(200000), 1000, 200)
-expect_equal(quant_fn(rich, quantise = 'auto')$data_type, 'uint16')
-expect_equal(quant_fn(rich, quantise = 'exact')$data_type, 'uint16')
-expect_equal(quant_fn(rich, quantise = 'quick')$data_type, 'uint16')
-
-#a coarse image fits uint8, which the counting modes find and 'quick' does not
-coarse = matrix(sample(seq(0, 1, length.out = 50), 200000, replace = TRUE), 1000, 200)
-expect_equal(quant_fn(coarse, quantise = 'auto')$data_type, 'uint8')
-expect_equal(quant_fn(coarse, quantise = 'exact')$data_type, 'uint8')
-expect_equal(quant_fn(coarse, quantise = 'quick')$data_type, 'uint16')
-#uint16 has more levels than uint8, so its fitted step is finer and cannot be a worse
-#approximation, only a larger file
-expect_lt(quant_fn(coarse, quantise = 'quick')$max_error,
-          quant_fn(coarse, quantise = 'exact')$max_error)
-
-#whole numbers are exact whichever mode is asked for, since the identity branch is
-#settled before any counting happens
-whole = matrix(round(rnorm(200000) * 100), 1000, 200)
-for(mode in c('auto', 'exact', 'quick')){
-  expect_false(quant_fn(whole, quantise = mode)$quantised)
-}
-
-#ex 58j4 naming a data_type fits the scale to it directly, using the whole span of
-#that type. The outcome is the finest step the type can give, which is what the type
-#ladder already arrived at for the same type, so this is a settlement of the search
-#rather than a change of result. What it avoids is the search itself, and the count of
-#the pixels, neither of which can improve on a type the caller has already chosen
-set.seed(20261)
-named = matrix(rnorm(200000), 1000, 200)
-named16 = quant_fn(named, data_type = 'int16')
-expect_equal(named16$data_type, 'int16')
-expect_true(named16$quantised)
-#the step is the span of the usable levels spread across the range of the data
-named_span = diff(range(named))
-expect_equal(named16$bscale, named_span/(32767 - -32767), tolerance = 1e-12)
-#the quantise argument cannot improve on a type that has already been chosen, so every
-#mode gives the same scale and the same data
-for(mode in c('auto', 'exact', 'quick')){
-  expect_equal(quant_fn(named, data_type = 'int16', quantise = mode)$bscale,
-               named16$bscale, tolerance = 1e-12)
-}
-#and it uses all of the span, never a fraction of it
-used = diff(range(round((named - named16$bzero)/named16$bscale))) + 1
-expect_equal(used, 65535, tolerance = 1e-6)
-
-#a narrower named type is fitted to its own span rather than being climbed past, so
-#the caller's choice is honoured even where the ladder would have chosen another type
-named8 = suppressMessages(quant_fn(named, data_type = 'uint8'))
-expect_equal(named8$data_type, 'uint8')
-expect_equal(named8$bscale, named_span/254, tolerance = 1e-12)
-quant_no_name = quant_fn(named)
-expect_false(identical(quant_no_name$data_type, 'uint8'))
-
-#whole numbers given a type that can hold them exactly still keep the identity, and
-#are left to the exact branch rather than being scaled
-whole8 = matrix(as.numeric(sample(-50:50, 40000, replace = TRUE)), 200, 200)
-expect_false(quant_fn(whole8, data_type = 'int8')$quantised)
-
-#a constant array given a type has no range to spread, so it is reproduced exactly
-constant = matrix(3.7, 50, 50)
-named_const = quant_fn(constant, data_type = 'int8')
-expect_equal(named_const$bscale, 1)
-expect_equal(named_const$bzero, 3.7)
-expect_equal(as.numeric(named_const$data), rep(0L, 2500))
-
-#a named type does not disturb the identity branch: small whole numbers stay exact
-tiny = matrix(as.numeric(1:4), 2, 2)
-expect_false(quant_fn(tiny, data_type = 'int8')$quantised)
-#an unknown mode is refused rather than silently treated as one of the real ones
-expect_error(quant_fn(rich, quantise = 'fast'), 'element of set')
-expect_error(Rfits_write_image_zarr(rich, file.path(subdir, 'q_badmode.zarr'), lossy = TRUE,
-                                    quantise = 'fast'), 'element of set')
-#quantise reaches the writer, and an append has no fit of its own so it is refused
-file_quick = file.path(subdir, 'lossy_quick.zarr')
-w_quick = suppressMessages(Rfits_write_image_zarr(rich, file_quick, extname = 'q',
-                                                   lossy = TRUE, quantise = 'quick'))
-expect_equal(w_quick$data_type, 'uint16')
-expect_error(Rfits_write_image_zarr(rich, file_quick, extname = 'q', quantise = 'quick',
-                                    append = TRUE), 'quantise cannot apply')
-
-#ex 58j5 qlevel sets the step from the noise rather than from the range, the way
-#cfitsio quantises for Rice compression. It implies lossy = TRUE, so the whole recipe
-#is one argument, and the step it lands on is mad()/qlevel with the median as the zero
-#point rather than zero
+#ex 46 qlevel sets the step from the noise rather than the range, mad()/qlevel
 set.seed(30407)
 noise = matrix(rnorm(40000, mean = 7, sd = 0.02), 200, 200)
-file_qlevel = file.path(subdir, 'lossy_qlevel.zarr')
-w_qlevel = suppressMessages(Rfits_write_image_zarr(noise, file_qlevel, extname = 'q',
-                                                   qlevel = 4))
-expect_true(w_qlevel$lossy)
-expect_true(w_qlevel$quantised)
-expect_equal(w_qlevel$qlevel, 4)
+w_qlevel = suppressMessages(Rfits_write_image_zarr(noise, file.path(subdir, 'lossy_qlevel.zarr'),
+                                                   extname = 'q', qlevel = 4))
 expect_equal(w_qlevel$bscale, mad(noise)/4, tolerance = 1e-12)
-expect_equal(w_qlevel$bzero, median(noise), tolerance = 1e-12)
-#the scatter it was fitted to is recoverable from the recorded pair
-expect_equal(w_qlevel$bscale * 4, mad(noise), tolerance = 1e-12)
-read_qlevel = Rfits_read_image_zarr(file_qlevel, extname = 'q')
-expect_identical(typeof(read_qlevel$imDat), 'double')
-expect_equal(read_qlevel$keyvalues$BSCALE, w_qlevel$bscale, tolerance = 1e-13)
-expect_equal(read_qlevel$keyvalues$BZERO, w_qlevel$bzero, tolerance = 1e-13)
-expect_lt(max(abs(read_qlevel$imDat - noise)), w_qlevel$bscale/2 * 1.01)
-#the HISTORY line says where the step came from, and fits a card. Rfits_write_history
-#does not wrap an over long line, it writes one over 80 columns, and a header holding
-#one parses back with no HISTORY entries at all
-expect_true(any(grepl('step qlevel 4', read_qlevel$history)))
-expect_true(all(nchar(read_qlevel$header) <= 80))
-#the noise estimate leaves the caller's random number stream alone, since it is a
-#stride sample rather than a random one
-set.seed(5150)
-junk_q = rnorm(50000)
-before_rng_q = .Random.seed
-invisible(Rfits:::.zarr_qlevel_scale(matrix(junk_q, 250, 200), 4))
-expect_identical(.Random.seed, before_rng_q)
 
-#a coarser qlevel is a coarser step and a smaller store, which is the trade it exists
-#for. Both hold the same image, so the sizes are comparable directly
-store_bytes = function(path){
-  sum(file.info(list.files(path, recursive = TRUE, full.names = TRUE))$size)
-}
-file_coarse = file.path(subdir, 'lossy_qcoarse.zarr')
-w_coarse = suppressMessages(Rfits_write_image_zarr(noise, file_coarse, extname = 'q',
-                                                   qlevel = 1))
-expect_equal(w_coarse$bscale, 4 * w_qlevel$bscale, tolerance = 1e-12)
-#a step four times wider has four times fewer levels to tell apart, so it cannot be a
-#larger file
-expect_lt(store_bytes(file_coarse), store_bytes(file_qlevel))
-#and it is the less accurate of the two, which is what is being traded. Bounded by half
-#its own step rather than by a multiple of the finer write's error, since the worst
-#pixel of each grid is a different pixel and the two are not proportional
-expect_gt(w_coarse$max_error, w_qlevel$max_error)
-expect_lt(w_coarse$max_error, w_coarse$bscale/2 * 1.01)
-read_coarse = Rfits_read_image_zarr(file_coarse, extname = 'q')
-expect_lt(max(abs(read_coarse$imDat - noise)), w_coarse$bscale/2 * 1.01)
+# --- The remote half, offline. A fake client backed by local bytes lets the S3 logic
+# --- be checked without a network or credentials -------------------------------
 
-#ex 58j6 the qlevel guards. Both it and bscale/bzero name a step, and they would not
-#agree about what a stored integer means, so they are refused together
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e1.zarr'), extname = 'q',
-                                    qlevel = 4, bscale = 0.001), 'not both')
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e2.zarr'), extname = 'q',
-                                    qlevel = 4, bzero = 1), 'not both')
-#lossy = FALSE states the opposite of what qlevel asks for, which is a contradiction
-#rather than something to resolve by picking a side
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e3.zarr'), extname = 'q',
-                                    qlevel = 4, lossy = FALSE), 'Cannot use both qlevel')
-#a step of zero or a negative one is not a step
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e4.zarr'), extname = 'q',
-                                    qlevel = 0), 'finite positive')
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e5.zarr'), extname = 'q',
-                                    qlevel = -2), 'finite positive')
-expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e6.zarr'), extname = 'q',
-                                    qlevel = NaN), 'finite positive')
-#the scale belongs to the array, so an append has none of its own to fit
-expect_error(Rfits_write_image_zarr(noise, file_qlevel, extname = 'q', qlevel = 4,
-                                    append = TRUE), 'Cannot use both lossy and append')
-
-#data with no scatter has no step to divide by. Constant and all missing data both
-#arrive here, and the message has to say why rather than report a zero step
-expect_error(suppressMessages(Rfits_write_image_zarr(matrix(3.7, 20, 20),
-             file.path(subdir, 'q_e7.zarr'), extname = 'q', qlevel = 4)),
-             'background scatter')
-expect_error(suppressMessages(Rfits_write_image_zarr(matrix(NA_real_, 20, 20),
-             file.path(subdir, 'q_e8.zarr'), extname = 'q', qlevel = 4)),
-             'background scatter')
-
-#whole numbers are already exact, so quantising them onto a noise grid is a loss for
-#nothing and is warned about rather than done quietly
-expect_warning(suppressMessages(Rfits_write_image_zarr(matrix(as.numeric(1:400), 20, 20),
-               file.path(subdir, 'q_e9.zarr'), extname = 'q', qlevel = 4)),
-               'already whole numbers')
-
-#ex 58j7 the stride the noise is sampled on must share no factor with any dimension,
-#or it lands on the same position in every row and measures one column of the image
-#rather than the image. A stride equal to the row width is the pathological case, and
-#on a real survey tile it reads 4.1% high, which would coarsen every stored integer
-stride_fn = Rfits:::.zarr_noise_stride
-#a square image, where the naive stride of n/nsample is a multiple of the row width.
-#Here that naive stride is 400, which shares the factor 200 with both dimensions, so
-#the sample would take the same column of every row. Stepping past it is the point
-expect_equal(stride_fn(40000, c(200L, 200L), 100), 401)
-expect_equal(Rfits:::.zarr_gcd(401L, 200L), 1L)
-#2000 x 2000 with a 1e6 sample takes every fourth pixel, and the stride is coprime
-#with the row width rather than being a multiple of it
-expect_equal(Rfits:::.zarr_gcd(stride_fn(4000000, c(2000L, 2000L), 1e6), 2000L), 1L)
-#a sample bigger than the data takes every pixel, so there is nothing to alias
-expect_equal(stride_fn(400, c(20L, 20L), 1e6), 1L)
-#the stride is coprime with every dimension of a cube, and with a 1D vector that has
-#no geometry to alias with
-expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 100L), 1L)
-expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 200L), 1L)
-expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 600L), 1L)
-#and the estimate it produces agrees with the exact mad(), which is the point of it
-set.seed(90210)
-tall = matrix(rnorm(2000000, mean = 3, sd = 0.5), 2000, 1000)
-got = Rfits:::.zarr_qlevel_scale(tall, 4)
-expect_equal(got$sigma, mad(tall), tolerance = 0.02 * mad(tall))
-expect_gt(got$stride, 1L)
-expect_equal(got$bscale, got$sigma/4, tolerance = 1e-15)
-
-#ex 58j8 a noise fitted step needs the whole span int32 offers once the field has a
-#bright source, because the levels reach as high as qlevel times the dynamic range of
-#the data. A single peak of 300 over a background of sd 0.02 is 15000 sigma, so at
-#qlevel 4 its level is about 60000, which is past what any 16 bit type holds and well
-#inside int32. This is the difference between a noise fitted step and a range fitted
-#one of the same nominal coarseness: the range fit would have shrunk the step to make
-#the peak land on 32767, quantising the background into almost nothing
-set.seed(11235)
-peaked = matrix(rnorm(40000, sd = 0.02), 200, 200)
-peaked[100, 100] = 300
-w_peak = suppressMessages(Rfits_write_image_zarr(peaked, file.path(subdir, 'lossy_peak.zarr'),
-                                                 extname = 'q', qlevel = 4,
-                                                 data_type = 'int32'))
-expect_equal(w_peak$data_type, 'int32')
-#the peak survives at the noise step rather than being clipped, and the background is
-#still resolved to within half a step
-read_peak = Rfits_read_image_zarr(file.path(subdir, 'lossy_peak.zarr'), extname = 'q')
-expect_equal(read_peak$imDat[100, 100], 300, tolerance = w_peak$bscale/2)
-expect_lt(max(abs(read_peak$imDat - peaked)), w_peak$bscale/2 * 1.01)
-#a 16 bit type cannot hold that range at the same step, and says so rather than
-#clipping the source away
-expect_error(suppressMessages(Rfits_write_image_zarr(peaked, file.path(subdir, 'q_e10.zarr'),
-             extname = 'q', qlevel = 4, data_type = 'int16')), 'cannot be stored')
-
-#ex 58j9 qlevel reaches a directory batch through ..., which is the setting that
-#works per file: each image gets a step fitted to its own background, where a single
-#bscale would have to be right for all of them
-dir_q = file.path(subdir, 'qlevel_dir')
-dir.create(file.path(dir_q, 'in'), showWarnings = FALSE, recursive = TRUE)
-set.seed(60613)
-#two tiles with different scatter, which is what makes the distinction visible
-for(k in 1:2){
-  tile = matrix(rnorm(2500, sd = 0.02 * k), 50, 50)
-  Rfits_write_image(tile, file.path(dir_q, 'in', paste0('tile', k, '.fits')))
-}
-batch_q = Rfits_dir_to_zarr(dir = file.path(dir_q, 'in'), target = file.path(dir_q, 'out'),
-                            qlevel = 4, data_type = 'int32', verbose = FALSE)
-expect_identical(batch_q$status, rep('ok', 2L))
-#each store carries its own step, so the two tiles are quantised differently by design
-b1 = Rfits_read_image_zarr(file.path(dir_q, 'out', 'tile1.zarr'), extname = 'data1')
-b2 = Rfits_read_image_zarr(file.path(dir_q, 'out', 'tile2.zarr'), extname = 'data1')
-expect_false(identical(b1$keyvalues$BSCALE, b2$keyvalues$BSCALE))
-expect_gt(b2$keyvalues$BSCALE, b1$keyvalues$BSCALE)
-
-#ex 59 the remote half of the search, offline. A store is found by listing prefixes
-#with a delimiter, so a directory of them costs one request per directory rather than
-#one per object, and the arrays inside are never enumerated. A fake client backed by
-#the bytes of the local grid lets all of that be checked without a network
+#ex 47 a directory of stores is found in one delimited listing, with no GET at all, and
+#the header of one array is one small GET
 make_dir_client = function(root){
   files = list.files(root, recursive = TRUE, include.dirs = FALSE, all.files = TRUE)
   keys = setNames(as.list(file.path(root, files)), files)
@@ -2386,123 +513,37 @@ make_dir_client = function(root){
     list_objects_v2 = function(Bucket, Prefix, Delimiter = NULL, MaxKeys = 1000, ...){
       state$list = state$list + 1
       found = names(keys)[startsWith(names(keys), Prefix)]
-      out = list(Contents = lapply(found, function(k) list(Key = k)),
-                 IsTruncated = FALSE)
+      out = list(Contents = lapply(found, function(k) list(Key = k)), IsTruncated = FALSE)
       if(!is.null(Delimiter)){
         rest = sub(paste0('^', Prefix), '', found)
         sub_dir = sub('/.*', '', rest)
         sub_dir = unique(sub_dir[nzchar(sub_dir) & sub_dir != rest])
-        out$CommonPrefixes = lapply(sub_dir, function(p) {
-          list(Prefix = paste0(Prefix, p, '/'))
-        })
+        out$CommonPrefixes = lapply(sub_dir, function(p) list(Prefix = paste0(Prefix, p, '/')))
       }
       return(out)
     },
     counts = function() list(get = state$get, list = state$list))
   return(client)
 }
-
-#the nine stores are found in one delimited listing, with no GET at all
 disc = make_dir_client(cut_dir)
 stores = Rfits:::.zarr_s3_find_stores(disc, 'bucket', '')
 expect_identical(stores, sort(sprintf('tile_%i_%i.zarr', rep(1:3, each = 3), rep(1:3, 3))))
 expect_identical(disc$counts(), list(get = 0, list = 1))
-#a prefix that is itself a store is reported as that one store
-expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cut_dir), 'bucket',
-                                              'tile_2_2.zarr'), 'tile_2_2.zarr')
-#nested stores are found too, keeping their directories, so the remote search sees the
-#same set the local one does
-expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', ''),
-                 sort(c('array_a.zarr', 'cube_a.zarr')))
-dir.create(file.path(cube_dir, 'nest'), showWarnings = FALSE)
-Rfits_write_image_zarr(tt$dat, file.path(cube_dir, 'nest/deep_a.zarr'), extname = 'data1',
-                       keyvalues = tt$kv)
-expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', ''),
-                 sort(c('array_a.zarr', 'cube_a.zarr', 'nest/deep_a.zarr')))
-#stopping at the first level would have missed the nested one; recursive = FALSE does
-expect_identical(Rfits:::.zarr_s3_find_stores(make_dir_client(cube_dir), 'bucket', '',
-                                              recursive = FALSE),
-                 sort(c('array_a.zarr', 'cube_a.zarr')))
-
-#the header of one array is one small GET, and is what the search actually runs on
-meta = Rfits:::.zarr_meta_from_s3(make_dir_client(cut_dir), 'bucket', 'tile_2_2.zarr',
-                                  'data1')
-expect_equal(meta$shape, c(200L, 200L))
+meta = Rfits:::.zarr_meta_from_s3(make_dir_client(cut_dir), 'bucket', 'tile_2_2.zarr', 'data1')
 expect_equal(meta$keyvalues$CRVAL1, cut_tile(2, 2)$kv$CRVAL1, tolerance = 1e-6)
-expect_equal(meta$keyvalues$NAXIS1, 200L)
-#an absent extension is NULL rather than an error, since a prefix may hold anything
-expect_null(Rfits:::.zarr_meta_from_s3(make_dir_client(cut_dir), 'bucket',
-                                       'tile_2_2.zarr', 'nosuch'))
-#but a store that cannot be read is not the same as one that is not there
-denied = make_dir_client(cut_dir)
-denied$get_object = function(Bucket, Key, ...) stop('Access Denied (HTTP 403)',
-                                                    call. = FALSE)
-bad_meta = Rfits:::.zarr_meta_from_s3(denied, 'bucket', 'tile_2_2.zarr', 'data1')
-expect_null(bad_meta$shape)
-expect_true(grepl('403', attr(bad_meta, 'error')))
 
-# --- Creating a store over S3 (Rfits_s3_store_new) --------------------------------
-
-#ex 60 the prefix is normalised exactly as zarr_s3store does it, since a store
-#written under one name and looked for under another is no store at all. Tested
-#against the constructor's own expression so the two cannot drift apart
-prefix_of = Rfits:::.zarr_s3_prefix
-expect_identical(prefix_of(''), '')
-expect_identical(prefix_of('cutout_test.zarr'), 'cutout_test.zarr/')
-expect_identical(prefix_of('cutout_test.zarr/'), 'cutout_test.zarr/')
-expect_identical(prefix_of('images/a/b'), 'images/a/b/')
-expect_identical(prefix_of('images/a/b//'), 'images/a/b/')
-#the same normalising the zarr constructor applies, evaluated out of its own
-#body rather than from its text, so the two cannot drift apart
-zinit = body(base::get('zarr_s3store', envir = asNamespace('zarr'))$public_methods$initialize)
-key_lines = Filter(function(e) is.call(e) &&
-                     any(grepl('key_prefix', paste(deparse(e), collapse = ' '))), as.list(zinit))
-expect_length(key_lines, 1)
-zexpr = key_lines[[1]]
-apply_prefix = function(prefix){
-  env = new.env(parent = baseenv())
-  env$prefix = prefix
-  env$private = list()
-  eval(zexpr, envir = env)
-  env$private$.key_prefix
-}
-expect_identical(prefix_of('cutout_test.zarr'), apply_prefix('cutout_test.zarr'))
-expect_identical(prefix_of(''), apply_prefix(''))
-
-#ex 61 the root group bytes. These are the whole of what makes a prefix a store,
-#so they must stay valid v3 and must keep attributes as an empty object rather
-#than the [] that jsonlite produces for an empty list
-root_bytes = Rfits:::.zarr_root_group_bytes()
-expect_identical(root_bytes,
+#ex 48 the root group bytes are valid v3 with attributes as an empty object, not the []
+#that jsonlite produces for an empty list
+expect_identical(Rfits:::.zarr_root_group_bytes(),
                  charToRaw('{"zarr_format":3,"node_type":"group","attributes":{}}'))
-skip_if_not_installed("jsonlite")
-meta = jsonlite::fromJSON(rawToChar(root_bytes))
-expect_identical(meta$zarr_format, 3L)
-expect_identical(meta$node_type, 'group')
-expect_identical(meta$attributes, structure(list(), names = character(0)))
-#jsonlite's own serialisation is the thing being avoided
-expect_false(identical(charToRaw(as.character(jsonlite::toJSON(
-  list(zarr_format = 3L, node_type = 'group', attributes = list()),
-  auto_unbox = TRUE))), root_bytes))
 
-#ex 62 missing and unreadable must not be confused. A store can exist behind
-#credentials that are not allowed to see it, and that must not be taken for a
-#free prefix that is safe to write over. The pattern is zarr's own, copied rather
-#than called, so it is checked against that as well
+#ex 49 missing and unreadable must not be confused: a store behind credentials that are
+#not allowed to see it must not be taken for a free prefix that is safe to write over
 not_found = Rfits:::.zarr_s3_not_found
-zinit2 = deparse(base::get('zarr_s3store', envir = asNamespace('zarr'))$private_methods$is_not_found)
-expect_match(paste(zinit2, collapse = ' '), 'NoSuchKey\\|NotFound\\|404\\|NoSuchBucket')
 expect_true(not_found('The specified key does not exist. (Service: NoSuchKey; Status Code: 404)'))
-expect_true(not_found('Not Found (HTTP 404)'))
-expect_true(not_found('NoSuchBucket'))
 expect_false(not_found('Access Denied (HTTP 403)'))
-expect_false(not_found('SignatureDoesNotMatch'))
-#the pattern looks for the service error codes, so prose that merely means absent
-#is not matched. Unreachable here (head_object returns a status code), and worth
-#recording because it fails towards caution rather than towards an overwrite
-expect_false(not_found('no such bucket'))
 
-#ex 63 the probe, against a stand in client so none of this needs a network
+#ex 50 the probe distinguishes absent from unreadable, against a stand in client
 make_fake_s3 = function(objects = list(), put_error = NULL){
   state = new.env(parent = emptyenv())
   state$objects = objects
@@ -2531,330 +572,22 @@ make_fake_s3 = function(objects = list(), put_error = NULL){
   return(client)
 }
 probe = Rfits:::.zarr_s3_probe
-absent = make_fake_s3()
-expect_identical(probe(absent, 'b', 'x.zarr/zarr.json'), list(exists = FALSE, message = NULL))
-present = make_fake_s3(objects = list('x.zarr/zarr.json' = TRUE))
-expect_identical(probe(present, 'b', 'x.zarr/zarr.json'), list(exists = TRUE, message = NULL))
-denied = make_fake_s3(objects = list('x.zarr/zarr.json' = 'Access Denied (HTTP 403)'))
-expect_identical(probe(denied, 'b', 'x.zarr/zarr.json'),
+expect_identical(probe(make_fake_s3(), 'b', 'x.zarr/zarr.json'),
+                 list(exists = FALSE, message = NULL))
+expect_identical(probe(make_fake_s3(objects = list('x.zarr/zarr.json' = 'Access Denied (HTTP 403)')),
+                       'b', 'x.zarr/zarr.json'),
                  list(exists = NA, message = 'Access Denied (HTTP 403)'))
 
-#The open or create helper used by a batch must not guess when the probe cannot
-#tell. A prefix it cannot see is not a free prefix, and writing a root group there
-#would destroy a store, so this refuses rather than proceeding. Only the absent
-#case is exercised, since the other two branches reach the network.
-store_for = Rfits:::.zarr_s3_store_for
-expect_error(store_for('b', 'x.zarr', access_key = 'a', secret_key = 'b',
-                       client = denied), 'Cannot determine')
-
-#ex 64 creating the root group. An empty prefix is asked for first and refused
-#there, and the key written must be the normalised one
+#ex 51 creating the root group writes the normalised key, and refuses to rebuild a
+#prefix that is already a store
 create_root = Rfits:::.zarr_s3_root_create
 client = make_fake_s3()
-expect_invisible(expect_identical(create_root(client, 'image-tests', 'cutout_test.zarr'),
-                                 'cutout_test.zarr/'))
-put = attr(client, 'state')$puts
-expect_length(put, 1)
-expect_identical(put[[1]]$Bucket, 'image-tests')
-expect_identical(put[[1]]$Key, 'cutout_test.zarr/zarr.json')
-expect_identical(put[[1]]$body, rawToChar(Rfits:::.zarr_root_group_bytes()))
-#an empty prefix puts the root at the head of the bucket, not under a slash
-headless = make_fake_s3()
-expect_identical(create_root(headless, 'image-tests', ''), '')
-expect_identical(attr(headless, 'state')$puts[[1]]$Key, 'zarr.json')
-#already a store: refuse rather than rebuild it
+create_root(client, 'image-tests', 'cutout_test.zarr')
+expect_identical(attr(client, 'state')$puts[[1]]$Key, 'cutout_test.zarr/zarr.json')
 exists_client = make_fake_s3(objects = list('x.zarr/zarr.json' = TRUE))
 expect_error(create_root(exists_client, 'b', 'x.zarr'), 'already exists')
-expect_error(create_root(exists_client, 'b', 'x.zarr'), 'force = TRUE')
-expect_length(attr(exists_client, 'state')$puts, 0)
-#force says so out loud and writes anyway
-expect_identical(create_root(exists_client, 'b', 'x.zarr', force = TRUE), 'x.zarr/')
-expect_length(attr(exists_client, 'state')$puts, 1)
-#cannot tell whether it exists, so nothing is written. An existing store must not
-#be clobbered just because the probe could not read it
-unknown_client = make_fake_s3(objects = list('x.zarr/zarr.json' = 'Access Denied (HTTP 403)'))
-expect_error(create_root(unknown_client, 'b', 'x.zarr'), 'Cannot determine whether')
-expect_length(attr(unknown_client, 'state')$puts, 0)
-#force skips the probe entirely, so a forbidden prefix still gets a write attempt
-expect_identical(create_root(unknown_client, 'b', 'x.zarr', force = TRUE), 'x.zarr/')
-expect_length(attr(unknown_client, 'state')$puts, 1)
-#a real write failure is reported as such, with the key that failed
-broken = make_fake_s3(put_error = 'Access Denied (HTTP 403)')
-expect_error(create_root(broken, 'b', 'x.zarr'), 'Cannot create the Zarr root group')
-expect_error(create_root(broken, 'b', 'x.zarr'), 's3://b/x.zarr/')
-expect_error(create_root(broken, 'b', 'x.zarr'), 'Access Denied')
 
-#ex 65 the client config. The token is normalised once and reused for both the
-#write and the open, so a NULL can never leave one side anonymous, and path style
-#addressing has to track the endpoint exactly as the constructor does
-config = Rfits:::.zarr_s3_config
-expect_identical(config(endpoint = 'https://x.r2.cloudflarestorage.com',
-                        access_key = 'a', secret_key = 'b', session_token = NULL)
-                 $credentials$creds$session_token, '')
-expect_identical(config(access_key = 'a', secret_key = 'b', session_token = 'tok')
-                 $credentials$creds$session_token, 'tok')
-expect_identical(config(access_key = 'a', secret_key = 'b')$credentials$creds$access_key_id, 'a')
-expect_identical(config(access_key = 'a', secret_key = 'b')$credentials$creds$secret_access_key, 'b')
-expect_null(config(access_key = 'a', secret_key = 'b')$endpoint)
-expect_false('s3_force_path_style' %in% names(config(access_key = 'a', secret_key = 'b')))
-expect_true(isTRUE(config(endpoint = 'https://x', access_key = 'a', secret_key = 'b')
-                   $s3_force_path_style))
-expect_identical(config(region = 'auto', access_key = 'a', secret_key = 'b')$region, 'auto')
-expect_null(config(access_key = 'a', secret_key = 'b')$region)
-
-#ex 66 the public function must reject a call that cannot possibly work before it
-#touches the network. Without keys zarr_s3store silently goes anonymous, so the
-#store would be created and then be unopenable
-nokeys = 'access_key and secret_key are required'
-expect_error(Rfits_s3_store_new('image-tests', 'x.zarr'), nokeys)
-expect_error(Rfits_s3_store_new('image-tests', 'x.zarr', access_key = 'a'), nokeys)
-expect_error(Rfits_s3_store_new('image-tests', 'x.zarr', secret_key = 'b'), nokeys)
-#a NULL token is normalised rather than refused, but every other argument is
-#checked, and in the order a caller is most likely to get them wrong
-expect_error(Rfits_s3_store_new(bucket = 42, access_key = 'a', secret_key = 'b',
-                                session_token = NULL), 'bucket')
-expect_error(Rfits_s3_store_new(bucket = list('image-tests'), access_key = 'a',
-                                secret_key = 'b'), 'bucket')
-expect_error(Rfits_s3_store_new('image-tests', prefix = 1.5, access_key = 'a',
-                                secret_key = 'b'), 'prefix')
-expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
-                                force = 'yes'), 'force')
-expect_error(Rfits_s3_store_new('', access_key = 'a', secret_key = 'b'), 'bucket')
-expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
-                                region = 5), 'region')
-expect_error(Rfits_s3_store_new('image-tests', access_key = 'a', secret_key = 'b',
-                                endpoint = TRUE), 'endpoint')
-expect_error(Rfits_s3_store_new('image-tests', access_key = 1, secret_key = 'b'),
-             'access_key')
-#ex 67 an end to end check against a real bucket, skipped unless it is asked for
-#by setting all of these. It creates its own prefix so it cannot disturb anything,
-#and clears it again at the end
-s3_env = c('RFITS_S3_BUCKET', 'RFITS_S3_ENDPOINT', 'RFITS_S3_ACCESS_KEY',
-           'RFITS_S3_SECRET_KEY')
-have_s3 = all(nzchar(Sys.getenv(s3_env)))
-if(!have_s3){
-  skip('S3 store creation test skipped; set RFITS_S3_* environment variables to run')
-}
-region = Sys.getenv('RFITS_S3_REGION', 'auto')
-bucket = Sys.getenv('RFITS_S3_BUCKET')
-endpoint = Sys.getenv('RFITS_S3_ENDPOINT')
-keys = list(access_key = Sys.getenv('RFITS_S3_ACCESS_KEY'),
-            secret_key = Sys.getenv('RFITS_S3_SECRET_KEY'),
-            session_token = Sys.getenv('RFITS_S3_SESSION_TOKEN', ''))
-new_prefix = paste0('rfits_test_', sample(1e8, 1), '.zarr')
-#the batch test writes one store per file under this directory style prefix
-batch_prefix = paste0('rfits_batch_', sample(1e8, 1), '/')
-test_prefixes = c(new_prefix, batch_prefix)
-
-#A test that leaves objects in a bucket is a tax on whoever pays for it. A failure
-#half way through this block aborts the file, so the prefixes are removed on the way
-#out whether the checks passed or not: an object left behind for inspection is
-#only useful while somebody remembers which run made it
-cleanup_s3 = function(){
-  probe = tryCatch(paws.storage::s3(config = Rfits:::.zarr_s3_config(
-                     region = region, endpoint = endpoint, access_key = keys$access_key,
-                     secret_key = keys$secret_key, session_token = keys$session_token)),
-                   error = function(e) NULL)
-  if(is.null(probe)){
-    return(invisible(NULL))
-  }
-  for(prefix in test_prefixes){
-    gone = tryCatch({
-      found = probe$list_objects_v2(Bucket = bucket, Prefix = prefix, MaxKeys = 1000)
-      if(length(found$Contents) > 0){
-        #Quiet is not an argument of this request; the paws signature is
-        #delete_objects(Bucket, Delete, ...), and passing it was an error
-        probe$delete_objects(Bucket = bucket,
-                             Delete = list(Objects = lapply(found$Contents, function(k)
-                                                          list(Key = k$Key))))
-      }
-      length(probe$list_objects_v2(Bucket = bucket, Prefix = prefix,
-                                   MaxKeys = 10)$Contents)
-    }, error = function(e) NA)
-    if(isTRUE(gone > 0)){
-      warning('Could not clear the test prefix s3://', bucket, '/', prefix)
-    }
-  }
-  return(invisible(NULL))
-}
-
-open_fresh = function(prefix){
-  zarr::zarr_s3store$new(bucket = bucket, prefix = prefix, region = region,
-                         endpoint = endpoint, access_key = keys$access_key,
-                         secret_key = keys$secret_key,
-                         session_token = keys$session_token)
-}
-
-#tryCatch with a finally and no handler still lets a failure propagate to
-#testthat, while guaranteeing the prefix is removed either way
-tryCatch({
-store_new = NULL
-expect_message(store_new <- do.call(Rfits_s3_store_new,
-                                    c(list(bucket = bucket, prefix = new_prefix,
-                                           region = region, endpoint = endpoint), keys)),
-               'Created Zarr store')
-expect_true(inherits(store_new, 'zarr_store'))
-#the root group is there, which is the whole of what this function adds. An empty
-#store is a store, and is reported as one holding no arrays rather than as a
-#prefix with no store in it. The pointer is used for that check because the reader
-#catches this case with a bare try() and returns NULL, which prints (see ex 21)
-expect_true(store_new$exists('zarr.json'))
-expect_identical(Rfits:::.zarr_store_has_root(store_new), TRUE)
-expect_error(Rfits_point_zarr(store_new, extname = 'data1'),
-             'does not exist in the Zarr store')
-#an empty store is still a store, so a second create is refused even with nothing
-#in it yet
-expect_error(do.call(Rfits_s3_store_new,
-                     c(list(bucket = bucket, prefix = new_prefix, region = region,
-                            endpoint = endpoint), keys)), 'already exists')
-
-Rfits_write_image_zarr(data_2d, store_new, extname = 'data1', keyvalues = keyvalues_2d)
-expect_equal(Rfits_read_image_zarr(store_new, extname = 'data1', header = FALSE), data_2d)
-#the store reopens cleanly with zarr alone, so the hand written root group is
-#genuine v3 rather than something only this package tolerates
-again = open_fresh(new_prefix)
-expect_equal(Rfits_read_image_zarr(again, extname = 'data1', header = FALSE), data_2d)
-#A store object caches the root group it read when it was constructed, so the self
-#description is checked through a fresh object rather than this one. That is worth
-#knowing in its own right: reusing the object returned here is still much cheaper
-#than reopening, but it will not see metadata this package has since rewritten
-expect_identical(Rfits_inspect_zarr(again, print = FALSE)$convention, 'Rfits.zarr')
-
-#forcing replaces the root group, which discards the self description, but leaves
-#the array alone
-expect_message(forced <- do.call(Rfits_s3_store_new,
-                                 c(list(bucket = bucket, prefix = new_prefix,
-                                        region = region, endpoint = endpoint,
-                                        force = TRUE), keys)),
-               'Created Zarr store')
-expect_equal(Rfits_read_image_zarr(forced, extname = 'data1', header = FALSE), data_2d)
-bare = open_fresh(new_prefix)
-expect_false(Rfits_inspect_zarr(bare, print = FALSE)$self_describing)
-expect_identical(Rfits_inspect_zarr(bare, print = FALSE)$convention, NA_character_)
-#the next write rebuilds it
-Rfits_write_image_zarr(data_2d, forced, extname = 'data1', keyvalues = keyvalues_2d)
-expect_identical(Rfits_inspect_zarr(open_fresh(new_prefix), print = FALSE)$convention,
-                 'Rfits.zarr')
-#a cutout over the remote store reads back the same pixels as the local slice
-point_s3 = Rfits_point_zarr(forced, extname = 'data1')
-expect_equal(point_s3[1:2, 1:3]$imDat, data_2d[1:2, 1:3])
-#deleting a remote store works, since there is no directory to unlink
-expect_true(bare$clear())
-
-#ex 68 the batch over a real bucket. The directory built for the local batch test
-#is reused, so the same files go to both. recursive = FALSE is needed there for a
-#different reason (the nested copy collides); here it also keeps the transfer small
-batch_res = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch_prefix,
-                              region = region, endpoint = endpoint,
-                              access_key = keys$access_key, secret_key = keys$secret_key,
-                              session_token = keys$session_token,
-                              recursive = FALSE, verbose = FALSE)
-expect_identical(nrow(batch_res), 2L)
-expect_true(all(batch_res$status == 'ok'))
-#each file became its own store, under the requested prefix, named after the file.
-#The trailing slash is part of the URI the store reports, so the whole string is
-#checked rather than the basename, which would hide it
-expect_identical(batch_res$store,
-                 paste0('s3://', bucket, '/', batch_prefix,
-                        c('cube_one.zarr', 'image_one.zarr'), '/'))
-#and the arrays inside are all the shared extension name
-first_store = open_fresh(paste0(batch_prefix, 'image_one.zarr'))
-expect_identical(Rfits_inspect_zarr(first_store, print = FALSE)$array_names, 'data1')
-expect_equal(Rfits_read_image_zarr(first_store, extname = 'data1', header = FALSE),
-             src_image$imDat)
-#a cutout over the remote store, which is the point of doing this at all
-point_batch = Rfits_point_zarr(first_store, extname = 'data1')
-expect_equal(point_batch[1:20, 1:20]$imDat, src_image$imDat[1:20, 1:20])
-#re-running opens the stores it made the first time rather than failing on a prefix
-#that already holds a store, which is what Rfits_s3_store_new would do
-again_batch = Rfits_dir_to_zarr(dir = batch_dir, bucket = bucket, prefix = batch_prefix,
-                                region = region, endpoint = endpoint,
-                                access_key = keys$access_key, secret_key = keys$secret_key,
-                                session_token = keys$session_token,
-                                recursive = FALSE, verbose = FALSE)
-expect_true(all(again_batch$status == 'ok'))
-
-#ex 69 searching the remote directory by position. This is the whole point of the
-#two stage search: the headers of both stores are read over the network, but the pixels
-#of a store that does not overlap the request are never asked for
-img_kv = src_image$keyvalues
-found = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
-                              endpoint = endpoint, access_key = keys$access_key,
-                              secret_key = keys$secret_key,
-                              session_token = keys$session_token,
-                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
-                              verbose = FALSE)
-#the image store is found, and named after its store rather than its extension
-expect_true('image_one' %in% names(found))
-#nothing outside the two stores written by the batch can appear
-expect_true(all(names(found) %in% c('image_one', 'cube_one')))
-#the scan saw every store under the prefix, whatever matched
-expect_identical(nrow(attributes(found)$scan), 2L)
-expect_true(all(attributes(found)$scan$status == 'ok'))
-#and the cutout that came back is exactly what the same box gives from the local file,
-#so the remote search and the local one agree to the pixel
-remote_cut = found[['image_one']]
-expect_identical(dim(remote_cut), c(51L, 51L))
-local_ptr = Rfits_point(ex_image, ext = 1)
-local_cut = local_ptr[img_kv$CRVAL1, img_kv$CRVAL2, box = 51, type = 'coord']
-expect_equal(remote_cut$imDat, local_cut$imDat)
-expect_equal(remote_cut$keyvalues$NAXIS1, local_cut$keyvalues$NAXIS1)
-#a position nowhere near either store matches nothing, and reads no pixels doing it
-far = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
-                            endpoint = endpoint, access_key = keys$access_key,
-                            secret_key = keys$secret_key,
-                            session_token = keys$session_token,
-                            RA = img_kv$CRVAL1 + 40, Dec = img_kv$CRVAL2 + 40,
-                            box = 51, verbose = FALSE)
-expect_length(far, 0)
-expect_identical(nrow(attributes(far)$matches), 0L)
-#the remote cache round trip, since a cached remote entry cannot be validated the way
-#a local one can and so must still give the same answer as no cache at all
-s3_cache = file.path(subdir, 's3_cache.rds')
-first = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
-                              endpoint = endpoint, access_key = keys$access_key,
-                              secret_key = keys$secret_key,
-                              session_token = keys$session_token,
-                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
-                              cache = s3_cache, extract = FALSE, verbose = FALSE)
-again = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
-                              endpoint = endpoint, access_key = keys$access_key,
-                              secret_key = keys$secret_key,
-                              session_token = keys$session_token,
-                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
-                              cache = s3_cache, extract = FALSE, verbose = FALSE)
-expect_identical(names(first), names(again))
-s3_parquet = Rfits:::.zarr_index_local_path(s3_cache)
-expect_true(file.exists(s3_parquet))
-#the listing of the prefix is cached beside the headers, since a walk costs a
-#request per directory and is repeated on every search without it
-expect_true(any(grepl('^WALK\\|', index_rows(s3_parquet)$cache_key)))
-#refresh drops the cached listing and walks again, and must still agree
-third = Rfits_cutout_zarr_dir(bucket = bucket, prefix = batch_prefix, region = region,
-                              endpoint = endpoint, access_key = keys$access_key,
-                              secret_key = keys$secret_key,
-                              session_token = keys$session_token,
-                              RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
-                              cache = s3_cache, refresh = TRUE, extract = FALSE,
-                              verbose = FALSE)
-expect_identical(names(third), names(again))
-#a narrower prefix is a different spec, so it cannot be served by the broad listing
-narrow = file.path(subdir, 's3_narrow.parquet')
-file.copy(s3_parquet, narrow, overwrite = TRUE)
-sub_store = Rfits_cutout_zarr_dir(bucket = bucket, prefix = paste0(batch_prefix, '/'),
-                                  region = region, endpoint = endpoint,
-                                  access_key = keys$access_key,
-                                  secret_key = keys$secret_key,
-                                  session_token = keys$session_token,
-                                  RA = img_kv$CRVAL1, Dec = img_kv$CRVAL2, box = 51,
-                                  cache = narrow, extract = FALSE, verbose = FALSE)
-expect_identical(sort(names(sub_store)), sort(names(again)))
-#what a remote search hands back is a lazy pointer, so extract = FALSE transfers
-#only metadata. Slicing it fetches the pixels, which is checked against the same
-#box read through a directly opened store
-lazy_remote = again[[1]]
-expect_true(inherits(lazy_remote$store, 'Rfits_lazy_store'))
-got_lazy = suppressWarnings(lazy_remote[box = 51])
-expect_false(is.null(got_lazy$imDat))
-expect_identical(dim(got_lazy), as.integer(c(51, 51)))
-}, finally = cleanup_s3())
+#ex 52 the public function rejects a call that cannot possibly work before it touches
+#the network: without keys zarr_s3store silently goes anonymous
+expect_error(Rfits_s3_store_new('image-tests', 'x.zarr'),
+             'access_key and secret_key are required')

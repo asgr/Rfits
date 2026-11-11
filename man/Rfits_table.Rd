@@ -65,7 +65,7 @@ Character scalar; the type of zap to carry out. Either the grep is done on the f
 Character scalar; name of the table extension. 
 }
   \item{tforms}{
-Character vector; this should usually be left at the default of 'auto', where the table writer will choose sensible values for the table formatting. If you are an advanced user who needs more control, then this must be the same length as the number of columns being written, and specify FITS standard formatting types (do some Googling to find those, but they look like I9, I20, D18.10 for ASCII \option{table_type}, and 1J, 1K and 1D for binary \option{table_type}). If set to 'get' and the table is of class 'Rfits_table' (so has header information) then the TFORM header information stored in the attributes will be used instead.
+Character vector; this should usually be left at the default of 'auto', where the table writer will choose sensible values for the table formatting. If you are an advanced user who needs more control, then this must be the same length as the number of columns being written, and specify FITS standard formatting types (do some Googling to find those, but they look like I9, I20, D18.10 for ASCII \option{table_type}, and 1J, 1K and 1D for binary \option{table_type}). Vector (list) columns use a repeat count followed by the type code, e.g. 3J or 3D, and character vector columns use the substring array form rAw, where r is the total field width and w the substring width, e.g. 24A8 for three strings of width 8 per row. If set to 'get' and the table is of class 'Rfits_table' (so has header information) then the TFORM header information stored in the attributes will be used instead.
 }
   \item{tunits}{
 Character vector; data units to be written out. Default is NULL. If set to 'get' and the table is of class 'Rfits_table' (so has header information) then the TUNIT header information stored in the attributes will be used instead.
@@ -99,6 +99,8 @@ Integer scalar; value to replace Inf (since FITS does not support Inf). If numer
 R FITS table readers and writers that uses CFITSIO to do the interfacing with files. Requires \code{bit64} package for integer64 (i.e. long long) to be work. If \option{header}=TRUE is set then the output inherits an extra class of 'Rfits_table' (it keeps its 'data.frame' and 'data.table' classes as relevant though).
 
 Vector columns are supported in reading and writing via the R \code{\link{AsIs}} class, and they appear as a multi-element list of vectors for further interrogation (see Examples). This format is also how Parquet files support vector columns in Arrow.
+
+Character vector columns are supported too, stored as FITS substring arrays (TFORM of the form 'rAw': substrings of width w within a field of total width r, giving r/w strings per row). All character elements within a column must be the same length, and the field width is measured in bytes so multi-byte strings are not truncated. Single-character elements are padded to a substring width of 2, since the width-1 form ('rA') is how a scalar string column of length r is stored and would otherwise be indistinguishable on read. NA elements are written as blank fields and read back as a single space ' ' (CFITSIO's null-string value; the FITS A format has no null marker, as for scalar character columns). Character vector columns are only supported for binary \option{table_type}, like all vector columns.
 }
 \note{
 \code{Rfits_read_table} will apply TSCALn and TZEROn scaling, since this is applied at the CFITSIO level, so the column values will be VALn = (RAWn x TSCALn) + TZEROn, where VALn is what is seen in the R \code{data.frame} or \code{data.table} and RAWn is what you would find if inspecting the binary values stored on disk. The \code{Rfits_write_table} will only scale if you pass the TSCALn and TZEROn key values into the \option{tadd} argument (see Examples).
@@ -164,6 +166,16 @@ mat_col = do.call(rbind, tb_vec_read$vals_dbl)
 mat_col
 #And we can turn it back into the form needed to write out via asplit:
 asplit(mat_col,1)
+
+#Character vector columns (all elements within a column the same length):
+tb_chr = data.frame(
+  id = 1:3,
+  tags = I(list(c('aa', 'bb', 'cc'), c('dd', 'ee', 'ff'), c('gg', 'hh', 'ii')))
+)
+file_chr_table = tempfile()
+Rfits_write_table(tb_chr, file_chr_table)
+tb_chr_read = Rfits_read_table(file_chr_table)
+tb_chr_read$tags[[1]] #will be a character vector c('aa', 'bb', 'cc')
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

@@ -75,6 +75,35 @@
   }, integer(1), USE.NAMES=FALSE)
 }
 
+# Field width for a character vector (list) column, where every element across
+# all rows must be the same width. One shared width is what lets the column be
+# stored as the FITS 'rAw' substring array (substrings of width w inside a
+# field of total width r, so r/w strings per row).
+#
+# Uniformity is checked in characters (the user-facing "same length"), but the
+# field width is sized in bytes because CFITSIO 'A' fields are byte-oriented, so
+# a multi-byte string is not truncated. Elements of equal character length can
+# differ in byte length (e.g. 'éé' vs 'ab'); the field takes the widest in bytes
+# and the shorter ones are blank-padded. The +1L pad is kept from
+# .char_col_widths, and NAs need no room since they are written as blank fields
+# that read back as a single space (the FITS A format has no null marker).
+#
+# Width 1 is padded to 2: TFORM 'rA1' collapses to 'rA', which is how a scalar
+# string of length r is stored (repeat=r, width=1), so on read the column would
+# come back as one long string per row rather than a vector of characters.
+.char_vec_width=function(x, colname){
+  if(! all(vapply(x, is.character, logical(1)))){
+    stop("Vector column '", colname, "' has unsupported element type: only logical, integer, integer64, double, and character are supported")
+  }
+  elems = unlist(x, use.names=FALSE)
+  chars = nchar(elems, type='chars')
+  if(any(chars[!is.na(chars)] != max(chars, na.rm=TRUE))){
+    stop("Vector column '", colname, "' has inconsistent string widths across elements (all character elements must be the same length)")
+  }
+  width = max(nchar(elems, type='bytes'), na.rm=TRUE) + 1L
+  return(as.integer(max(width, 2L)))
+}
+
 Rfits_read_table=function(filename='temp.fits', ext=2, data.table=TRUE, cols=NULL, verbose=FALSE,
                           header=FALSE, remove_HIERARCH=FALSE, startrow=1L, nrow=0L, zap=NULL, zaptype='full'){
   assertCharacter(filename, max.len=1)
@@ -205,7 +234,9 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
     file.remove(filename)
   }
   assertCharacter(extname, max.len=1)
-  assertCharacter(tunits, len=ncol)
+  # tunits may be the length-1 'get' sentinel here; it is expanded to one entry
+  # per column below and re-checked at full length before writing.
+  assert(testCharacter(tunits, len=1) | testCharacter(tunits, len=ncol))
   assert(testCharacter(tforms, len=1) | testCharacter(tforms, len=ncol))
   assertCharacter(table_type, len=1)
   table_type = tolower(table_type)
@@ -243,17 +274,23 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   #   }
   # }
   
-  if(inherits(table, 'Rfits_table') & tforms[1]=='get'){
+  if(inherits(table, 'Rfits_table') && tforms[1]=='get'){
     TFORMsel = grep('TFORM', attributes(table)$keynames)
     if(length(TFORMsel)>0){
-      tforms = attributes(table)$keyvalues[TFORMsel]
+      # unlist: keyvalues[sel] is a list, but tforms must be a character vector
+      tforms = unlist(attributes(table)$keyvalues[TFORMsel], use.names=FALSE)
     }
   }
   
-  if(inherits(table, 'Rfits_table') & tunits[1]=='get'){
+  if(inherits(table, 'Rfits_table') && tunits[1]=='get'){
+    # Start from the no-unit sentinel and fill in whatever TUNITn the header
+    # carries, so a table with no (or only some) units still yields one entry
+    # per column rather than a length-0/1 vector that fails the length assert.
+    tunits = rep('\01', ncol)
     TUNITsel = grep('TUNIT', attributes(table)$keynames)
     if(length(TUNITsel)>0){
-      tunits = attributes(table)$keyvalues[TUNITsel]
+      colnum = as.integer(sub('TUNIT', '', attributes(table)$keynames[TUNITsel]))
+      tunits[colnum] = unlist(attributes(table)$keyvalues[TUNITsel], use.names=FALSE)
     }
   }
   
@@ -302,8 +339,15 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
             tforms[i] = paste0(vec_len, "K")
           }else if(is.double(first_elem)){
             tforms[i] = paste0(vec_len, "D")
+          }else if(is.character(first_elem)){
+            # CFITSIO 'rAw': r is the total field width in bytes and w the
+            # substring width, so the field must be vec_len * width wide to
+            # hold vec_len strings (ffbnfm treats r as a byte count, not a
+            # string count). typecode = TSTRING = 16
+            width = .char_vec_width(table[[i]], ttypes[i])
+            tforms[i] = paste0(vec_len * width, 'A', width)
           }else{
-            stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
+            stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, double, and character are supported")
           }
         }
       }
@@ -338,8 +382,12 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
         typecode[i] = 81 # TLONGLONG
       }else if(is.double(first_elem)){
         typecode[i] = 82 # TDOUBLE
+      }else if(is.character(first_elem)){
+        # Also validates uniform widths when tforms was supplied by the user
+        .char_vec_width(table[[i]], ttypes[i])
+        typecode[i] = 16 # TSTRING
       }else{
-        stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, and double are supported")
+        stop("Vector column '", ttypes[i], "' has unsupported element type: only logical, integer, integer64, double, and character are supported")
       }
     }
   }
@@ -456,7 +504,10 @@ Rfits_write_table=function(table, filename='temp.fits', ext=2, extname='Main', t
   
   field_arraysize = rep(NA_integer_, Nfield)
   for(i in which(field_datatype == 'char')){
-    field_arraysize[i] = as.integer(strsplit(field_form[[i]], 'A')[[1]])
+    parts = as.integer(strsplit(field_form[[i]], 'A')[[1]])
+    # Substring array 'rAw' (a character vector column): the array size is the
+    # string width w, not the leading repeat count r.
+    field_arraysize[i] = if(length(parts) == 2) parts[2] else parts[1]
   }
   
   meta_col = data.frame(Name = field_name,
