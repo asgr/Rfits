@@ -44,26 +44,26 @@ Rfits_read_array_zarr(filename = "temp.zarr", extname = "data1", ext = NULL,head
 Rfits_write_image_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, qlevel = NULL,
+  quantise = 'auto', keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_vector_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext=TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, qlevel = NULL,
+  quantise = 'auto', keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_cube_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext = TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, qlevel = NULL,
+  quantise = 'auto', keyvalues, keycomments, keynames, comment, history)
 
 Rfits_write_array_zarr(data, filename = 'temp.zarr', extname = 'data1', create_ext =TRUE,
   overwrite_file = FALSE, data_type = NULL, chunk_shape = NULL, clevel = 6L,
   compressor = 'blosc', shuffle = NULL, append = FALSE, update_root = TRUE,
-  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, quantise = 'auto',
-  keyvalues, keycomments, keynames, comment, history)
+  cores = NULL, lossy = FALSE, bscale = NULL, bzero = NULL, qlevel = NULL,
+  quantise = 'auto', keyvalues, keycomments, keynames, comment, history)
 
 Rfits_append_image_zarr(data, filename = 'temp.zarr', extname = 'data1', ...)
 
@@ -162,13 +162,16 @@ Integer scalar, or \code{NULL} for the default; the number of processes used to 
 Logical scalar; should the data be quantised into integers and stored with a \option{BSCALE} and \option{BZERO} pair that undoes the scaling? This is the lossy equivalent of FITS Rice compression, and halves a float64 archive at a cost set by the integer type chosen. See \strong{Lossy compression} in Details.
 }
   \item{bscale}{
-Numeric scalar; the quantisation step to use with \option{lossy} = TRUE, in the FITS sense that a stored integer \code{i} means the physical value \code{bzero + bscale * i}. The default, \code{NULL}, takes a scale already in the header if there is a meaningful one, and otherwise calculates the finest step the chosen integer type can offer across the range of the data. Must be positive.
+Numeric scalar; the quantisation step to use with \option{lossy} = TRUE, in the FITS sense that a stored integer \code{i} means the physical value \code{bzero + bscale * i}. The default, \code{NULL}, takes a scale already in the header if there is a meaningful one, and otherwise calculates the finest step the integer type can offer across the range of the data, whether that type was named through \option{data_type} or chosen from the data. Must be positive.
 }
   \item{bzero}{
 Numeric scalar; the zero point that goes with \option{bscale}. The default, \code{NULL}, behaves as \option{bscale} does. Giving one of the two keeps the FITS default (1 and 0) for the other.
 }
+  \item{qlevel}{
+Numeric scalar, or \code{NULL} for the default; how many times the background scatter the quantisation step should be, in the sense cfitsio uses for its own \code{fits_set_quantize_level}: the step becomes \code{mad(data)/qlevel}, so \code{qlevel = 4} (cfitsio's default) steps by a quarter of the noise. Setting it implies \option{lossy} = TRUE, and cannot be combined with \option{lossy} = FALSE or with \option{bscale}/\option{bzero}, since both name a step. See \strong{Lossy compression} in Details.
+}
   \item{quantise}{
-Character scalar; how much work a \option{lossy} write does to choose the integer type: one of \code{'auto'} (the default), \code{'exact'} or \code{'quick'}. It only has an effect when no integer type is pinned by \option{data_type} and no scale is pinned by \option{bscale}, \option{bzero} or the header. See \strong{Lossy compression} in Details.
+Character scalar; how much work a \option{lossy} write does to choose the integer type: one of \code{'auto'} (the default), \code{'exact'} or \code{'quick'}. It only has an effect when no integer type is pinned by \option{data_type}. It is ignored when a scale is pinned by \option{bscale}, \option{bzero} or the header, since a fixed step settles the type on its own. See \strong{Lossy compression} in Details.
 }
   \item{keyvalues}{
 Named list; keyword values to store, as produced by \code{\link{Rfits_read_header}}. Only needed for data which is not already an \option{Rfits_image} style object.
@@ -203,11 +206,19 @@ A FITS archive can hold its pixels as scaled integers, declared with the \option
 
 This buys space the way Rice compression does, by giving up precision rather than length. A 356 by 356 float image of the kind in \code{inst/extdata} takes 460 KB as \code{float64} and 87 KB as \code{int16}, and the worst pixel is then within half a quantisation step of where it started. \option{max_error} in the return value reports that step's cost as it was actually measured on the data.
 
-\option{data_type} picks the integer type from \code{'uint8'}, \code{'int8'}, \code{'int16'}, \code{'uint16'} and \code{'int32'}; the other types are not quantisable and asking for one is an error. Left as \code{NULL} the type follows the dynamic range of the data. Whole numbers need no scaling at all, so the smallest type that can hold them exactly is used and no \option{BSCALE} or \option{BZERO} is written: a lossy write of a segmentation map is therefore still exact. Anything else is spread across every level a type offers, from the narrowest upwards, and the choice stops at 16 bit. Going wider than that costs exactly as much as the \code{float32} it would replace, since an ordinary image has far more distinct pixels than any integer type has levels, so a rule that chased perfect separation would answer \code{int32} every time and save nothing. Ask for \code{'int32'} through \option{data_type} when the wider span genuinely matters.
+\option{data_type} picks the integer type from \code{'uint8'}, \code{'int8'}, \code{'int16'}, \code{'uint16'} and \code{'int32'}; the other types are not quantisable and asking for one is an error. Naming a type fits the scale to it outright: the whole usable span of that type is spread across the range of the data, which is the finest step it can give, and no search over the other types or count of the pixels is done. It also settles \option{quantise}, which cannot improve on a type that has already been chosen. Whole numbers given a type that cannot hold them exactly are squeezed onto the fitted scale, which is the caller's choice. Left as \code{NULL} the type follows the dynamic range of the data instead: whole numbers need no scaling at all, so the smallest type that can hold them exactly is used and no \option{BSCALE} or \option{BZERO} is written, which keeps a lossy write of a segmentation map exact. Anything else is spread across every level a type offers, from the narrowest upwards, and the choice stops at 16 bit. Going wider than that costs exactly as much as the \code{float32} it would replace, since an ordinary image has far more distinct pixels than any integer type has levels, so a rule that chased perfect separation would answer \code{int32} every time and save nothing. Ask for \code{'int32'} through \option{data_type} when the wider span genuinely matters.
 
-\option{quantise} governs how much work a lossy write spends deciding whether the data fits a narrower type, which on a large image is the dominant cost of the quantisation. An image normally holds more distinct pixel values than any 16 bit type has levels, so the answer is almost always the widest type on offer. \code{'auto'} (the default) proves that from a sample, and counts every pixel only when the sample cannot settle it. \code{'exact'} always counts every pixel. \code{'quick'} never counts and takes the widest type at once. The three agree on an ordinary image, and part company only on data simple enough to fit a narrower type, such as a sparse or heavily binned image: \code{'auto'} and \code{'exact'} then find the narrower type, while \code{'quick'} writes the widest, which has more levels and so a finer step, making it a larger file that is no less accurate. Naming \option{data_type} settles the type outright and skips this choice, as does giving a \option{bscale}.
+\option{quantise} governs how much work a lossy write spends choosing the integer type when none was named, which on a large image is the dominant cost of the quantisation. An image normally holds more distinct pixel values than any 16 bit type has levels, so the answer is almost always the widest type on offer. \code{'auto'} (the default) proves that from a sample, and counts every pixel only when the sample cannot settle it. \code{'exact'} always counts every pixel. \code{'quick'} never counts and takes the widest type at once. The three agree on an ordinary image, and part company only on data simple enough to fit a narrower type, such as a sparse or heavily binned image: \code{'auto'} and \code{'exact'} then find the narrower type, while \code{'quick'} writes the widest, which has more levels and so a finer step, making it a larger file that is no less accurate. Naming \option{data_type} settles the type outright and skips this choice, as does giving a \option{bscale}, and in both cases the scale is fitted to the type that was settled on without any search or counting at all.
 
-The scale itself is decided before the type: a \option{bscale} or \option{bzero} given in the call wins, otherwise a scale already in the header is used, and only then is one fitted to the data. That order is what lets a scaled FITS image be converted without changing which physical value each stored integer means, and it is why re-writing an array that was read from a quantised store round trips exactly.
+The scale itself is decided before the type: \option{qlevel} wins outright, then a \option{bscale} or \option{bzero} given in the call, then a scale already in the header, and only then is one fitted to the data. The order after \option{qlevel} is what lets a scaled FITS image be converted without changing which physical value each stored integer means, and it is why re-writing an array that was read from a quantised store round trips exactly.
+
+\option{qlevel} sets the step from the noise instead of from the range, which is what cfitsio does when it quantises a floating point image for Rice compression, and on a noise dominated image the difference is enormous. Fitting the step to a type's span across the range of the data has to be fine enough to separate the brightest pixel from the faintest, so the step it settles on is set by the dynamic range of the field rather than by the precision of the background. A 14000 by 14000 survey tile spans 15182 times its own scatter, and so asks \code{int32} for a step 65630 times finer than cfitsio chose, which costs 505.8 MB where the same tile at \code{qlevel = 4.31} costs 117.0 MB and the \code{RICE_1} file it came from is 116.0 MB. Fitting the step to the noise makes \code{int32} a container for the levels rather than a target for the resolution, which is the whole of that difference.
+
+The step is \code{mad(data)/qlevel}, using \code{mad()} rather than \code{sd()} because the estimate has to survive the sources in the field: that tile has 1.27\% of its pixels above ten scatter, which makes its \code{sd()} 35 times its \code{mad()}. A step fitted to the \code{sd()} would quantise the background, which is most of the pixels and all of the compression, into almost nothing. R's \code{mad()} already applies the 1.4826 Gaussian consistency factor, so what it returns is comparable to a standard deviation and divides by a \option{qlevel} on the same scale cfitsio's does. \option{BZERO} becomes the median rather than zero, so the levels sit about the background however far from zero the image is: a sky pedestal would otherwise put every level in the hundreds of thousands, where the shuffle has to spend bytes on high bit planes it would have found constant, measured at 6.41 MB against 5.37 MB for the same data centred on its own median.
+
+The estimate is a stride sample of about 1e6 pixels rather than the whole array, since \code{mad()} over 196M elements costs 12 s, which is a third of the entire write, and the sample answers to within 0.1\% in 0.05 s. The stride is chosen to share no factor with any dimension of the data, because a stride equal to the row width would sample one column of the image rather than the image, which on that tile reads 4.1\% high and would coarsen every stored integer by the same amount. Sampling leaves R's random number generator untouched, so a lossy write cannot change the reproducible results of whatever the caller does afterwards.
+
+Because \option{qlevel} sets the step and the step is fixed, \option{data_type} becomes the only open question, and \option{quantise} cannot improve on it. A noise fitted step usually needs the whole span \code{int32} offers, since the levels reach as high as \code{qlevel} times the dynamic range of the field: at \code{qlevel = 4.31} that tile's brightest pixel lands on level 65434, past what any 16 bit type holds, and the write says so rather than clipping it. Data that is already whole numbers gets a warning, because there \option{qlevel} quantises exact integers onto a noise grid for no gain.
 
 \option{BSCALE} and \option{BZERO} are read from the FITS card images rather than the structured keywords, because the cards are the authoritative copy and the only one that survives intact. A Zarr attribute serialises numbers through JSON, which truncates a step of \code{1.5e-4} to \code{0.0002} and would destroy the data it describes; a FITS card keeps fourteen significant figures. \code{Rfits_inspect_zarr} reports the fact that an array is quantised without reporting the scale, so the two cannot disagree.
 
@@ -258,7 +269,7 @@ Writes require a store created with \option{read_only} = FALSE; that flag cannot
 
 Invisibly, a list with components \option{filename}, \option{extname}, \option{dim}, \option{data_type}, \option{chunk_shape}, \option{compressor} and \option{compression_level}. The last two are the values applied to the array as created, which is not necessarily what was asked for.
 
-With \option{lossy} = TRUE the list also carries \option{lossy}, \option{quantised}, \option{bscale}, \option{bzero} and \option{max_error}. \option{quantised} is FALSE when the data was whole numbers and needed no scaling, in which case no \option{BSCALE} or \option{BZERO} was written; \option{max_error} is the largest difference between a physical pixel and the value that comes back, measured on the finite pixels of the data as it was written.
+With \option{lossy} = TRUE the list also carries \option{lossy}, \option{quantised}, \option{bscale}, \option{bzero}, \option{qlevel} and \option{max_error}. \option{quantised} is FALSE when the data was whole numbers and needed no scaling, in which case no \option{BSCALE} or \option{BZERO} was written; \option{qlevel} is the value that was asked for, or \code{NULL} when the step came from anywhere else; \option{max_error} is the largest difference between a physical pixel and the value that comes back, measured on the finite pixels of the data as it was written.
 
 \code{Rfits_append_xxx_zarr} is \code{Rfits_write_image_zarr} called with \option{append} = TRUE. Its return value additionally carries \option{start_index}, \option{end_index} and \option{appended}, so the range that was written is known without reading the array back.
 
@@ -367,6 +378,31 @@ quick_file = file.path(tempdir(), 'image_quick.zarr')
 fast = Rfits_write_image_zarr(temp_image, quick_file, extname = 'image', lossy = TRUE,
                               quantise = 'quick')
 fast$data_type
+
+#Naming the integer type fits the scale to it and skips that choice entirely, using the
+#whole span of the type, which is the finest step it can offer
+typed = Rfits_write_image_zarr(temp_image, lossy_file, extname = 'typed', lossy = TRUE,
+                               data_type = 'int16')
+typed$bscale
+typed$max_error
+
+#qlevel sets the step from the noise instead of from the range, the way cfitsio
+#quantises for Rice compression, so it implies lossy = TRUE. Four times the scatter
+#is cfitsio's own default, and on a noise dominated image it is a far coarser step
+#than the one a type's span gives, which is where the space comes from. BZERO is the
+#median rather than zero, so the levels stay about the background
+noise_file = file.path(tempdir(), 'image_qlevel.zarr')
+noise = Rfits_write_image_zarr(temp_image, noise_file, extname = 'image', qlevel = 4)
+noise$data_type
+noise$bscale
+noise$bscale * 4                    #the background scatter it was derived from
+mad(temp_image$imDat, na.rm = TRUE) #the same, measured here
+
+#The step is recorded in the header as BSCALE, and a HISTORY line says it came from
+#a qlevel rather than from the data's range
+noise_back = Rfits_read_image_zarr(noise_file, extname = 'image')
+noise_back$keyvalues$BSCALE
+noise_back$history
 
 #A pointer, which only reads what you ask of it
 point = Rfits_point_zarr(file_image_temp, extname = 'image')

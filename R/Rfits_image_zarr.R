@@ -1441,12 +1441,286 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #so a sample that already holds more than the levels has settled it: the population
 #cannot be smaller. FALSE is not an answer, it means the sample could not prove it and
 #the exact count has to be taken instead
-.zarr_quant_probe_proven = function(vals, levels){
+.zarr_quant_probe_proven = function(vals, levels, finite_only=FALSE){
   if(levels >= length(vals)){
     return(FALSE)
   }
   probe = .zarr_quant_probe(vals, .zarr_quant_probe_n(levels))
+  #Narrowed after sampling rather than before. Sampling the whole array and dropping
+  #the entries that are not numbers from the sample costs a handful of elements, where
+  #narrowing the array first would copy all of it, which is the very thing the probe
+  #exists to avoid. The sample is then a stride through the array rather than through
+  #its finite pixels, which cannot change the answer it is asked for: a proof is a
+  #proof either way, and anything short of one falls through to the exact count
+  if(finite_only){
+    probe = probe[is.finite(probe)]
+  }
   return(length(unique(probe)) > levels)
+}
+
+#The first index of every block a walk over an array of n pixels takes. seq.int()
+#refuses a walk of length zero with 'wrong sign in by', so an empty array is answered
+#before it is asked, and answered here rather than in each of the three loops that
+#would otherwise each have to remember. The block a start opens ends at either the next
+#start less one or the end of the array.
+.zarr_block_starts = function(n, block){
+  if(n == 0){
+    return(integer(0))
+  }
+  return(seq.int(1L, n, by = as.integer(block)))
+}
+
+#The smallest and largest of the pixels that have a value at all. Not range(x,
+#finite = TRUE), which is what it reads as though it should be: in R 4.5 range() on a
+#numeric goes through an R level .rangeNum that first does c(..., recursive = TRUE)
+#and then x[is.finite(x)], so it copies the array twice over. On a large image that
+#is more memory than everything else in a lossy write put together, which is why the
+#extremes are taken in blocks against the min() and max() primitives instead. Those
+#allocate nothing at all, and a block is a few tens of Mb however big the array is.
+#
+#lo and hi are the extremes of the pixels that are numbers, or NA when there are none,
+#which is what lets the caller tell 'no pixels to scale' from a real extreme. n_infinite
+#is how many pixels are an infinity, the count a lossy write reports before turning them
+#into NA. Both come back from one walk, since both are wanted.
+.zarr_finite_extremes = function(x, block=1e6){
+  n = length(x)
+  lo = Inf
+  hi = -Inf
+  n_inf = 0
+  for(from in .zarr_block_starts(n, block)){
+    idx = seq.int(from, min(from + block - 1, n))
+    part = x[idx]
+    #The block's own extremes, over the values that are numbers. Narrowing to the
+    #finite ones is what keeps an infinity out of the answer, since min(part,
+    #na.rm = TRUE) would report the infinity itself and carry it to the whole array
+    b = part[is.finite(part)]
+    if(length(b) == 0){
+      next
+    }
+    blo = min(b)
+    bhi = max(b)
+    if(blo < lo){
+      lo = blo
+    }
+    if(bhi > hi){
+      hi = bhi
+    }
+    #Only counted where the block holds something that is not a number, so an ordinary
+    #image never pays for it. NaN and NA are not counted, and never were: is.na() is
+    #TRUE of a NaN, so the tally has always been of the pixels that are a number
+    #nowhere, and only an infinity raises the coercion warning this exists to explain
+    if(length(b) < length(part)){
+      n_inf = n_inf + sum(is.infinite(part))
+    }
+  }
+  if(!is.finite(lo) | !is.finite(hi) | lo > hi){
+    return(list(lo = NA_real_, hi = NA_real_, n_infinite = n_inf))
+  }
+  return(list(lo = lo, hi = hi, n_infinite = n_inf))
+}
+
+#Is every pixel that has a value at all a whole number? The pixels that are not numbers
+#are left out of the answer rather than allowed to vote against it, which is what the
+#test has always been: it was asked of the narrowed array, so an image with a handful of
+#missing pixels and nothing but integers everywhere else has always come back as whole.
+#Blocked so that round() is applied to a block rather than to the array, and it answers
+#FALSE at the first block that fails rather than testing all of them.
+.zarr_all_whole = function(x, block=1e6){
+  n = length(x)
+  for(from in .zarr_block_starts(n, block)){
+    idx = seq.int(from, min(from + block - 1, n))
+    part = x[idx]
+    #The finite ones only, and once narrowed the comparison cannot be NA, so all()
+    #needs no na.rm and answers TRUE of a block that held nothing but missing pixels.
+    #round() rather than x %% 1 == 0 for the reason .is_whole_number gives: R works out
+    #%% in long double and calls -1e-20 an exact multiple of 1
+    b = part[is.finite(part)]
+    if(!all(b == round(b))){
+      return(FALSE)
+    }
+  }
+  return(TRUE)
+}
+
+#The integers a quantisation stores, built a block at a time. Going through the whole
+#array in double and then narrowing needs the array twice over at once -- the scaled
+#doubles beside the pixels they came from -- which on a large image is the single
+#largest thing a lossy write allocates. Filling an integer array a block at a time
+#keeps the working set to the result plus one block, and since every value here is an
+#elementwise function of one pixel the answer is the same integers either way.
+.zarr_quant_to_int = function(quant, bscale, bzero, block=1e6){
+  dims = dim(quant)
+  n = length(quant)
+  #Built as a plain vector and given the input's dim only where it had one. array()
+  #would set dim = n on a vector that arrived with no dim at all, which is a different
+  #object from what the caller handed in, and a one dimensional store cannot be handed
+  #a matrix
+  out = integer(n)
+  if(!is.null(dims)){
+    dim(out) = dims
+    dimnames(out) = dimnames(quant)
+  }
+  for(from in .zarr_block_starts(n, block)){
+    idx = seq.int(from, min(from + block - 1, n))
+    part = round((quant[idx] - bzero)/bscale)
+    #A pixel that is not a number has no integer to become, so it is put on NA before
+    #the narrowing rather than left to it: as.integer() turns an infinity into
+    #NA_integer_ but announces it with 'NAs introduced by coercion', which would look
+    #like a fault in the quantisation rather than the intended loss of those pixels.
+    #NA_real_ narrows quietly, and NA is what Zarr writes as the fill value
+    part[!is.finite(part)] = NA_real_
+    out[idx] = as.integer(part)
+  }
+  return(out)
+}
+
+#The worst pixel error of a quantisation, which is what the HISTORY card reports and
+#what a caller comparing two writes looks at. It has to be measured rather than read
+#off the extremes of the data, since the error is a sawtooth in the pixel value: it
+#peaks wherever a pixel fell furthest from the middle of the step it landed in, which
+#is unrelated to how large the pixel is.
+#
+#Measured in blocks so that the temporaries are a block long rather than an array
+#long. Written as the single expression this replaces, it needs four full length
+#doubles alive at once -- as.numeric(), the scaled integers, their difference and its
+#absolute value -- which on a large image is several times the array itself and is the
+#largest single cost of a lossy write. A block is a few tens of Mb however big the
+#array is, and max() over the blocks is the same number.
+.zarr_max_abs_resid = function(quant, ints, bscale, bzero, block=1e6){
+  n = length(quant)
+  out = 0
+  for(from in .zarr_block_starts(n, block)){
+    idx = seq.int(from, min(from + block - 1, n))
+    resid = quant[idx] - (bzero + bscale * ints[idx])
+    #suppressed because a block that is entirely missing makes max() say so, and that
+    #is an ordinary case here rather than anything the caller should hear about
+    hi = suppressWarnings(max(resid, na.rm = TRUE))
+    #Such a block has no error to contribute, and max() of nothing is -Inf rather than
+    #a number
+    if(is.finite(hi)){
+      #The extremes bound |resid| within the block, so abs() is applied to two numbers
+      #rather than to a block long vector
+      err = max(abs(hi), abs(suppressWarnings(min(resid, na.rm = TRUE))))
+      if(err > out){
+        out = err
+      }
+    }
+  }
+  return(out)
+}
+
+#Greatest common divisor, for the stride choice below
+.zarr_gcd = function(a, b){
+  a = abs(as.integer(a))
+  b = abs(as.integer(b))
+  while(b != 0L){
+    t = b
+    b = a %% b
+    a = t
+  }
+  return(a)
+}
+
+#The stride for a noise sample of an array with these dimensions. It has to share no
+#factor with any dimension, or the sample lands on the same position in every row and
+#measures one column of the image rather than the image. A stride equal to the row
+#width is the pathological case, and on a 14000x14000 tile it reads 4.1% high, which
+#would coarsen the quantisation step by the same amount and so degrade every pixel in
+#the file. Stepping past the shared factors costs a handful of modulo operations and
+#makes the sample independent of the geometry it happens to be applied to. A one
+#dimensional vector has no geometry to alias with and is left alone.
+.zarr_noise_stride = function(n, dims, nsample){
+  stride = max(1L, as.integer(floor(n/max(1, nsample))))
+  dims = as.integer(dims[is.finite(dims) & dims >= 2])
+  if(length(dims) == 0){
+    return(stride)
+  }
+  #Bounded because a stride coprime with every dimension always exists nearby (the
+  #primes are dense enough at these sizes), so this only guards against a pathological
+  #dimension set rather than being part of the ordinary path
+  tries = 0L
+  while(tries < 10000L){
+    if(all(vapply(dims, function(d) .zarr_gcd(stride, d) == 1L, logical(1)))){
+      return(stride)
+    }
+    stride = stride + 1L
+    tries = tries + 1L
+  }
+  return(stride)
+}
+
+#The step and zero point for a lossy write that was asked for by noise rather than by
+#range, which is how cfitsio quantises a floating point image: step = sigma/qlevel,
+#with qlevel defaulting to 4. The distinction is worth the argument, because
+#.zarr_quantise's own fitted step spreads the data RANGE over the TYPE's span, and on
+#a noise dominated image those two differ by orders of magnitude. On the tile measured
+#in .posit/assistant/zarr_bench/RICE_PARITY.md the range fitted int32 step is 65630x
+#finer than the noise, which costs 505.8 MB where the noise fitted one costs 117.1 MB
+#against a RICE file of 116.0 MB. Fitting the step to the noise is what makes int32 a
+#container for the levels rather than a target for the resolution.
+#
+#mad() rather than sd() because the estimate has to survive the sources in the field:
+#that tile has 1.27% of its pixels above ten sigma, which makes its sd() 35x its mad().
+#A step fitted to the sd() would quantise the background, which is most of the pixels
+#and all of the compression, into almost nothing. R's mad() already applies the 1.4826
+#Gaussian consistency factor, so what comes back is directly comparable to a standard
+#deviation and can be divided by a qlevel on the same scale as cfitsio's.
+#
+#bzero is the median rather than zero, so that the levels sit about the background
+#however far from zero the image itself is. A sky pedestal would otherwise put every
+#level in the hundreds of thousands, where bitshuffle has to spend bytes on high bit
+#planes it would have found constant: measured 6.41 MB against 5.37 MB for the same
+#data centred on its own median. On an image already centred near zero the two agree,
+#so this costs nothing where it does not help.
+#
+#The estimate is a stride sample rather than the whole array, since mad() over 196M
+#elements costs 12 s, which is a third of the entire write, and a 1e6 element sample
+#answers to within 0.05% in 0.05 s. Like .zarr_quant_probe this leaves R's random
+#number generator untouched: a lossy write that reseeded the stream would change the
+#reproducible results of everything the caller does afterwards.
+.zarr_qlevel_scale = function(data, qlevel, nsample=1e6){
+  n = length(data)
+  if(n == 0){
+    stop('There are no pixels to estimate a quantisation step from!', call. = FALSE)
+  }
+  dims = dim(data)
+  if(is.null(dims)){
+    dims = integer(0)
+  }
+  stride = .zarr_noise_stride(n, dims, nsample)
+  if(stride == 1L){
+    sample = data
+  }else{
+    #A single index into an array of any dimension is column major, so this gathers
+    #just the sample. as.vector() first would copy the whole array, which is the
+    #1.5 GB this exists to avoid
+    sample = data[seq.int(1L, n, by = stride)]
+  }
+  sample = as.numeric(sample)
+
+  #stats:: throughout, matching how the rest of the package reaches for it, since
+  #NAMESPACE imports from stats would change what every other file in the package sees
+  sigma = stats::mad(sample, na.rm = TRUE)
+  #Scalar tests, so the short circuit operators: a length zero or length two sigma
+  #would make a single | hand if() something it cannot use
+  if(!is.finite(sigma) || sigma <= 0){
+    stop('qlevel needs a background scatter to divide by, and mad() of a ',
+         format(length(sample), big.mark = ','), ' pixel sample of this data is ',
+         format(sigma), '. That happens for data which is constant, and for whole ',
+         'numbers close enough together that their median absolute deviation is ',
+         'zero. Give bscale and bzero instead, which are honoured exactly.',
+         call. = FALSE)
+  }
+  bzero = stats::median(sample, na.rm = TRUE)
+  #A noise fitted step quantises whole numbers that were already exact, which is a
+  #loss for nothing: .zarr_quantise goes out of its way to store whole numbers
+  #without scaling when left to choose for itself. qlevel overrides that choice, and
+  #is worth a word, because the array it describes is very often a mask or a
+  #segmentation map where the integers are labels rather than measurements. The test
+  #is on the sample, so it costs nothing beyond what was already gathered
+  whole = all(.is_whole_number(sample[is.finite(sample)]))
+  return(list(qlevel = qlevel, bscale = sigma/qlevel, bzero = bzero, sigma = sigma,
+              stride = stride, nsample = length(sample), whole = whole))
 }
 
 #Quantise numeric data into integers for a lossy Zarr write, following the FITS
@@ -1509,8 +1783,8 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     }
   }
 
-  #Everything below works on a double copy that keeps the shape of the input, since
-  #the writer needs the dims to match the array it is about to create. Setting the
+  #Everything below works on a double that keeps the shape of the input, since the
+  #writer needs the dims to match the array it is about to create. Setting the
   #storage mode preserves the dim attribute, where as.numeric() would drop it and a
   #matrix would then be written as a vector. For logical data it also means
   #FALSE/TRUE become 0/1 before anything else looks at them
@@ -1520,27 +1794,37 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     #conversion, and it drops the dims, which are put back
     quant = as.numeric(data)
     dim(quant) = dim(data)
+  }else if(is.double(data)){
+    #Already what is wanted, and storage.mode<- would duplicate it for nothing: the
+    #assignment copies however the mode reads, so on a large image this is the whole
+    #array again. quant then shares the caller's buffer, which is safe because
+    #nothing below ever assigns into it
+    quant = data
   }else{
     quant = data
     storage.mode(quant) = 'double'
   }
 
-  keep = is.finite(quant)
-  vals = quant[keep]
-  if(length(vals) == 0){
+  #The extremes of the pixels that have a value at all, and how many are an infinity.
+  #Neither is taken off a narrowed copy of the array, since narrowing to build one is
+  #a full length double that then has to be carried through every branch below -- on a
+  #large image the largest single cost of a lossy write after the integers themselves
+  ext = .zarr_finite_extremes(quant)
+  if(is.na(ext$lo)){
     stop('There are no finite pixels to quantise, so lossy = TRUE has nothing to scale!',
          call. = FALSE)
   }
-  Nbad = sum(!keep & !is.na(quant))
-  if(Nbad > 0){
-    #NaN and Inf have no integer to become. The fill value is the only way to say
-    #'not a number' in an integer array, so they arrive back as NA.
-    message(Nbad, ' non finite pixels will become NA, since only the fill value of an ',
-            'integer array can hold them!')
+  min_val = ext$lo
+  max_val = ext$hi
+  if(ext$n_infinite > 0){
+    #NaN has no integer to become either, but it is is.na() and so is not counted
+    #here: the count the caller sees is of the pixels that are a number nowhere, and
+    #they arrive back as NA because the fill value is the only way to say 'not a
+    #number' in an integer array
+    message(ext$n_infinite, ' non finite pixels will become NA, since only the fill ',
+            'value of an integer array can hold them!')
   }
 
-  min_val = min(vals)
-  max_val = max(vals)
   #A scale with one half missing keeps the FITS default for the other half
   scale_given = !(is.null(bscale) & is.null(bzero))
   fixed_bscale = if(is.null(bscale)) 1 else bscale
@@ -1559,7 +1843,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     answer = NULL
     function(){
       if(is.null(answer)){
-        answer <<- all(.is_whole_number(vals))
+        answer <<- .zarr_all_whole(quant)
       }
       return(answer)
     }
@@ -1573,25 +1857,43 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     answer = NULL
     function(){
       if(is.null(answer)){
-        answer <<- length(unique(vals))
+        #Counted off the deduplicated values rather than off a narrowed copy of the
+        #pixels, which gives the same answer without that copy alive at the same time.
+        #It is not a saving in itself: an ordinary image has almost as many distinct
+        #pixels as pixels, so unique() hands back something near the size of the array.
+        #What it avoids is holding both, which is what narrowing first and then
+        #deduplicating did. The values that are not numbers are dropped from the result,
+        #and sum() of that test is a count rather than a second pass.
+        #
+        #as.vector() first, and it matters. unique() of an array counts distinct ROWS,
+        #since that is what duplicated() does to anything with a dim, so a matrix here
+        #answers the number of rows rather than the number of values and the ladder
+        #would then be choosing a type against a count that is not a count of pixels
+        #at all. Flattening copies the array, which is why this stays deferred to the
+        #one comparison that needs it: 'auto' proves the widest type too narrow from a
+        #sample and never reaches here, so an ordinary image pays nothing, and only
+        #quantise = 'exact' -- documented as always counting the whole array -- does
+        u = unique(as.vector(quant))
+        answer <<- sum(is.finite(u))
       }
       return(answer)
     }
   })
 
-  #The integer the pixels become under one candidate scale, or NULL when the type
-  #cannot hold them. Rounded in double and checked before narrowing, so the halves
-  #are decided before the type is chosen. The usable span excludes the fill value by
-  #construction, so no finite pixel can be quantised onto it, and NA survives the
-  #round trip exactly.
-  scale_try = function(vals_use, type, use_bscale, use_bzero){
+  #Can this type hold the pixels under one candidate scale? Decided from the extremes
+  #rather than by scaling the array and scanning it, which is the same answer for no
+  #allocation at all: bscale is positive, so round((x - bzero)/bscale) is a
+  #non-decreasing function of x and its extremes over the finite pixels are attained at
+  #min_val and max_val. Nothing between them can leave a span that both ends are inside.
+  #That is what lets the choice of type be settled before a single integer exists, so
+  #the pixels are scaled once rather than once per candidate. The usable span excludes
+  #the fill value by construction, so no finite pixel can be quantised onto it and NA
+  #survives the round trip exactly.
+  span_ok = function(type, use_bscale, use_bzero){
     lo = as.numeric(.zarr_quant_lo[[type]])
     hi = as.numeric(.zarr_quant_hi[[type]])
-    part = round((vals_use - use_bzero)/use_bscale)
-    if(any(part < lo | part > hi)){
-      return(NULL)
-    }
-    return(part)
+    return(round((min_val - use_bzero)/use_bscale) >= lo &&
+             round((max_val - use_bzero)/use_bscale) <= hi)
   }
 
   #Can this type hold the values as they are, with no scaling? Only used for whole
@@ -1607,10 +1909,8 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     #A scale the caller gave is honoured exactly, so only the type is chosen, and the
     #first one whose span can hold the scaled integers is the smallest possible
     for(type in types){
-      part = scale_try(quant[keep], type, fixed_bscale, fixed_bzero)
-      if(!is.null(part)){
-        ints = quant
-        ints[keep] = part
+      if(span_ok(type, fixed_bscale, fixed_bzero)){
+        ints = .zarr_quant_to_int(quant, fixed_bscale, fixed_bzero)
         chosen_type = type
         chosen_bscale = fixed_bscale
         chosen_bzero = fixed_bzero
@@ -1618,11 +1918,14 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
       }
     }
     if(is.null(ints)){
-      needed = round((quant[keep] - fixed_bzero)/fixed_bscale)
+      #The same extremes span_ok was settled by, so what the caller is shown is what
+      #was actually tested rather than a second pass over the pixels
+      needed_lo = round((min_val - fixed_bzero)/fixed_bscale)
+      needed_hi = round((max_val - fixed_bzero)/fixed_bscale)
       stop('The data range cannot be stored in ', paste(types, collapse = ' / '),
            ' with BSCALE = ', format(fixed_bscale, digits = 15), ' and BZERO = ',
            format(fixed_bzero, digits = 15), '. The integers needed run from ',
-           sprintf('%.0f', min(needed)), ' to ', sprintf('%.0f', max(needed)),
+           sprintf('%.0f', needed_lo), ' to ', sprintf('%.0f', needed_hi),
            '. Give a wider data_type, or a scale of your own!', call. = FALSE)
     }
   }else if(integral()){
@@ -1633,7 +1936,10 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
       if(!span_fits(type)){
         next
       }
-      ints = quant
+      #A scale of one and a zero point of nil, which is what round() through
+      #.zarr_quant_to_int leaves a whole number as, so the integers built here are the
+      #caller's values exactly rather than a quantisation of them
+      ints = .zarr_quant_to_int(quant, 1, 0)
       chosen_type = type
       chosen_bscale = 1
       chosen_bzero = 0
@@ -1655,6 +1961,41 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
            'from R holds exactly. Store it with lossy = FALSE to keep float64, which ',
            'is exact for whole numbers this size.', call. = FALSE)
     }
+  }
+
+  if(is.null(ints) & !is.null(data_type)){
+    #A caller who names the integer type has already settled both questions the ladder
+    #below exists to answer: which type, and how finely to use it. The most accurate
+    #write the type can give is then simply its whole usable span spread across the
+    #range of the data, step = range/(levels - 1), which is the finest step that type
+    #can offer. None of the search is worth doing for it: the ladder would try the named
+    #type (and any narrower ones ahead of it) and fit each in turn, and both counting
+    #modes would pay to confirm a type that was never theirs to choose. This is the only
+    #branch that reads every finite pixel exactly once, so on a large image it is the
+    #difference between one pass and three.
+    lo = as.numeric(.zarr_quant_lo[[data_type]])
+    hi = as.numeric(.zarr_quant_hi[[data_type]])
+    #A constant array has no range to spread, so a calculated step would be zero and the
+    #division nonsense. As in the ladder below, every pixel goes on integer zero with the
+    #value as the zero point, which reproduces it exactly; zero is inside the usable span
+    #of every type and is never a fill value
+    if(min_val == max_val){
+      chosen_bscale = 1
+      chosen_bzero = min_val
+    }else{
+      chosen_bscale = (max_val - min_val)/(hi - lo)
+      chosen_bzero = min_val - chosen_bscale * lo
+    }
+    if(!span_ok(data_type, chosen_bscale, chosen_bzero)){
+      #The span of the type is exactly what the step was fitted to, so this cannot be
+      #reached by any finite data. Kept so a caller who does reach it is told what
+      #happened rather than handed a half written array
+      stop('The data range cannot be stored in ', data_type, ', though a scale was ',
+           'fitted to its span. This should not be possible; please report it!',
+           call. = FALSE)
+    }
+    ints = .zarr_quant_to_int(quant, chosen_bscale, chosen_bzero)
+    chosen_type = data_type
   }
 
   if(is.null(ints)){
@@ -1687,8 +2028,9 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     }else if(quantise == 'quick'){
       TRUE
     }else{
-      .zarr_quant_probe_proven(vals, as.numeric(.zarr_quant_hi[[widest]]) -
-                                     as.numeric(.zarr_quant_lo[[widest]]) + 1)
+      .zarr_quant_probe_proven(quant, as.numeric(.zarr_quant_hi[[widest]]) -
+                                      as.numeric(.zarr_quant_lo[[widest]]) + 1,
+                               finite_only = TRUE)
     }
 
     for(type in auto_types){
@@ -1710,12 +2052,12 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
         use_bscale = (max_val - min_val)/(levels - 1)
         cand = c(use_bscale, min_val - use_bscale * lo)
       }
-      part = scale_try(quant[keep], type, cand[1], cand[2])
-      if(is.null(part)){
+      if(!span_ok(type, cand[1], cand[2])){
         next
       }
-      ints = quant
-      ints[keep] = part
+      #Built only for the type that was settled on. Every candidate is judged from the
+      #extremes above, so the pixels are scaled once rather than once per type tried
+      ints = .zarr_quant_to_int(quant, cand[1], cand[2])
       chosen_type = type
       chosen_bscale = cand[1]
       chosen_bzero = cand[2]
@@ -1738,39 +2080,37 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     hi = as.numeric(.zarr_quant_hi[[chosen_type]])
     chosen_bscale = (max_val - min_val)/(hi - lo)
     chosen_bzero = min_val - chosen_bscale * lo
-    part = scale_try(quant[keep], chosen_type, chosen_bscale, chosen_bzero)
-    if(is.null(part)){
+    if(!span_ok(chosen_type, chosen_bscale, chosen_bzero)){
       stop('The data range cannot be stored in ', paste(auto_types, collapse = ', '),
            '. The values run from ', format(min_val, digits = 15), ' to ',
            format(max_val, digits = 15), '. Give a wider data_type, or a scale of your ',
            'own!', call. = FALSE)
     }
-    ints = quant
-    ints[keep] = part
+    ints = .zarr_quant_to_int(quant, chosen_bscale, chosen_bzero)
     if(!is.null(data_type) && quantise != 'quick'){
-      #Only a caller who named a data_type can be told it was too narrow, and the count
-      #it is told against is the exact one. Checking that first means the ordinary case,
-      #where no type was named and nothing is reported, never pays for the count. 'quick'
-      #is left out because the report needs exactly the count it exists to avoid, so a
-      #caller who asked for speed is not made to wait for a diagnostic
-      merged = ndistinct() - length(unique(part))
-      if(merged > 0){
-        message('Storing in ', chosen_type, ' merges ', merged, ' of the ', ndistinct(),
-                ' distinct values in the data. A wider data_type would keep them apart.')
+      #A caller who named an integer type wider than the automatic ladder reaches here
+      #with the type they asked for, and is told how much of its span the data actually
+      #used, since exceeding it would have been an error and a poor fit is worth seeing.
+      #The count is only made when asked for, so the ordinary case pays nothing, and
+      #'quick' is left out because the report needs exactly the count it exists to avoid.
+      #Taken from the extremes the integers were fitted to rather than by scanning the
+      #result: the scale is monotone, so the lowest and highest integer are attained at
+      #min_val and max_val and the levels between them is their difference plus one
+      levels_used = round((max_val - chosen_bzero)/chosen_bscale) -
+        round((min_val - chosen_bzero)/chosen_bscale) + 1
+      if(levels_used < 0.9 * (hi - lo + 1)){
+        message('The data uses ', format(levels_used, scientific = FALSE), ' of the ',
+                format(hi - lo + 1, scientific = FALSE), ' levels ', chosen_type,
+                ' offers with the scale chosen. A finer scale would use more of them.')
       }
     }
   }
 
-  #The positions that were not finite (NA, NaN or Inf) have no integer to become, so
-  #they are set to NA_real_ before narrowing. Coercing Inf straight to integer works,
-  #but only by raising an 'NAs introduced' warning, which would look like a fault in
-  #the quantisation rather than the intended loss of those pixels. NA_real_ narrows
-  #to NA_integer_ quietly, and that is what Zarr writes as the fill value.
-  ints[!keep] = NA_real_
-  storage.mode(ints) = 'integer'
   quantised = !(chosen_bscale == 1 & chosen_bzero == 0)
-  #What the quantisation actually cost, measured on the pixels that were finite
-  max_error = max(abs(as.numeric(vals) - (chosen_bzero + chosen_bscale * ints[keep])))
+  #What the quantisation actually cost, measured on the pixels that were finite. The
+  #missing ones are NA on both sides of the difference, so na.rm gives the same answer
+  #as subsetting to the kept pixels first, without building that subset
+  max_error = .zarr_max_abs_resid(quant, ints, chosen_bscale, chosen_bzero)
 
   return(list(data = ints, data_type = chosen_type,
               fill_value = as.integer(.zarr_quant_fill[[chosen_type]]),
@@ -1782,22 +2122,35 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
 #is created and when it grows, so the two say the same thing about the same scale.
 #HISTORY is the right place for it: the card round trip keeps the text intact, and
 #a note about how the file was made is not a keyword a reader has to reason about.
-.zarr_scale_history = function(data_type, quantised, max_error = NULL){
+#
+#The result is capped at 72 characters, which is all a FITS card holds after the
+#'HISTORY ' keyword. Rfits_write_history does not wrap an over long line, it writes
+#a card that is over 80 columns, and a header holding one parses back with no
+#HISTORY entries at all, so the note would be silently lost along with the rest of
+#them. Truncating here keeps the line legal however wide the numbers are, and BSCALE
+#carries the step at full precision anyway, so nothing that matters is being thrown
+#away.
+.zarr_scale_history = function(data_type, quantised, max_error = NULL, scale_note = NULL){
   if(!isTRUE(quantised)){
-    return(paste('Rfits stored as', data_type, 'integers without scaling'))
+    line = paste('Rfits stored as', data_type, 'integers without scaling')
+  }else{
+    line = paste('Rfits quantised to', data_type)
+    if(!is.null(max_error)){
+      line = paste0(line, ' (worst pixel error ', format(max_error, digits = 5), ')')
+    }
+    if(!is.null(scale_note)){
+      line = paste0(line, ' ', scale_note)
+    }
   }
-  line = paste('Rfits quantised to', data_type)
-  if(!is.null(max_error)){
-    line = paste0(line, ' (worst pixel error ', format(max_error, digits = 5), ')')
-  }
-  return(line)
+  return(substr(line, 1, 72))
 }
 
 #Fold a quantisation into the metadata stored with the array. BSCALE and BZERO are
 #the FITS scaled integer keywords, so the header alone is enough to undo the
 #scaling. BITPIX is only written where FITS has an exact code for the type in use,
 #and a HISTORY line records what happened either way.
-.zarr_quant_header = function(keyvalues, keycomments, comment, history, quant){
+.zarr_quant_header = function(keyvalues, keycomments, comment, history, quant,
+                              scale_note = NULL){
   made_header = is.null(keyvalues)
   if(made_header){
     #A lossy array whose scale is not written down anywhere is unreadable, so the
@@ -1831,7 +2184,7 @@ Rfits_read_array_zarr = Rfits_read_image_zarr
     keycomments$BZERO = 'lossy quantisation zero point'
   }
   history = c(history, .zarr_scale_history(quant$data_type, quant$quantised,
-                                           quant$max_error))
+                                           quant$max_error, scale_note))
 
   if(made_header & length(keyvalues) == 0){
     #An array of whole numbers needs no scale of its own, and the caller asked for no
@@ -2250,7 +2603,8 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                                   overwrite_file=FALSE, data_type=NULL, chunk_shape=NULL,
                                   clevel=6L, compressor='blosc', shuffle=NULL,
                                   append=FALSE, update_root=TRUE, cores=NULL,
-                                  lossy=FALSE, bscale=NULL, bzero=NULL, quantise='auto',
+                                  lossy=FALSE, bscale=NULL, bzero=NULL, qlevel=NULL,
+                                  quantise='auto',
                                   keyvalues, keycomments, keynames, comment, history){
   .zarr_require()
 
@@ -2269,12 +2623,31 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
   assertFlag(lossy)
   assertNumeric(bscale, len=1, null.ok=TRUE)
   assertNumeric(bzero, len=1, null.ok=TRUE)
+  assertNumeric(qlevel, len=1, null.ok=TRUE)
+  #Short circuit operators throughout, since is.finite(NULL) is logical(0) rather
+  #than FALSE, and a single & would evaluate it and make the whole test length zero
+  if(!is.null(qlevel) && !(is.finite(qlevel) && qlevel > 0)){
+    stop('qlevel must be a finite positive number: it is how many times the ',
+         'background scatter the quantisation step is, so qlevel = 4 steps by a ',
+         'quarter of the noise!', call. = FALSE)
+  }
   assertChoice(quantise, c('auto', 'exact', 'quick'))
   assertIntegerish(clevel, len=1, lower=0, upper=9)
   assertIntegerish(cores, len=1, lower=1, null.ok=TRUE)
 
   if(append & overwrite_file){
     stop('Cannot use both append and overwrite_file!', call. = FALSE)
+  }
+  #qlevel is a way of asking for a lossy write, so it turns one on rather than
+  #being ignored. Refusing a contradiction beats picking a side silently: a caller
+  #who wrote lossy = FALSE meant it, and a step nobody asked to be applied would
+  #otherwise change their data anyway
+  if(!is.null(qlevel)){
+    if(isFALSE(lossy) & !missing(lossy)){
+      stop('Cannot use both qlevel and lossy = FALSE! qlevel is a way of choosing ',
+           'the quantisation step of a lossy write, so it needs one.', call. = FALSE)
+    }
+    lossy = TRUE
   }
   #A lossy write replaces the array rather than extending it. An append could not
   #use a quantisation chosen from the increment alone: the scale has to be the one
@@ -2284,6 +2657,14 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     stop('Cannot use both lossy and append! An appended increment has to be stored ',
          'with the scale of the array that already exists, so re write the whole ',
          'array with lossy = TRUE instead.', call. = FALSE)
+  }
+  #Both qlevel and bscale/bzero name the step, and they would not agree: qlevel
+  #derives it from the background scatter, bscale states it outright. Guessing which
+  #one wins would quietly change the meaning of every stored integer
+  if(!is.null(qlevel) & !(is.null(bscale) & is.null(bzero))){
+    stop('Give either qlevel or bscale/bzero, not both! qlevel derives the step from ',
+         'the background scatter of these pixels, while bscale states it, and the two ',
+         'would disagree about what each stored integer means.', call. = FALSE)
   }
   #quantise only means something to the fit that a lossy write does from scratch, and an
   #append is always given the scale the array already carries. Saying so beats accepting
@@ -2388,7 +2769,33 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     #to Zarr conversion cannot change which physical value each stored integer means
     use_bscale = bscale
     use_bzero = bzero
-    if(is.null(use_bscale) & is.null(use_bzero)){
+    scale_note = NULL
+    if(!is.null(qlevel)){
+      #qlevel wins over a scale inherited from the header, which is the whole point
+      #of it: converting a RICE file that was quantised at somebody else's step
+      #should be able to requantise at this caller's. The header keywords are rebuilt
+      #below either way, so the scale the array carries is the one it was cut with.
+      noise = .zarr_qlevel_scale(data, qlevel)
+      use_bscale = noise$bscale
+      use_bzero = noise$bzero
+      #Deliberately short: it shares a 72 character HISTORY card with the type and
+      #the worst pixel error, which between them leave room for about this much. The
+      #scatter it was derived from is recoverable as bscale * qlevel, and BSCALE
+      #carries the step itself at full precision
+      scale_note = sprintf('step qlevel %g', qlevel)
+      if(isTRUE(noise$whole)){
+        warning('qlevel was asked for on data that is already whole numbers, so exact ',
+                'integers are being quantised onto a noise grid. A lossy write left to ',
+                'choose for itself would store them without scaling and lose nothing. ',
+                'Drop qlevel to keep them exact.', call. = FALSE)
+      }
+      message('Lossy step set by qlevel = ', qlevel, ': BSCALE = ',
+              format(noise$bscale, digits = 6), ', BZERO = ',
+              format(noise$bzero, digits = 6), ', from a background scatter of ',
+              format(noise$sigma, digits = 6), ' measured on ',
+              format(noise$nsample, big.mark = ','), ' of ',
+              format(length(data), big.mark = ','), ' pixels.')
+    }else if(is.null(use_bscale) & is.null(use_bzero)){
       existing_scale = .zarr_scale_read(keyvalues$BSCALE, keyvalues$BZERO)
       #quantised is FALSE for the FITS default pair, so a header that merely carries
       #BSCALE = 1 and BZERO = 0 cannot pin a lossy write to a scale that does nothing
@@ -2408,7 +2815,8 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
     data = quant$data
     #The keywords that carry the scale are rebuilt rather than left as they were,
     #since a scale fitted to these pixels did not exist until now
-    meta_new = .zarr_quant_header(keyvalues, keycomments, comment, history, quant)
+    meta_new = .zarr_quant_header(keyvalues, keycomments, comment, history, quant,
+                                  scale_note=scale_note)
     keyvalues = meta_new$keyvalues
     keycomments = meta_new$keycomments
     history = meta_new$history
@@ -2587,6 +2995,7 @@ Rfits_write_image_zarr = function(data, filename='temp.zarr', extname='data1', c
                         quantised = if(is.null(quant)) FALSE else quant$quantised,
                         bscale = if(is.null(quant)) NULL else quant$bscale,
                         bzero = if(is.null(quant)) NULL else quant$bzero,
+                        qlevel = if(is.null(quant)) NULL else qlevel,
                         max_error = if(is.null(quant)) NULL else quant$max_error)))
 }
 

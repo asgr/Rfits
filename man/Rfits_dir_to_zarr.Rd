@@ -95,13 +95,24 @@ files that fail.
   \item{\dots}{
 Passed to \code{\link{Rfits_write_image_zarr}}, so that \option{data_type},
 \option{chunk_shape}, \option{compressor}, \option{clevel}, \option{shuffle},
-\option{lossy} and \option{quantise} can be set for the whole batch. Passing
-\option{lossy} = TRUE quantises every file in it, which is how a large archive is
-converted to scaled integers; see \strong{Lossy compression} in
+\option{lossy}, \option{qlevel} and \option{quantise} can be set for the whole batch.
+Passing \option{lossy} = TRUE quantises every file in it, which is how a large archive
+is converted to scaled integers; see \strong{Lossy compression} in
 \code{\link{Rfits_image_zarr}}. \option{quantise} = 'quick' is worth considering for a
 batch of large files, where the sample a single write would take is one more pass over
 every pixel; the cost is a wider type than a simple image strictly needs, and so a
-larger store, never a less accurate one.
+larger store, never a less accurate one. Naming \option{data_type} for the batch avoids
+that choice altogether, and the scale is then fitted to the named type in a single pass
+over the pixels.
+
+\option{qlevel} is the one step setting that works per file, and so the one to reach for
+here. It asks each image for a step of \code{mad()/qlevel}, which is measured from that
+image's own background, whereas \option{bscale} is a single number that would have to be
+right for every file in the batch. Since the background scatter varies from tile to tile,
+a survey converted at one fixed \option{bscale} quantises its quiet tiles too coarsely and
+its noisy ones too finely, while \option{qlevel} gives each the same fidelity by
+construction. It implies \option{lossy} = TRUE and cannot be combined with
+\option{bscale} or \option{bzero}.
 }
 }
 \details{
@@ -215,6 +226,14 @@ lossy[, c('fits', 'store', 'data_type')]
 #quantise is not consulted in this case
 fixed = Rfits_dir_to_zarr(dir = 'path/to/images', target = 'path/to/fixed_zarr',
                           lossy = TRUE, bscale = 0.0026, bzero = 0)
+
+#qlevel gives every file its own step, fitted to its own background, which is what a
+#survey wants: the same fidelity per tile rather than the same number of flux units.
+#This is the setting that reaches the size of a Rice compressed archive
+noise = Rfits_dir_to_zarr(dir = 'path/to/images', target = 'path/to/qlevel_zarr',
+                          qlevel = 4, data_type = 'int32', chunk_shape = c(1000L, 1000L),
+                          compressor = 'zstd', clevel = 9L, shuffle = 'bitshuffle')
+noise[, c('fits', 'store', 'data_type')]
 }
 }
 \concept{ Zarr }

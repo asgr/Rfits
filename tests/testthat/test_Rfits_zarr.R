@@ -2135,6 +2135,53 @@ whole = matrix(round(rnorm(200000) * 100), 1000, 200)
 for(mode in c('auto', 'exact', 'quick')){
   expect_false(quant_fn(whole, quantise = mode)$quantised)
 }
+
+#ex 58j4 naming a data_type fits the scale to it directly, using the whole span of
+#that type. The outcome is the finest step the type can give, which is what the type
+#ladder already arrived at for the same type, so this is a settlement of the search
+#rather than a change of result. What it avoids is the search itself, and the count of
+#the pixels, neither of which can improve on a type the caller has already chosen
+set.seed(20261)
+named = matrix(rnorm(200000), 1000, 200)
+named16 = quant_fn(named, data_type = 'int16')
+expect_equal(named16$data_type, 'int16')
+expect_true(named16$quantised)
+#the step is the span of the usable levels spread across the range of the data
+named_span = diff(range(named))
+expect_equal(named16$bscale, named_span/(32767 - -32767), tolerance = 1e-12)
+#the quantise argument cannot improve on a type that has already been chosen, so every
+#mode gives the same scale and the same data
+for(mode in c('auto', 'exact', 'quick')){
+  expect_equal(quant_fn(named, data_type = 'int16', quantise = mode)$bscale,
+               named16$bscale, tolerance = 1e-12)
+}
+#and it uses all of the span, never a fraction of it
+used = diff(range(round((named - named16$bzero)/named16$bscale))) + 1
+expect_equal(used, 65535, tolerance = 1e-6)
+
+#a narrower named type is fitted to its own span rather than being climbed past, so
+#the caller's choice is honoured even where the ladder would have chosen another type
+named8 = suppressMessages(quant_fn(named, data_type = 'uint8'))
+expect_equal(named8$data_type, 'uint8')
+expect_equal(named8$bscale, named_span/254, tolerance = 1e-12)
+quant_no_name = quant_fn(named)
+expect_false(identical(quant_no_name$data_type, 'uint8'))
+
+#whole numbers given a type that can hold them exactly still keep the identity, and
+#are left to the exact branch rather than being scaled
+whole8 = matrix(as.numeric(sample(-50:50, 40000, replace = TRUE)), 200, 200)
+expect_false(quant_fn(whole8, data_type = 'int8')$quantised)
+
+#a constant array given a type has no range to spread, so it is reproduced exactly
+constant = matrix(3.7, 50, 50)
+named_const = quant_fn(constant, data_type = 'int8')
+expect_equal(named_const$bscale, 1)
+expect_equal(named_const$bzero, 3.7)
+expect_equal(as.numeric(named_const$data), rep(0L, 2500))
+
+#a named type does not disturb the identity branch: small whole numbers stay exact
+tiny = matrix(as.numeric(1:4), 2, 2)
+expect_false(quant_fn(tiny, data_type = 'int8')$quantised)
 #an unknown mode is refused rather than silently treated as one of the real ones
 expect_error(quant_fn(rich, quantise = 'fast'), 'element of set')
 expect_error(Rfits_write_image_zarr(rich, file.path(subdir, 'q_badmode.zarr'), lossy = TRUE,
@@ -2146,6 +2193,168 @@ w_quick = suppressMessages(Rfits_write_image_zarr(rich, file_quick, extname = 'q
 expect_equal(w_quick$data_type, 'uint16')
 expect_error(Rfits_write_image_zarr(rich, file_quick, extname = 'q', quantise = 'quick',
                                     append = TRUE), 'quantise cannot apply')
+
+#ex 58j5 qlevel sets the step from the noise rather than from the range, the way
+#cfitsio quantises for Rice compression. It implies lossy = TRUE, so the whole recipe
+#is one argument, and the step it lands on is mad()/qlevel with the median as the zero
+#point rather than zero
+set.seed(30407)
+noise = matrix(rnorm(40000, mean = 7, sd = 0.02), 200, 200)
+file_qlevel = file.path(subdir, 'lossy_qlevel.zarr')
+w_qlevel = suppressMessages(Rfits_write_image_zarr(noise, file_qlevel, extname = 'q',
+                                                   qlevel = 4))
+expect_true(w_qlevel$lossy)
+expect_true(w_qlevel$quantised)
+expect_equal(w_qlevel$qlevel, 4)
+expect_equal(w_qlevel$bscale, mad(noise)/4, tolerance = 1e-12)
+expect_equal(w_qlevel$bzero, median(noise), tolerance = 1e-12)
+#the scatter it was fitted to is recoverable from the recorded pair
+expect_equal(w_qlevel$bscale * 4, mad(noise), tolerance = 1e-12)
+read_qlevel = Rfits_read_image_zarr(file_qlevel, extname = 'q')
+expect_identical(typeof(read_qlevel$imDat), 'double')
+expect_equal(read_qlevel$keyvalues$BSCALE, w_qlevel$bscale, tolerance = 1e-13)
+expect_equal(read_qlevel$keyvalues$BZERO, w_qlevel$bzero, tolerance = 1e-13)
+expect_lt(max(abs(read_qlevel$imDat - noise)), w_qlevel$bscale/2 * 1.01)
+#the HISTORY line says where the step came from, and fits a card. Rfits_write_history
+#does not wrap an over long line, it writes one over 80 columns, and a header holding
+#one parses back with no HISTORY entries at all
+expect_true(any(grepl('step qlevel 4', read_qlevel$history)))
+expect_true(all(nchar(read_qlevel$header) <= 80))
+#the noise estimate leaves the caller's random number stream alone, since it is a
+#stride sample rather than a random one
+set.seed(5150)
+junk_q = rnorm(50000)
+before_rng_q = .Random.seed
+invisible(Rfits:::.zarr_qlevel_scale(matrix(junk_q, 250, 200), 4))
+expect_identical(.Random.seed, before_rng_q)
+
+#a coarser qlevel is a coarser step and a smaller store, which is the trade it exists
+#for. Both hold the same image, so the sizes are comparable directly
+store_bytes = function(path){
+  sum(file.info(list.files(path, recursive = TRUE, full.names = TRUE))$size)
+}
+file_coarse = file.path(subdir, 'lossy_qcoarse.zarr')
+w_coarse = suppressMessages(Rfits_write_image_zarr(noise, file_coarse, extname = 'q',
+                                                   qlevel = 1))
+expect_equal(w_coarse$bscale, 4 * w_qlevel$bscale, tolerance = 1e-12)
+#a step four times wider has four times fewer levels to tell apart, so it cannot be a
+#larger file
+expect_lt(store_bytes(file_coarse), store_bytes(file_qlevel))
+#and it is the less accurate of the two, which is what is being traded. Bounded by half
+#its own step rather than by a multiple of the finer write's error, since the worst
+#pixel of each grid is a different pixel and the two are not proportional
+expect_gt(w_coarse$max_error, w_qlevel$max_error)
+expect_lt(w_coarse$max_error, w_coarse$bscale/2 * 1.01)
+read_coarse = Rfits_read_image_zarr(file_coarse, extname = 'q')
+expect_lt(max(abs(read_coarse$imDat - noise)), w_coarse$bscale/2 * 1.01)
+
+#ex 58j6 the qlevel guards. Both it and bscale/bzero name a step, and they would not
+#agree about what a stored integer means, so they are refused together
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e1.zarr'), extname = 'q',
+                                    qlevel = 4, bscale = 0.001), 'not both')
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e2.zarr'), extname = 'q',
+                                    qlevel = 4, bzero = 1), 'not both')
+#lossy = FALSE states the opposite of what qlevel asks for, which is a contradiction
+#rather than something to resolve by picking a side
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e3.zarr'), extname = 'q',
+                                    qlevel = 4, lossy = FALSE), 'Cannot use both qlevel')
+#a step of zero or a negative one is not a step
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e4.zarr'), extname = 'q',
+                                    qlevel = 0), 'finite positive')
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e5.zarr'), extname = 'q',
+                                    qlevel = -2), 'finite positive')
+expect_error(Rfits_write_image_zarr(noise, file.path(subdir, 'q_e6.zarr'), extname = 'q',
+                                    qlevel = NaN), 'finite positive')
+#the scale belongs to the array, so an append has none of its own to fit
+expect_error(Rfits_write_image_zarr(noise, file_qlevel, extname = 'q', qlevel = 4,
+                                    append = TRUE), 'Cannot use both lossy and append')
+
+#data with no scatter has no step to divide by. Constant and all missing data both
+#arrive here, and the message has to say why rather than report a zero step
+expect_error(suppressMessages(Rfits_write_image_zarr(matrix(3.7, 20, 20),
+             file.path(subdir, 'q_e7.zarr'), extname = 'q', qlevel = 4)),
+             'background scatter')
+expect_error(suppressMessages(Rfits_write_image_zarr(matrix(NA_real_, 20, 20),
+             file.path(subdir, 'q_e8.zarr'), extname = 'q', qlevel = 4)),
+             'background scatter')
+
+#whole numbers are already exact, so quantising them onto a noise grid is a loss for
+#nothing and is warned about rather than done quietly
+expect_warning(suppressMessages(Rfits_write_image_zarr(matrix(as.numeric(1:400), 20, 20),
+               file.path(subdir, 'q_e9.zarr'), extname = 'q', qlevel = 4)),
+               'already whole numbers')
+
+#ex 58j7 the stride the noise is sampled on must share no factor with any dimension,
+#or it lands on the same position in every row and measures one column of the image
+#rather than the image. A stride equal to the row width is the pathological case, and
+#on a real survey tile it reads 4.1% high, which would coarsen every stored integer
+stride_fn = Rfits:::.zarr_noise_stride
+#a square image, where the naive stride of n/nsample is a multiple of the row width.
+#Here that naive stride is 400, which shares the factor 200 with both dimensions, so
+#the sample would take the same column of every row. Stepping past it is the point
+expect_equal(stride_fn(40000, c(200L, 200L), 100), 401)
+expect_equal(Rfits:::.zarr_gcd(401L, 200L), 1L)
+#2000 x 2000 with a 1e6 sample takes every fourth pixel, and the stride is coprime
+#with the row width rather than being a multiple of it
+expect_equal(Rfits:::.zarr_gcd(stride_fn(4000000, c(2000L, 2000L), 1e6), 2000L), 1L)
+#a sample bigger than the data takes every pixel, so there is nothing to alias
+expect_equal(stride_fn(400, c(20L, 20L), 1e6), 1L)
+#the stride is coprime with every dimension of a cube, and with a 1D vector that has
+#no geometry to alias with
+expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 100L), 1L)
+expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 200L), 1L)
+expect_equal(Rfits:::.zarr_gcd(stride_fn(12000000, c(100L, 200L, 600L), 1e6), 600L), 1L)
+#and the estimate it produces agrees with the exact mad(), which is the point of it
+set.seed(90210)
+tall = matrix(rnorm(2000000, mean = 3, sd = 0.5), 2000, 1000)
+got = Rfits:::.zarr_qlevel_scale(tall, 4)
+expect_equal(got$sigma, mad(tall), tolerance = 0.02 * mad(tall))
+expect_gt(got$stride, 1L)
+expect_equal(got$bscale, got$sigma/4, tolerance = 1e-15)
+
+#ex 58j8 a noise fitted step needs the whole span int32 offers once the field has a
+#bright source, because the levels reach as high as qlevel times the dynamic range of
+#the data. A single peak of 300 over a background of sd 0.02 is 15000 sigma, so at
+#qlevel 4 its level is about 60000, which is past what any 16 bit type holds and well
+#inside int32. This is the difference between a noise fitted step and a range fitted
+#one of the same nominal coarseness: the range fit would have shrunk the step to make
+#the peak land on 32767, quantising the background into almost nothing
+set.seed(11235)
+peaked = matrix(rnorm(40000, sd = 0.02), 200, 200)
+peaked[100, 100] = 300
+w_peak = suppressMessages(Rfits_write_image_zarr(peaked, file.path(subdir, 'lossy_peak.zarr'),
+                                                 extname = 'q', qlevel = 4,
+                                                 data_type = 'int32'))
+expect_equal(w_peak$data_type, 'int32')
+#the peak survives at the noise step rather than being clipped, and the background is
+#still resolved to within half a step
+read_peak = Rfits_read_image_zarr(file.path(subdir, 'lossy_peak.zarr'), extname = 'q')
+expect_equal(read_peak$imDat[100, 100], 300, tolerance = w_peak$bscale/2)
+expect_lt(max(abs(read_peak$imDat - peaked)), w_peak$bscale/2 * 1.01)
+#a 16 bit type cannot hold that range at the same step, and says so rather than
+#clipping the source away
+expect_error(suppressMessages(Rfits_write_image_zarr(peaked, file.path(subdir, 'q_e10.zarr'),
+             extname = 'q', qlevel = 4, data_type = 'int16')), 'cannot be stored')
+
+#ex 58j9 qlevel reaches a directory batch through ..., which is the setting that
+#works per file: each image gets a step fitted to its own background, where a single
+#bscale would have to be right for all of them
+dir_q = file.path(subdir, 'qlevel_dir')
+dir.create(file.path(dir_q, 'in'), showWarnings = FALSE, recursive = TRUE)
+set.seed(60613)
+#two tiles with different scatter, which is what makes the distinction visible
+for(k in 1:2){
+  tile = matrix(rnorm(2500, sd = 0.02 * k), 50, 50)
+  Rfits_write_image(tile, file.path(dir_q, 'in', paste0('tile', k, '.fits')))
+}
+batch_q = Rfits_dir_to_zarr(dir = file.path(dir_q, 'in'), target = file.path(dir_q, 'out'),
+                            qlevel = 4, data_type = 'int32', verbose = FALSE)
+expect_identical(batch_q$status, rep('ok', 2L))
+#each store carries its own step, so the two tiles are quantised differently by design
+b1 = Rfits_read_image_zarr(file.path(dir_q, 'out', 'tile1.zarr'), extname = 'data1')
+b2 = Rfits_read_image_zarr(file.path(dir_q, 'out', 'tile2.zarr'), extname = 'data1')
+expect_false(identical(b1$keyvalues$BSCALE, b2$keyvalues$BSCALE))
+expect_gt(b2$keyvalues$BSCALE, b1$keyvalues$BSCALE)
 
 #ex 59 the remote half of the search, offline. A store is found by listing prefixes
 #with a delimiter, so a directory of them costs one request per directory rather than
