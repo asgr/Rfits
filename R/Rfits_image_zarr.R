@@ -325,12 +325,24 @@ Rfits_s3_store_new = function(bucket, prefix='', region=NULL, endpoint=NULL,
   if(inherits(filename, 'zarr')){
     return(filename)
   }
-  #Opening a store with no root group produces a baffling error from Zarr. Try it
-  #first so the common case costs nothing extra, and only go looking for the root
-  #group once we know something is wrong.
+  #Opening a store with no root group may error or return an object with no root,
+  #depending on the Zarr version. Try it first so the common case costs nothing
+  #extra, and only go looking for the root group once we know something is wrong.
   opened = tryCatch(zarr::zarr$new(store), error = function(e) e)
   if(!inherits(opened, 'error')){
-    return(opened)
+    if(!is.null(opened$root)){
+      return(opened)
+    }
+    if(!isFALSE(.zarr_store_has_root(store))){
+      stop('Cannot open the Zarr store (', .zarr_store_label(store),
+           '): its root metadata could not be loaded.', call. = FALSE)
+    }
+    if(!isTRUE(write)){
+      stop('Zarr store has no root group, so there is nothing to read: ',
+           .zarr_store_label(store), call. = FALSE)
+    }
+    store$create_group(parent='/', name='')
+    return(zarr::zarr$new(store))
   }
   if(!isTRUE(write)){
     .zarr_store_root_error(store, opened)
@@ -338,7 +350,7 @@ Rfits_s3_store_new = function(bucket, prefix='', region=NULL, endpoint=NULL,
   #A new store, e.g. one that has just been created, is bootstrapped here rather
   #than by create_zarr(), which cannot be given a store object at all.
   if(isFALSE(.zarr_store_has_root(store))){
-    store$create_group(name='')
+    store$create_group(parent='/', name='')
     return(zarr::zarr$new(store))
   }
   .zarr_store_root_error(store, opened)
